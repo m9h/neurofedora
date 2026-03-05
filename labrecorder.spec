@@ -41,22 +41,29 @@ into a single file (XDF format), with time synchronization between streams.
 %install
 %cmake_install
 
-# Move binaries from /usr/LabRecorder to /usr/bin
+# 1. Create directories
 mkdir -p %{buildroot}%{_bindir}
+mkdir -p %{buildroot}%{_libdir}
+mkdir -p %{buildroot}%{_sysconfdir}/labrecorder
+
+# 2. Move Binaries to /usr/bin
 mv %{buildroot}/usr/LabRecorder/LabRecorder %{buildroot}%{_bindir}/
 mv %{buildroot}/usr/LabRecorder/LabRecorderCLI %{buildroot}%{_bindir}/
 
-# Move Libraries (The Fix!)
-mkdir -p %{buildroot}%{_libdir}
+# 3. Move Libraries (libxdfwriter.so) to /usr/lib64
+# Using a wildcard *.so* handles symlinks (so.1, so.1.0) automatically
 mv %{buildroot}/usr/LabRecorder/*.so* %{buildroot}%{_libdir}/
 
-# Move the configuration file to /etc or share (optional, but cleaner)
-# For now, let's just keep it where the app expects it or delete the empty dir
-# If the app strictly requires the config next to the binary, we might need a wrapper script.
-# Assuming standard behavior for now:
+# 4. Move Configuration to /etc/labrecorder
+# (Check if the source installed a .cfg; if not, we rely on defaults)
+if [ -f %{buildroot}/usr/LabRecorder/LabRecorder.cfg ]; then
+    mv %{buildroot}/usr/LabRecorder/LabRecorder.cfg %{buildroot}%{_sysconfdir}/labrecorder/
+fi
+
+# 5. Cleanup the non-standard install dir
 rm -rf %{buildroot}/usr/LabRecorder
 
-# Create a desktop entry 
+# 6. Create Desktop Entry
 mkdir -p %{buildroot}%{_datadir}/applications
 cat > %{buildroot}%{_datadir}/applications/%{name}.desktop <<EOF
 [Desktop Entry]
@@ -69,10 +76,9 @@ Type=Application
 Categories=Science;DataVisualization;
 EOF
 
-# Validate the desktop file
 desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 
-# Remove invalid RPATHs
+# 7. Remove RPATHs (The binaries now look in system folders)
 chrpath --delete %{buildroot}%{_bindir}/LabRecorder
 chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 
@@ -81,8 +87,11 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %doc README.md
 %{_bindir}/LabRecorder
 %{_bindir}/LabRecorderCLI
-%{_datadir}/applications/%{name}.desktop
 %{_libdir}/libxdfwriter.so*
+%{_datadir}/applications/%{name}.desktop
+# Conditionally own the config dir if we put stuff there
+%dir %{_sysconfdir}/labrecorder
+%{_sysconfdir}/labrecorder/*.cfg
 
 %changelog
 * Wed Jan 07 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-1

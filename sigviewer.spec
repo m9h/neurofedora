@@ -15,7 +15,6 @@ BuildRequires:  qt5-qttools-devel
 BuildRequires:  boost-devel
 
 # Link against system libraries
-BuildRequires:  liblsl-devel
 BuildRequires:  libxdf-devel
 BuildRequires:  biosig4c++-devel
 
