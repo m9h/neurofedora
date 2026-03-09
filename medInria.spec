@@ -2,7 +2,7 @@
 
 Name:           medInria
 Version:        5.0.1~beta
-Release:        0.2%{?dist}
+Release:        0.4%{?dist}
 Summary:        Medical image navigation and research tool
 
 License:        BSD-3-Clause
@@ -22,7 +22,8 @@ BuildRequires:  qt5-qtxmlpatterns-devel
 
 # Core dependencies
 BuildRequires:  dtk-devel >= 1.7.1
-BuildRequires:  InsightToolkit5-devel >= 5.4.5-10
+BuildRequires:  InsightToolkit5-devel >= 5.4.5-12
+BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.5-12
 # Pin to system VTK 9.2.6 (Qt5 GUISupportQt); avoid COPR VTK 9.5.2 (Qt6)
 BuildRequires:  vtk-devel < 9.3
 BuildRequires:  vtk-qt < 9.3
@@ -111,6 +112,17 @@ sed -i 's|#include <vtkLegacyReaderVersion.h>|// VTK 9.2 lacks vtkLegacyReaderVe
   src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx \
   src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx
 
+# Fix plugin search paths: upstream uses paths relative to the binary (bin/plugins,
+# bin/plugins_legacy) which don't work with FHS lib64 install layout.
+# Patch both the new-style (medApplication.cpp) and legacy (medPluginManager.cpp)
+# plugin managers to use the correct absolute paths.
+# New-style plugins (medApplication.cpp line 195)
+sed -i 's|plugins_dir = qApp->applicationDirPath() + "/plugins";|plugins_dir = QString("%{_libdir}/medInria/plugins");|' \
+  src/app/medInria/medApplication.cpp
+# Legacy plugins (medPluginManager.cpp line 77)
+sed -i 's|plugins_dir = qApp->applicationDirPath() + "/plugins_legacy";|plugins_dir = QString("%{_libdir}/medInria/plugins_legacy");|' \
+  src/layers/medCore/legacy/medPluginManager.cpp
+
 %build
 # dtk cmake config omits dtkMathSupport/dtkVrSupport include dirs
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive -I/usr/include/dtkMathSupport -I/usr/include/dtkVrSupport"
@@ -177,6 +189,8 @@ fi
 %{_libdir}/cmake/med*/
 
 %changelog
+* Thu Mar 06 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.3
+- Add BuildRequires on InsightToolkit5-vtk-devel for ITKVtkGlue cmake module
 * Wed Mar 05 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.2
 - Fix CRLF line endings breaking sed patches (libraries landing in /usr/lib)
 - Fix FRAMEWORK DESTINATION lib not patched

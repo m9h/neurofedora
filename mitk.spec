@@ -68,6 +68,7 @@ BuildRequires:  fmt-devel
 BuildRequires:  utf8cpp-devel
 BuildRequires:  PEGTL-devel
 BuildRequires:  jsoncpp-devel
+BuildRequires:  python3-devel
 
 # Other build dependencies
 BuildRequires:  openssl-devel >= 3.0

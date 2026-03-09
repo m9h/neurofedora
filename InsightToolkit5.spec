@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.5
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -23,6 +23,9 @@ Source2:        https://github.com/ntustison/ITKAdaptiveDenoising/archive/%{adap
 # (pinned commit from ITK 5.4.5's MorphologicalContourInterpolation.remote.cmake)
 %global morphci_commit 821bf9b3ef8eaaab10391ed060dc9ca5e4d37b39
 Source3:        https://github.com/KitwareMedical/ITKMorphologicalContourInterpolation/archive/%{morphci_commit}/ITKMorphologicalContourInterpolation-%{morphci_commit}.tar.gz
+# GrowCut remote module: provides itkFastGrowCut.h required by MITK Segmentation
+%global growcut_commit cbf93ab65117abfbf5798745117e34f22ff04728
+Source4:        https://github.com/InsightSoftwareConsortium/ITKGrowCut/archive/%{growcut_commit}/ITKGrowCut-%{growcut_commit}.tar.gz
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch: %{ix86}
@@ -148,6 +151,10 @@ mkdir -p Modules/Remote/MorphologicalContourInterpolation
 tar -xzf %{SOURCE3} --strip-components=1 \
     -C Modules/Remote/MorphologicalContourInterpolation
 
+mkdir -p Modules/Remote/GrowCut
+tar -xzf %{SOURCE4} --strip-components=1 \
+    -C Modules/Remote/GrowCut
+
 %build
 # Relax compiler checks for compatibility with GCC 14+ and force local include
 # path to avoid system header conflicts
@@ -176,6 +183,7 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_GenericLabelInterpolator:BOOL=ON \
     -DModule_AdaptiveDenoising:BOOL=ON \
     -DModule_MorphologicalContourInterpolation:BOOL=ON \
+    -DModule_GrowCut:BOOL=ON \
     -DModule_ITKVtkGlue:BOOL=ON \
     -DModule_ITKIOPhilipsREC:BOOL=ON \
     -DModule_ITKReview:BOOL=ON \
@@ -242,6 +250,10 @@ fi
 %{_prefix}/lib/cmake/ITK-5.4/Modules/ITKVtkGlue.cmake
 
 %changelog
+* Fri Mar 06 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-13
+- Add GrowCut remote module (Source4): provides itkFastGrowCut.h
+  required by MITK's Segmentation module
+
 * Thu Mar 05 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-12
 - Fedora-submission polish: unbundle DCMTK (ITK_USE_SYSTEM_DCMTK=ON),
   split vtk/vtk-devel subpackages for ITKVtkGlue bridge, add Provides:

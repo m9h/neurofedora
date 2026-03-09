@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        1%{?dist}
+Release:        4%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -116,6 +116,18 @@ for f in designer/plugins/visualization/ovp-advanced-visualization/CMakeLists.tx
     sed -i 's/^project(\(.*\))/project(\1 VERSION %{version})/' "$f"
 done
 
+# aarch64: remove x86-only -msse2 flag
+sed -i 's/set(OV_EIGEN_FLAGS "-msse2")/if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i686")\n\tset(OV_EIGEN_FLAGS "-msse2")\nelse()\n\tset(OV_EIGEN_FLAGS "")\nendif()/' \
+    sdk/CMakeLists.txt extras/CMakeLists.txt
+
+# Boost 1.87+ (F44+): io_service removed, use io_context; resolver::query removed
+sed -i 's/boost::asio::io_service/boost::asio::io_context/g' \
+    extras/modules/tcptagging/include/tcptagging/CStimulusSender.h
+# Replace the query+resolve+connect block with modern Boost.Asio API
+# resolver.resolve() returns results_type, use boost::asio::connect() instead of socket.connect(*iter)
+sed -i '/const boost::asio::ip::tcp::resolver::query query/,/m_oStimulusSocket.connect(\*endpointIterator, error);/c\\t\t\tauto endpoints = resolver.resolve(sAddress, sStimulusPort);\n\t\t\tboost::asio::connect(m_oStimulusSocket, endpoints, error);' \
+    extras/modules/tcptagging/src/CStimulusSender.cpp
+
 # GCC 15: explicit qualification in declaration is now a hard error
 # RiemannianPotato.cpp defines free functions with Riemannian:: qualifier
 # inside the Riemannian namespace — remove the redundant qualifier
@@ -132,6 +144,10 @@ sed -i '1i #include <cmath>' \
 # which lives in libvrpnserver, not libvrpn — add it to the vrpn interface target
 sed -i 's/target_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${QUAT_LIBRARY})/find_library(VRPNSERVER_LIBRARY NAMES vrpnserver)\ntarget_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${VRPNSERVER_LIBRARY} ${QUAT_LIBRARY})/' \
     CMake/FindThirdPartyVRPN.cmake
+
+# Boost 1.87+ (F44+): boost::filesystem::extension() removed, use path method
+sed -i 's/boost::filesystem::extension(path)/boost::filesystem::path(path).extension().string()/' \
+    designer/applications/platform/designer/src/CInterfacedScenario.cpp
 
 # IT++ library is not in Fedora — remove from contrib signal-processing link
 sed -i '/^[[:space:]]*itpp[[:space:]]*$/d' \
@@ -191,8 +207,21 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_includedir}/toolkit/
 %{_includedir}/visualization-toolkit/
 %{_includedir}/xml/
+%{_includedir}/eigen/
+%{_includedir}/lsl/
+%{_includedir}/mensia/
+%{_includedir}/tcptagging/
 %{_libdir}/*.a
 
 %changelog
+* Mon Mar 09 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-4
+- Fix files section: add missing header subdirs (eigen, lsl, mensia, tcptagging)
+- Fix Boost.Asio: use boost::asio::connect() with resolver results (F44+)
+- Fix Boost.Filesystem: replace removed extension() free function (F44+)
+
+* Fri Mar 06 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-2
+- Fix aarch64 build: make -msse2 flag conditional on x86
+- Fix F44+/rawhide: patch Boost io_service to io_context, remove resolver::query
+
 * Wed Mar 04 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-1
 - Initial package of OpenViBE 3.7.0 for Fedora
