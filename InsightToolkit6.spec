@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b01
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -136,6 +136,23 @@ Requires:       vtk-devel%{?_isa}
 Libraries and header files for developing applications that use the
 ITK 6-VTK bridge (ITKVtkGlue).
 
+%package doc
+Summary:        Documentation for %{name}
+BuildArch:      noarch
+
+%description doc
+Documentation, copyright notices, and the ITK Software Guide references
+for version 6 of the Insight Toolkit.
+
+%package examples
+Summary:        Example programs and data for %{name}
+BuildArch:      noarch
+Requires:       %{name}-devel = %{version}-%{release}
+
+%description examples
+Example source code, CMakeLists.txt, and test data for building
+applications with ITK 6. Useful as starting points for new projects.
+
 %prep
 %autosetup -n InsightToolkit-%{itk_ver}
 
@@ -217,8 +234,16 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 
 %install
 %cmake_install
-# Drop bundled html docs
-rm -rf %{buildroot}%{_datadir}/doc/ITK-6.0
+# Move bundled docs to doc subpackage location (cmake installs to share/doc/ITK-6.0)
+mkdir -p %{buildroot}%{_docdir}/%{name}-doc
+if [ -d %{buildroot}%{_datadir}/doc/ITK-6.0 ]; then
+    mv %{buildroot}%{_datadir}/doc/ITK-6.0/* %{buildroot}%{_docdir}/%{name}-doc/ 2>/dev/null || true
+    rm -rf %{buildroot}%{_datadir}/doc/ITK-6.0
+fi
+
+# Install examples for downstream developers
+mkdir -p %{buildroot}%{_datadir}/%{name}/examples
+cp -a Examples/* %{buildroot}%{_datadir}/%{name}/examples/ 2>/dev/null || true
 # Remove zero-length stub headers (rpmlint zero-length error)
 find %{buildroot}%{_includedir} -name stub.h -empty -delete
 # Remove cmake configs for ITK's internal bundled MINC library
@@ -265,7 +290,16 @@ mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver6
 %{_includedir}/ITK-6.0/vtkCaptureScreen.h
 %{_prefix}/lib/cmake/ITK-6.0/Modules/ITKVtkGlue.cmake
 
+%files doc
+%{_docdir}/%{name}-doc/
+
+%files examples
+%{_datadir}/%{name}/examples/
+
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-4
+- Add doc and examples subpackages (matches Fedora ITK4 package structure)
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-3
 - Co-installability with ITK5: version-specific library globs (-6.0 suffix),
   rename itkTestDriver to itkTestDriver6, scope cmake dir to ITK-6.0/ only
