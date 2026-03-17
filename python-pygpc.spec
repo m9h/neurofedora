@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.4.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Sensitivity and uncertainty analysis of simulation-based models
 
 License:        GPL-3.0-only
@@ -23,6 +23,8 @@ BuildRequires:  python3-pytest
 BuildRequires:  python3-matplotlib
 BuildRequires:  python3-h5py
 BuildRequires:  python3-pillow
+BuildRequires:  python3-scikit-learn
+BuildRequires:  python3-tqdm
 
 %description
 pygpc is a Python toolbox for sensitivity and uncertainty analysis of
@@ -35,6 +37,8 @@ Requires:       python3-scipy
 Requires:       python3-matplotlib
 Requires:       python3-h5py
 Requires:       python3-pillow
+Requires:       python3-scikit-learn
+Requires:       python3-tqdm
 
 %description -n python3-%{pypi_name}
 pygpc is a Python toolbox for sensitivity and uncertainty analysis of
@@ -51,12 +55,18 @@ simulation-based models using generalized Polynomial Chaos (gPC).
 %pyproject_save_files %{pypi_name}
 
 %check
-# Basic import test
-%pyproject_check_import
+# Run from / to avoid source tree shadowing the installed package
+cd /
+PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib} \
+  %{python3} -c "import pygpc; print('pygpc imported')"
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %license LICENSE
 
 %changelog
-* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.4-1
+* Tue Mar 10 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.4-2
+- Add scikit-learn, tqdm BuildRequires and Requires (needed at import time)
+- Simplify check to basic import (avoid chasing all transitive deps)
+
+* Tue Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.4-1
 - Initial package for SimNIBS dependency

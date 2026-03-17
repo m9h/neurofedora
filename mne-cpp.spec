@@ -8,7 +8,7 @@
 
 Name:           mne-cpp
 Version:        0.1.9^%{snapdate}git%{shortcommit}
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        Cross-platform C++ framework for MEG/EEG data analysis
 
 License:        BSD-3-Clause
@@ -31,6 +31,8 @@ BuildRequires:  qt6-qt3d-devel
 BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  qt6-qtdeclarative-devel
 BuildRequires:  qt6-qtshadertools-devel
+# Qt6 private headers needed for disp3D_rhi (Qt RHI-based 3D rendering)
+BuildRequires:  qt6-qtbase-private-devel
 
 %description
 MNE-CPP is a cross-platform, open-source C++ framework for MEG/EEG data
@@ -51,23 +53,38 @@ Header files and cmake config for developing against the MNE-CPP libraries.
 %prep
 %autosetup -n mne-cpp-%{commit}
 
-# Remove bundled Eigen — use system copy
-rm -rf src/external/eigen-3.4.0
+# Remove bundled Eigen install (uses system eigen3-devel at build time,
+# but Eigen headers would be installed to /usr/include/Eigen/ conflicting with system)
+# Note: source bundles Eigen 5.0.0 which we keep for building (system eigen3 3.4 works
+# for includes but the external/ copy is referenced by cmake). We just prevent install.
 
 # The upstream cmake outputs everything to out/Release/ and has no install()
 # targets. We override the output directories to use the cmake binary dir,
 # and add install() calls for libraries, headers, and applications.
 
 # 1. Override BINARY_OUTPUT_DIRECTORY to use CMAKE_BINARY_DIR
-sed -i 's|set(BINARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/../out/${CMAKE_BUILD_TYPE})|set(BINARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)|' \
+sed -i 's|set(BINARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../out/${CMAKE_BUILD_TYPE})|set(BINARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/out)|' \
     src/CMakeLists.txt
+
+# 1b. Patch FFTW to use system library instead of bundled copy.
+#    ~50 cmake files across libraries, applications, and plugins all use
+#    ${FFTW_DIR_LIBS}/lib/libfftw3.so (bundled layout). Replace with system
+#    library name 'fftw3' (cmake will find -lfftw3 via system linker).
+#    Also fix include paths: bundled uses /api/ subdir, system uses /usr/include/.
+find src/ -name CMakeLists.txt -exec \
+    sed -i 's|set(FFTW_LIBS ${FFTW_DIR_LIBS}/lib/libfftw3.so)|set(FFTW_LIBS fftw3)|' {} +
+find src/ -name CMakeLists.txt -exec \
+    sed -i 's|target_include_directories(${PROJECT_NAME} PRIVATE ${FFTW_DIR_INCLUDE}/api)|# system fftw3 headers in standard include path|' {} +
 
 # 2. Fix the git hash commands that fail on non-git source dirs
-sed -i '/execute_process.*COMMAND git log/,/OUTPUT_STRIP_TRAILING_WHITESPACE)/d' \
+#    Delete both execute_process blocks (lines 155-164 pattern)
+sed -i '/^execute_process($/,/OUTPUT_STRIP_TRAILING_WHITESPACE)$/d' \
     src/CMakeLists.txt
 
-# 3. Remove the symlink to resources (uses source dir paths)
-sed -i '/Add symbolic links to project resources/,$ { /execute_process/d; /cmake_path/d; /message.*RESOURCES/d; /set.*RESOURCES/d }' \
+# 3. Remove the symlink-to-resources block entirely (lines 196-end)
+#    This block uses cmake_path and execute_process to create symlinks
+#    that reference source-tree paths not available at runtime.
+sed -i '/^##.*Add symbolic links to project resources/,$d' \
     src/CMakeLists.txt
 
 # 4. Inject SOVERSION into each library CMakeLists.txt
@@ -81,41 +98,9 @@ set_target_properties(\${TARGET_NAME} PROPERTIES VERSION 0.1.9 SOVERSION 0)" \
     fi
 done
 
-# 5. Inject install() targets for libraries
-cat >> src/libraries/CMakeLists.txt << 'INSTALL_EOF'
-
-# Fedora: install all MNE-CPP libraries
-foreach(tgt IN ITEMS
-    mne_utils mne_lsl mne_fiff mne_fs mne_mri mne_mne mne_fwd mne_inverse
-    mne_communication mne_rtprocessing mne_connectivity
-    mne_events mne_disp mne_disp3D_rhi)
-    if(TARGET ${tgt})
-        install(TARGETS ${tgt}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-        )
-    endif()
-endforeach()
-INSTALL_EOF
-
-# 6. Inject install() for headers
-cat >> src/libraries/CMakeLists.txt << 'HEADERS_EOF'
-
-# Fedora: install headers
-set(_mne_lib_dirs utils lsl fiff fs mri mne fwd inverse communication
-    rtprocessing connectivity events disp disp3D_rhi)
-foreach(libdir IN LISTS _mne_lib_dirs)
-    file(GLOB_RECURSE _hdrs
-        "${CMAKE_CURRENT_SOURCE_DIR}/${libdir}/*.h"
-    )
-    foreach(_hdr IN LISTS _hdrs)
-        file(RELATIVE_PATH _rel "${CMAKE_CURRENT_SOURCE_DIR}/${libdir}" "${_hdr}")
-        get_filename_component(_dest "include/mne-cpp/${libdir}/${_rel}" DIRECTORY)
-        install(FILES "${_hdr}" DESTINATION "${_dest}")
-    endforeach()
-endforeach()
-HEADERS_EOF
+# 5. The upstream library cmake files already have install() targets for
+#    libraries and headers. We just need GNUInstallDirs (step 7) and
+#    CMAKE_INSTALL_LIBDIR set so they install to the right locations.
 
 # 7. Add GNUInstallDirs to top-level cmake
 sed -i '/project(mne_cpp/a include(GNUInstallDirs)' src/CMakeLists.txt
@@ -144,7 +129,11 @@ sed -i 's/set(CMAKE_CXX_STANDARD 14)/set(CMAKE_CXX_STANDARD 17)/' \
     src/CMakeLists.txt
 
 %build
-export CXXFLAGS="%{optflags} -Wno-error -fpermissive -include cstdint"
+export CXXFLAGS="%{optflags} -Wno-error -fpermissive -include cstdint -Wno-error=format-security"
+
+# Add disp3D_rhi source dir to includes — brainview.h does #include "core/viewstate.h"
+# which needs the disp3D_rhi root in the search path when included transitively
+export CXXFLAGS="$CXXFLAGS -I$(pwd)/src/libraries/disp3D_rhi"
 %cmake -S src -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_SHARED_LIBS:BOOL=ON \
@@ -160,9 +149,27 @@ export CXXFLAGS="%{optflags} -Wno-error -fpermissive -include cstdint"
 %install
 %cmake_install
 
-# Install resources needed at runtime
+# Some libraries install to /usr/lib/ instead of /usr/lib64/ due to upstream
+# cmake install rules. Move any stray libs to the correct location.
+if [ -d %{buildroot}%{_prefix}/lib ] && [ "%{_prefix}/lib" != "%{_libdir}" ]; then
+    mkdir -p %{buildroot}%{_libdir}
+    for f in %{buildroot}%{_prefix}/lib/libmne_*.so*; do
+        [ -e "$f" ] && mv "$f" %{buildroot}%{_libdir}/
+    done
+fi
+
+# Remove bundled Eigen headers — system eigen3-devel provides these
+rm -rf %{buildroot}%{_includedir}/Eigen
+rm -rf %{buildroot}%{_includedir}/unsupported
+rm -f %{buildroot}%{_includedir}/signature_of_eigen3_matrix_library
+
+# Remove stray fiff_explanations.txt installed to wrong location
+rm -rf %{buildroot}%{_bindir}/resources
+
+# Install resources needed at runtime (remove broken dev symlinks first)
 mkdir -p %{buildroot}%{_datadir}/%{name}
 if [ -d resources ]; then
+    find resources/ -type l ! -exec test -e {} \; -delete
     cp -a resources/* %{buildroot}%{_datadir}/%{name}/
 fi
 
@@ -172,14 +179,25 @@ fi
 %license LICENSE
 %doc README.md
 %{_bindir}/mne_*
-%{_libdir}/libmne_*.so.0*
+# Libraries install without SOVERSION (upstream lacks VERSION/SOVERSION on all targets;
+# our injection only partially works). For now, ship unversioned .so in main package.
+%{_libdir}/libmne_*.so
 %{_datadir}/%{name}/
 
 %files devel
-%{_libdir}/libmne_*.so
-%{_includedir}/mne-cpp/
+# Upstream installs headers under include/mne_<libname>/
+%{_includedir}/mne_*/
 
 %changelog
+* Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.9^20260304git1daca51-3
+- Fix lib/ to lib64/ move: mkdir -p target directory first
+- Remove Eigen signature_of_eigen3_matrix_library marker file
+- Remove broken dev symlinks from resources before copying
+
+* Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.9^20260304git1daca51-2
+- Fix cmake parse errors: properly delete git hash execute_process blocks
+  and entire resource symlink block (not selective line deletion)
+
 * Wed Mar 04 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.9^20260304git1daca51-1
 - Rewrite spec from git snapshot (no releases since v0.1.9 in 2021)
 - Use system Eigen3 instead of bundled copy

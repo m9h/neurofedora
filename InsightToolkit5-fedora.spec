@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.5
-Release:        14%{?dist}
+Release:        12%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -23,15 +23,6 @@ Source2:        https://github.com/ntustison/ITKAdaptiveDenoising/archive/%{adap
 # (pinned commit from ITK 5.4.5's MorphologicalContourInterpolation.remote.cmake)
 %global morphci_commit 821bf9b3ef8eaaab10391ed060dc9ca5e4d37b39
 Source3:        https://github.com/KitwareMedical/ITKMorphologicalContourInterpolation/archive/%{morphci_commit}/ITKMorphologicalContourInterpolation-%{morphci_commit}.tar.gz
-# GrowCut remote module: provides itkFastGrowCut.h required by MITK Segmentation
-%global growcut_commit cbf93ab65117abfbf5798745117e34f22ff04728
-Source4:        https://github.com/InsightSoftwareConsortium/ITKGrowCut/archive/%{growcut_commit}/ITKGrowCut-%{growcut_commit}.tar.gz
-# SimpleITKFilters remote module: required by SimpleITK
-%global sitkfilters_commit bb896868fc6480835495d0da4356d5db009592a6
-Source5:        https://github.com/InsightSoftwareConsortium/ITKSimpleITKFilters/archive/%{sitkfilters_commit}/ITKSimpleITKFilters-%{sitkfilters_commit}.tar.gz
-# LabelErodeDilate remote module: required by SimpleITK
-%global labelerodedilate_commit 22d8846dbe4368312aa3aa95ecfe3542ab894e15
-Source6:        https://github.com/InsightSoftwareConsortium/ITKLabelErodeDilate/archive/%{labelerodedilate_commit}/ITKLabelErodeDilate-%{labelerodedilate_commit}.tar.gz
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch: %{ix86}
@@ -157,18 +148,6 @@ mkdir -p Modules/Remote/MorphologicalContourInterpolation
 tar -xzf %{SOURCE3} --strip-components=1 \
     -C Modules/Remote/MorphologicalContourInterpolation
 
-mkdir -p Modules/Remote/GrowCut
-tar -xzf %{SOURCE4} --strip-components=1 \
-    -C Modules/Remote/GrowCut
-
-mkdir -p Modules/Remote/SimpleITKFilters
-tar -xzf %{SOURCE5} --strip-components=1 \
-    -C Modules/Remote/SimpleITKFilters
-
-mkdir -p Modules/Remote/LabelErodeDilate
-tar -xzf %{SOURCE6} --strip-components=1 \
-    -C Modules/Remote/LabelErodeDilate
-
 %build
 # Relax compiler checks for compatibility with GCC 14+ and force local include
 # path to avoid system header conflicts
@@ -197,9 +176,6 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_GenericLabelInterpolator:BOOL=ON \
     -DModule_AdaptiveDenoising:BOOL=ON \
     -DModule_MorphologicalContourInterpolation:BOOL=ON \
-    -DModule_GrowCut:BOOL=ON \
-    -DModule_SimpleITKFilters:BOOL=ON \
-    -DModule_LabelErodeDilate:BOOL=ON \
     -DModule_ITKVtkGlue:BOOL=ON \
     -DModule_ITKIOPhilipsREC:BOOL=ON \
     -DModule_ITKReview:BOOL=ON \
@@ -266,14 +242,6 @@ fi
 %{_prefix}/lib/cmake/ITK-5.4/Modules/ITKVtkGlue.cmake
 
 %changelog
-* Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-14
-- Add SimpleITKFilters and LabelErodeDilate remote modules (Source5, Source6):
-  required by SimpleITK 2.5.x
-
-* Fri Mar 06 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-13
-- Add GrowCut remote module (Source4): provides itkFastGrowCut.h
-  required by MITK's Segmentation module
-
 * Thu Mar 05 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-12
 - Fedora-submission polish: unbundle DCMTK (ITK_USE_SYSTEM_DCMTK=ON),
   split vtk/vtk-devel subpackages for ITKVtkGlue bridge, add Provides:

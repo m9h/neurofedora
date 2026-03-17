@@ -123,7 +123,15 @@ sed -i 's|plugins_dir = qApp->applicationDirPath() + "/plugins";|plugins_dir = Q
 sed -i 's|plugins_dir = qApp->applicationDirPath() + "/plugins_legacy";|plugins_dir = QString("%{_libdir}/medInria/plugins_legacy");|' \
   src/layers/medCore/legacy/medPluginManager.cpp
 
+# Defensive null-check in medDataImporter::findVolumesInFiles (upstream bug):
+# if no reader plugins are loaded, mainReader is nullptr and line 339 segfaults
+sed -i 's|if (!mainReader->canRead|if (!mainReader \|\| !mainReader->canRead|' \
+  src/layers/medCore/source/medDataImporter.cpp
+
 %build
+# Limit parallel jobs — ITK-heavy plugins peak ~2-3GB each; -j16 OOMs 32GB hosts
+export RPM_BUILD_NCPUS=6
+
 # dtk cmake config omits dtkMathSupport/dtkVrSupport include dirs
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive -I/usr/include/dtkMathSupport -I/usr/include/dtkVrSupport"
 
@@ -189,6 +197,10 @@ fi
 %{_libdir}/cmake/med*/
 
 %changelog
+* Mon Mar 09 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.4
+- Fix segfault on file open: patch plugin search paths from bin-relative
+  (bin/plugins, bin/plugins_legacy) to FHS lib64 paths so plugins load
+
 * Thu Mar 06 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.3
 - Add BuildRequires on InsightToolkit5-vtk-devel for ITKVtkGlue cmake module
 * Wed Mar 05 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.2

@@ -2,7 +2,7 @@
 
 Name:           dtk
 Version:        1.7.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Scientific software platform (Inria)
 
 License:        BSD-3-Clause
@@ -69,9 +69,21 @@ sed -i 's/this->get(index + owner_capacity/this->range(index + owner_capacity/' 
   src/dtkDistributed/dtkDistributedArray.tpp
 
 # ---------------------------------------------------------
-# 4. FIX: Enforce C++17
+# 5. FIX: Enforce C++17
 # ---------------------------------------------------------
 sed -i 's/CMAKE_CXX_STANDARD 11/CMAKE_CXX_STANDARD 17/g' CMakeLists.txt
+
+# ---------------------------------------------------------
+# 6. FIX: cmake_minimum_required too old for CMake 4.0 (F44+)
+# ---------------------------------------------------------
+sed -i 's/cmake_minimum_required(VERSION 3.2.0)/cmake_minimum_required(VERSION 3.5...3.31)/' CMakeLists.txt
+
+# ---------------------------------------------------------
+# 7. FIX: dtkCpuid.cpp x86 inline asm fails on aarch64
+# ---------------------------------------------------------
+# DTK_BUILD_64 is true on aarch64 too, but cpuid is x86-only
+sed -i 's/#elif defined(DTK_BUILD_64)/#elif defined(DTK_BUILD_64) \&\& (defined(__x86_64__) || defined(__i386__))/' \
+    src/dtkCoreSupport/dtkCpuid.cpp
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -Wno-error=deprecated-declarations"
@@ -133,6 +145,10 @@ done
 %{_libdir}/cmake/dtk/
 
 %changelog
+* Mon Mar 09 2026 Morgan Hough <morgan.hough@gmail.com> - 1.7.1-3
+- Fix aarch64: guard x86 cpuid inline asm with arch check
+- Fix F44+: bump cmake_minimum_required to 3.5 for CMake 4.0 compat
+
 * Tue Mar 03 2026 Morgan Hough <morgan.hough@gmail.com> - 1.7.1-2
 - Enable support modules needed by medInria: Core, GUI, Math, VR, Distributed
 - Enable dtkDistributed module (required by medInria layer)

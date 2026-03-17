@@ -1,6 +1,6 @@
 Name:           jemris
 Version:        2.9.2
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        Juelich Extensible MRI Simulator
 
 License:        GPL-2.0-or-later
@@ -30,10 +30,11 @@ and samples.
 # Remove hardcoded mpicxx compiler
 sed -i '/set(CMAKE_CXX_COMPILER/d' CMakeLists.txt
 
-# Remove bundled conda logic or other non-RPM parts
-sed -i '/message( NOTICE "creating conda environment/,/endif()/d' CMakeLists.txt
-# Remove docker pull from CMakeLists.txt
-sed -i '/message( NOTICE "pulling docker image/,/endif()/d' CMakeLists.txt
+# Remove the docker pull block entirely (runs at cmake configure time, fails in mock).
+# The block structure is: message / execute_process / if / message / else / message / endif
+# Delete the whole block from "# Docker image" to the endif().
+sed -i '/^# Docker image$/,/^endif()$/{d}' CMakeLists.txt
+# The conda block is guarded by SKIP_CONDA which we pass as ON, so leave it intact.
 
 # Fix SUNDIALS 7.x types (realtype -> sunrealtype)
 sed -i 's/\brealtype\b/sunrealtype/g' src/*.cpp src/*.h
@@ -66,9 +67,12 @@ sed -i '1i #include <cstdint>\n#include <stdexcept>\n#include <algorithm>' src/N
 %license COPYING
 %doc README.md AUTHORS ChangeLog
 %{_bindir}/jemris
-%{_bindir}/sanityck
 %{_datadir}/jemris/
 
 %changelog
+* Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-2
+- Fix cmake parse error: rewrite docker block removal to preserve if/endif nesting
+- Conda block left intact (guarded by -DSKIP_CONDA=ON)
+
 * Fri Feb 27 2026 Gemini CLI <gemini@example.com> - 2.9.2-1
 - Initial package for Fedora

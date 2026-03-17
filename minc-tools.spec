@@ -5,7 +5,7 @@
 
 Name:           minc-tools
 Version:        2.3.2
-Release:        1.%{date}git%{shortcommit}%{?dist}
+Release:        3.%{date}git%{shortcommit}%{?dist}
 Summary:        Basic command-line tools for MINC files
 
 License:        BSD-3-Clause
@@ -105,10 +105,11 @@ export CFLAGS="%{optflags} -std=gnu17 -fcommon"
 %install
 %cmake_install
 
-# Fix man page location if CMake installed them to the wrong place
-if [ -d %{buildroot}%{_datadir}/man ] && [ ! -d %{buildroot}%{_mandir} ]; then
+# Fix man page location — cmake installs to /usr/man/ instead of /usr/share/man/
+if [ -d %{buildroot}%{_prefix}/man ]; then
     mkdir -p %{buildroot}%{_mandir}
-    mv %{buildroot}%{_datadir}/man/* %{buildroot}%{_mandir}/
+    cp -a %{buildroot}%{_prefix}/man/* %{buildroot}%{_mandir}/
+    rm -rf %{buildroot}%{_prefix}/man
 fi
 
 %check
@@ -126,10 +127,17 @@ fi
 %{_bindir}/invert_raw_image
 %{_bindir}/ecattominc
 %{_bindir}/upet2mnc
-# We comment out man pages because we skipped documentation generation to fix the build
-# %%{_mandir}/man1/*.1*
+%{_bindir}/transformtags
+%{_bindir}/xfmconcat
+%{_bindir}/xfminvert
+%{_bindir}/xfm*
+%{_mandir}/man1/*.1*
 
 %changelog
+* Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.2-2.20260106gite382598
+- Fix man page installation: /usr/man/ -> /usr/share/man/
+- Include man pages in files list
+
 * Tue Jan 06 2026 Matthew Hough <mhough@fedora-amd-nuc-lan> - 2.3.2-1.20260106gite382598
 - Initial package for NeuroFedora
 - Update to latest git snapshot (e382598)

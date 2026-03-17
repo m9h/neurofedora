@@ -69,6 +69,14 @@ BuildRequires:  utf8cpp-devel
 BuildRequires:  PEGTL-devel
 BuildRequires:  jsoncpp-devel
 BuildRequires:  python3-devel
+BuildRequires:  json-devel
+BuildRequires:  xz-devel
+BuildRequires:  libogg-devel
+BuildRequires:  libtheora-devel
+BuildRequires:  sqlite-devel
+BuildRequires:  libharu-devel
+BuildRequires:  proj-devel
+BuildRequires:  libxml2-devel
 
 # Other build dependencies
 BuildRequires:  openssl-devel >= 3.0

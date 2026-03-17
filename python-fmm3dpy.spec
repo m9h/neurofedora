@@ -1,3 +1,5 @@
+%define debug_package %{nil}
+
 %global pypi_name fmm3dpy
 %global repo_name FMM3D
 %global forgeurl https://github.com/flatironinstitute/%{repo_name}
@@ -5,7 +7,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.0.3
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Fast Multipole Method in Python (FMM3D wrapper)
 
 License:        Apache-2.0
@@ -21,6 +23,7 @@ BuildRequires:  python3-setuptools
 BuildRequires:  python3-wheel
 BuildRequires:  python3-pip
 BuildRequires:  python3-numpy
+BuildRequires:  meson
 BuildRequires:  sed
 
 %description
@@ -179,5 +182,8 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib}
 %license LICENSE
 
 %changelog
-* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.3-1
+* Tue Mar 10 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.3-2
+- Add meson BuildRequires (numpy.f2py uses meson backend on Python 3.14+)
+
+* Tue Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.3-1
 - Update to 1.0.3 and use improved build process
