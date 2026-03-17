@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.5
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -136,6 +136,23 @@ Requires:       vtk-devel%{?_isa}
 Libraries and header files for developing applications that use the
 ITK-VTK bridge (ITKVtkGlue).
 
+%package doc
+Summary:        Documentation for %{name}
+BuildArch:      noarch
+
+%description doc
+Documentation, copyright notices, and the ITK Software Guide references
+for version 5 of the Insight Toolkit.
+
+%package examples
+Summary:        Example programs and data for %{name}
+BuildArch:      noarch
+Requires:       %{name}-devel = %{version}-%{release}
+
+%description examples
+Example source code, CMakeLists.txt, and test data for building
+applications with ITK 5. Useful as starting points for new projects.
+
 %prep
 %autosetup -n InsightToolkit-%{version}
 
@@ -219,8 +236,16 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 
 %install
 %cmake_install
-# Drop bundled html docs
-rm -rf %{buildroot}%{_datadir}/doc/ITK-5.4
+# Move bundled docs to doc subpackage location
+mkdir -p %{buildroot}%{_docdir}/%{name}-doc
+if [ -d %{buildroot}%{_datadir}/doc/ITK-5.4 ]; then
+    mv %{buildroot}%{_datadir}/doc/ITK-5.4/* %{buildroot}%{_docdir}/%{name}-doc/ 2>/dev/null || true
+    rm -rf %{buildroot}%{_datadir}/doc/ITK-5.4
+fi
+
+# Install examples for downstream developers
+mkdir -p %{buildroot}%{_datadir}/%{name}/examples
+cp -a Examples/* %{buildroot}%{_datadir}/%{name}/examples/ 2>/dev/null || true
 # Remove zero-length stub headers (rpmlint zero-length error; ITK uses them as placeholders)
 find %{buildroot}%{_includedir} -name stub.h -empty -delete
 # Remove cmake configs for ITK's internal bundled MINC library (installed to lib64/cmake/
@@ -265,7 +290,16 @@ fi
 %{_includedir}/ITK-5.4/vtkCaptureScreen.h
 %{_prefix}/lib/cmake/ITK-5.4/Modules/ITKVtkGlue.cmake
 
+%files doc
+%{_docdir}/%{name}-doc/
+
+%files examples
+%{_datadir}/%{name}/examples/
+
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-15
+- Add doc and examples subpackages (matches Fedora ITK4 package structure)
+
 * Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-14
 - Add SimpleITKFilters and LabelErodeDilate remote modules (Source5, Source6):
   required by SimpleITK 2.5.x
