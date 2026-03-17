@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -81,7 +81,8 @@ BuildRequires:  eigen3-devel
 BuildRequires:  cli11-devel
 BuildRequires:  boost-devel
 BuildRequires:  gdal-devel
-BuildRequires:  postgresql-server-devel
+# postgresql-server-devel conflicts with libpq-devel on F43; use libpq-devel
+BuildRequires:  libpq-devel
 
 # ITK5 (COPR)
 BuildRequires:  InsightToolkit5-devel

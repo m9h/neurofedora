@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -131,7 +131,9 @@ Requires:       libharu-devel%{?_isa}
 Requires:       libjpeg-devel%{?_isa}
 Requires:       libogg-devel%{?_isa}
 Requires:       libpng-devel%{?_isa}
-Requires:       libpq-devel%{?_isa}
+# libpq-devel conflicts with postgresql-private-devel on F43; use Recommends
+# to avoid unresolvable dep chains. VTK SQL module is optional for most consumers.
+Recommends:     libpq-devel%{?_isa}
 Requires:       libtheora-devel%{?_isa}
 Requires:       libtiff-devel%{?_isa}
 Requires:       libX11-devel%{?_isa}
@@ -140,7 +142,7 @@ Requires:       libXext-devel%{?_isa}
 Requires:       libxml2-devel%{?_isa}
 Requires:       libXt-devel%{?_isa}
 Requires:       lz4-devel%{?_isa}
-Requires:       mariadb-connector-c-devel%{?_isa}
+Recommends:     mariadb-connector-c-devel%{?_isa}
 Requires:       netcdf-cxx-devel%{?_isa}
 Requires:       nlohmann-json-devel
 Requires:       openslide-devel%{?_isa}
@@ -310,6 +312,11 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-8
+- Downgrade libpq-devel and mariadb-connector-c-devel from Requires to
+  Recommends: libpq-devel conflicts with postgresql-private-devel on F43,
+  causing unresolvable dep chains for all vtk-devel consumers
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-7
 - Enable 15 additional VTK modules required by ParaView with external VTK:
   RenderingMatplotlib, RenderingVolumeAMR, RenderingParallel, IOXdmf2, IOVPIC,
