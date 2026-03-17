@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -214,6 +214,22 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_ENABLE_VTK_FiltersOpenTURNS:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_GeovisGDAL:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_IOOCCT:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_RenderingMatplotlib:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_RenderingVolumeAMR:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_RenderingParallel:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOVPIC:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOAvmesh:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOH5part:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOH5Rage:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOOMF:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOParallelExodus:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOParallelLSDyna:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
     -DVTK_MODULE_USE_EXTERNAL_VTK_cli11:BOOL=ON \
     -DVTK_MODULE_USE_EXTERNAL_VTK_doubleconversion:BOOL=ON \
     -DVTK_MODULE_USE_EXTERNAL_VTK_eigen:BOOL=OFF \
@@ -294,6 +310,13 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-7
+- Enable 15 additional VTK modules required by ParaView with external VTK:
+  RenderingMatplotlib, RenderingVolumeAMR, RenderingParallel, IOXdmf2, IOVPIC,
+  IOAvmesh, IOH5part, IOH5Rage, IOOMF, IOParallelExodus, IOParallelLSDyna,
+  IOPIO, IOTRUCHAS, FiltersParallelDIY2, FiltersParallelVerdict,
+  FiltersParallelStatistics
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-6
 - vtk-devel: add ~35 transitive Requires for cmake find_package consumers
   VTK-vtk-module-find-packages.cmake runs find_package() for all unbundled
