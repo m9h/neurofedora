@@ -14,7 +14,7 @@
 
 Name:           paraview
 Version:        %{pv_maj}.%{pv_min}.%{pv_patch}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Parallel visualization application using VTK
 
 License:        BSD-3-Clause
@@ -207,7 +207,7 @@ export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -
     \
     -DPARAVIEW_USE_PYTHON:BOOL=ON \
     -DVTK_PYTHON_VERSION=3 \
-    -DPARAVIEW_ENABLE_GDAL:BOOL=ON \
+    -DPARAVIEW_ENABLE_GDAL:BOOL=OFF \
     \
     -DPARAVIEW_USE_MPI:BOOL=OFF \
     -DPARAVIEW_ENABLE_CATALYST:BOOL=OFF \
@@ -221,6 +221,32 @@ export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -
     -DPARAVIEW_ENABLE_LAS:BOOL=OFF \
     -DPARAVIEW_ENABLE_PDAL:BOOL=OFF \
     -DPARAVIEW_ENABLE_MOTIONFX:BOOL=OFF \
+    -DPARAVIEW_USE_VISKORES:BOOL=OFF \
+    -DPARAVIEW_ENABLE_WEB:BOOL=OFF \
+    -DPARAVIEW_ENABLE_MATPLOTLIB:BOOL=OFF \
+    -DVTK_GROUP_ENABLE_Web:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_WebCore:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_WebGLExporter:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_WebPython:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_RenderingMatplotlib:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_RenderingParallel:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_RenderingVolumeAMR:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOParallelExodus:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOParallelLSDyna:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOVPIC:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOAvmesh:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOH5part:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOH5Rage:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOOMF:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOGDAL:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_cli11:STRING=NO \
     \
     -DBUILD_EXAMPLES:BOOL=OFF \
     -DBUILD_TESTING:BOOL=OFF \
@@ -284,6 +310,10 @@ fi
 # The main paraview package owns the paraview libdir tree.
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.1-2
+- Disable 22 VTK modules not in COPR VTK build: Web, Parallel, Viskores,
+  GDAL, Matplotlib, various IO modules. Get basic build working first.
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.1-1
 - Initial COPR package of ParaView 6.0.1 for Fedora 43
 - Built against external VTK 9.5.2 (PARAVIEW_USE_EXTERNAL_VTK=ON)
