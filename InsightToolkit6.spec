@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b01
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -226,6 +226,8 @@ if [ -d %{buildroot}%{_libdir}/cmake ]; then
     find %{buildroot}%{_libdir}/cmake -maxdepth 1 \
         \( -name 'itkLIBMINC*.cmake' -o -name 'UseitkLIBMINC.cmake' \) -delete
 fi
+# Rename itkTestDriver to allow co-installation with ITK5
+mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver6
 
 %ldconfig_scriptlets
 
@@ -234,9 +236,10 @@ fi
 %files
 %license LICENSE
 %doc NOTICE README.md
-%{_libdir}/libITK*.so.1
-%{_libdir}/libitk*.so.1
-%exclude %{_libdir}/libITKVtkGlue*.so.1
+# Use version-specific globs to allow co-installation with InsightToolkit5
+%{_libdir}/libITK*-6.0.so.1
+%{_libdir}/libitk*-6.0.so.1
+%exclude %{_libdir}/libITKVtkGlue*-6.0.so.1
 
 %files devel
 %{_includedir}/ITK-6.0/
@@ -244,18 +247,18 @@ fi
 %exclude %{_includedir}/ITK-6.0/itkVTKImageToImageFilter.h*
 %exclude %{_includedir}/ITK-6.0/QuickView.h
 %exclude %{_includedir}/ITK-6.0/vtkCaptureScreen.h
-%{_prefix}/lib/cmake/ITK*/
-%exclude %{_prefix}/lib/cmake/ITK-6.0/Modules/ITKVtkGlue.cmake
-%{_libdir}/libITK*.so
-%{_libdir}/libitk*.so
-%exclude %{_libdir}/libITKVtkGlue*.so
-%{_bindir}/itkTestDriver
+%{_prefix}/lib/cmake/ITK-6.0/
+%{_libdir}/libITK*-6.0.so
+%{_libdir}/libitk*-6.0.so
+%exclude %{_libdir}/libITKVtkGlue*-6.0.so
+# Rename itkTestDriver to avoid conflict with ITK5
+%{_bindir}/itkTestDriver6
 
 %files vtk
-%{_libdir}/libITKVtkGlue*.so.1
+%{_libdir}/libITKVtkGlue*-6.0.so.1
 
 %files vtk-devel
-%{_libdir}/libITKVtkGlue*.so
+%{_libdir}/libITKVtkGlue*-6.0.so
 %{_includedir}/ITK-6.0/itkImageToVTKImageFilter.h*
 %{_includedir}/ITK-6.0/itkVTKImageToImageFilter.h*
 %{_includedir}/ITK-6.0/QuickView.h
@@ -263,6 +266,10 @@ fi
 %{_prefix}/lib/cmake/ITK-6.0/Modules/ITKVtkGlue.cmake
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-3
+- Co-installability with ITK5: version-specific library globs (-6.0 suffix),
+  rename itkTestDriver to itkTestDriver6, scope cmake dir to ITK-6.0/ only
+
 * Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-2
 - Production quality rewrite: add VtkGlue bridge (vtk/vtk-devel subpackages),
   DCMTK support, all remote modules (GenericLabelInterpolator, AdaptiveDenoising,
