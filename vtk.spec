@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -102,13 +102,54 @@ a newer VTK than the Fedora system package (9.2.6).
 %package devel
 Summary:        Development files for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-qt%{?_isa} = %{version}-%{release}
 Requires:       python3-%{name}%{?_isa} = %{version}-%{release}
 Requires:       cmake
-Requires:       fmt-devel%{?_isa}
+# Qt6 cmake configs referenced by VTK module targets
 Requires:       cmake(Qt6Core)
 Requires:       cmake(Qt6Widgets)
 Requires:       cmake(Qt6OpenGL)
 Requires:       cmake(Qt6OpenGLWidgets)
+# Transitive dependencies: VTK-vtk-module-find-packages.cmake runs
+# find_package() for every unbundled module when a downstream consumer
+# calls find_package(VTK).  All -devel packages below must be installed
+# or the downstream configure will fail.
+Requires:       boost-devel
+Requires:       cgnslib-devel
+Requires:       double-conversion-devel%{?_isa}
+Requires:       expat-devel%{?_isa}
+Requires:       fmt-devel%{?_isa}
+Requires:       freetype-devel%{?_isa}
+Requires:       gdal-devel
+Requires:       glew-devel%{?_isa}
+Requires:       hdf5-devel%{?_isa}
+Requires:       json-devel
+Requires:       jsoncpp-devel%{?_isa}
+Requires:       libarchive-devel%{?_isa}
+Requires:       libGL-devel%{?_isa}
+Requires:       libharu-devel%{?_isa}
+Requires:       libjpeg-devel%{?_isa}
+Requires:       libogg-devel%{?_isa}
+Requires:       libpng-devel%{?_isa}
+Requires:       libpq-devel%{?_isa}
+Requires:       libtheora-devel%{?_isa}
+Requires:       libtiff-devel%{?_isa}
+Requires:       libX11-devel%{?_isa}
+Requires:       libXcursor-devel%{?_isa}
+Requires:       libXext-devel%{?_isa}
+Requires:       libxml2-devel%{?_isa}
+Requires:       libXt-devel%{?_isa}
+Requires:       lz4-devel%{?_isa}
+Requires:       mariadb-connector-c-devel%{?_isa}
+Requires:       netcdf-cxx-devel%{?_isa}
+Requires:       nlohmann-json-devel
+Requires:       openslide-devel%{?_isa}
+Requires:       PEGTL-devel
+Requires:       proj-devel%{?_isa}
+Requires:       pugixml-devel%{?_isa}
+Requires:       sqlite-devel%{?_isa}
+Requires:       utf8cpp-devel
+Requires:       xz-devel%{?_isa}
 
 %description devel
 This provides the VTK header files and cmake config required to compile
@@ -253,6 +294,12 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-6
+- vtk-devel: add ~35 transitive Requires for cmake find_package consumers
+  VTK-vtk-module-find-packages.cmake runs find_package() for all unbundled
+  module dependencies; downstream packages need these -devel packages installed
+- vtk-devel: add Requires on vtk-qt subpackage (Qt .so symlinks need it)
+
 * Fri Feb 27 2026 Morgan Hough <morgan@example.com> - 9.5.2-5
 - Explicitly enable VTK_MODULE_ENABLE_VTK_RenderingExternal=YES: module is not
   in the Rendering group so VTK_GROUP_ENABLE_Rendering=YES did not enable it;
