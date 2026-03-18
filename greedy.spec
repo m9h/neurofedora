@@ -5,7 +5,7 @@
 
 Name:           greedy
 Version:        1.3.0~alpha
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Fast diffeomorphic image registration tool
 
 License:        GPL-3.0-or-later
@@ -56,7 +56,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %cmake_install
 
 # Remove cmake export files generated in build dir (triggers check-files error)
-rm -f redhat-linux-build/GreedyTargets*.cmake
+find %{_builddir} -name "GreedyTargets*.cmake" -delete
 
 # Remove development files — no -devel subpackage
 rm -rf %{buildroot}%{_includedir}

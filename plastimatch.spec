@@ -2,7 +2,7 @@
 
 Name:           plastimatch
 Version:        1.10.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Medical image registration and segmentation for radiation therapy
 
 License:        BSD-3-Clause
@@ -69,8 +69,8 @@ rm -f %{buildroot}%{_libdir}/*.a
 
 %files
 %license LICENSE.TXT
-%doc README.TXT AUTHORS.TXT
 %{_bindir}/plastimatch
+%{_bindir}/dicom_uid
 %{_libdir}/lib*.so.*
 %{_datadir}/doc/plastimatch/
 
