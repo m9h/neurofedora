@@ -2,7 +2,7 @@
 
 Name:           plastimatch
 Version:        1.10.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Medical image registration and segmentation for radiation therapy
 
 License:        BSD-3-Clause
@@ -61,7 +61,9 @@ export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -
 # Remove development files — no -devel subpackage initially
 rm -rf %{buildroot}%{_includedir}
 rm -rf %{buildroot}%{_libdir}/cmake
+rm -rf %{buildroot}%{_prefix}/lib/cmake
 rm -f %{buildroot}%{_libdir}/*.so
+rm -f %{buildroot}%{_libdir}/*.a
 
 %ldconfig_scriptlets
 

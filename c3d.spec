@@ -5,7 +5,7 @@
 
 Name:           c3d
 Version:        1.4.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Medical image format conversion and processing tool
 
 License:        GPL-3.0-or-later
@@ -51,7 +51,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %cmake_install
 
 # Remove cmake export files generated in build dir (triggers check-files error)
-rm -f %{_vpath_builddir}/Convert3DTargets*.cmake
+rm -f redhat-linux-build/Convert3DTargets*.cmake
 
 # Remove development files — no -devel subpackage
 rm -rf %{buildroot}%{_includedir}
