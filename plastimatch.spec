@@ -2,7 +2,7 @@
 
 Name:           plastimatch
 Version:        1.10.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Medical image registration and segmentation for radiation therapy
 
 License:        BSD-3-Clause
@@ -16,8 +16,9 @@ BuildRequires:  dcmtk-devel
 BuildRequires:  fftw-devel
 BuildRequires:  sqlite-devel
 BuildRequires:  hdf5-devel
-# VTK transitive dep (ITK5 cmake config loads ITKVtkGlue → find_package(VTK) → requires Python3 Development)
+# VTK transitive deps (ITK5 cmake config loads ITKVtkGlue → find_package(VTK))
 BuildRequires:  python3-devel
+BuildRequires:  qt6-qtdeclarative-devel
 %if 0%{?fedora}
 BuildRequires:  libminc-devel
 %endif
@@ -70,8 +71,8 @@ rm -f %{buildroot}%{_libdir}/*.a
 %{_datadir}/doc/plastimatch/
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-2
-- Add python3-devel BuildRequires: VTK transitive dep via ITK5 cmake config
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-3
+- Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel)
 
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-1
 - Initial package of plastimatch 1.10.0

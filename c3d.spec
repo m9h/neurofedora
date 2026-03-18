@@ -5,7 +5,7 @@
 
 Name:           c3d
 Version:        1.4.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Medical image format conversion and processing tool
 
 License:        GPL-3.0-or-later
@@ -16,8 +16,10 @@ BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  InsightToolkit5-devel >= 5.4
 BuildRequires:  hdf5-devel
-# VTK transitive dep (ITK5 cmake config loads ITKVtkGlue → find_package(VTK) → requires Python3 Development)
+# VTK transitive deps (ITK5 cmake config loads ITKVtkGlue → find_package(VTK))
+# vtk-devel should Require these but does not yet
 BuildRequires:  python3-devel
+BuildRequires:  qt6-qtdeclarative-devel
 %if 0%{?fedora}
 BuildRequires:  libminc-devel
 %endif
@@ -66,8 +68,9 @@ rm -f %{buildroot}/usr/lib/*.so
 %{_bindir}/c3d_affine_tool
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-2
-- Add python3-devel BuildRequires: VTK transitive dep via ITK5 cmake config
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-3
+- Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel):
+  ITK5 cmake config loads ITKVtkGlue which triggers full VTK find_package
 
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-1
 - Initial package of Convert3D 1.4.2 (git snapshot %{shortcommit})
