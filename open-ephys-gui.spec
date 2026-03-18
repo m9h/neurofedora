@@ -2,7 +2,7 @@
 
 Name:           open-ephys-gui
 Version:        1.0.2
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        Open source software for extracellular electrophysiology
 
 License:        GPL-3.0-or-later AND AGPL-3.0-or-later
@@ -47,6 +47,7 @@ BuildRequires:  hdf5-devel
 
 BuildRequires:  desktop-file-utils
 BuildRequires:  patchelf
+BuildRequires:  systemd-rpm-macros
 
 Requires:       hicolor-icon-theme
 
@@ -81,8 +82,9 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 # so we install everything under /usr/libexec/open-ephys/ and symlink
 # /usr/bin/open-ephys to it.
 
-# Find the build output directory
-BUILDOUT=%{__cmake_builddir}
+# Open Ephys POST_BUILD commands copy everything to Build/Release/ in source tree
+# (not the cmake build dir), regardless of -DOE_DONT_CHECK_BUILD_PATH
+BUILDOUT=Build/Release
 
 # Main binary
 install -Dpm 755 ${BUILDOUT}/open-ephys %{buildroot}%{_libexecdir}/open-ephys/open-ephys
