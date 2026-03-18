@@ -2,7 +2,7 @@
 
 Name:           niftyreg
 Version:        2.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Tools for rigid, affine, and non-linear medical image registration
 
 License:        BSD-3-Clause
@@ -23,8 +23,11 @@ transformation composition, and Jacobian map computation.
 %prep
 %autosetup -n %{name}-%{version}
 
-# Patch out git requirement for version string — no .git in SRPM
-sed -i '/find_package(Git)/,/endif(GIT_FOUND)/c\
+# Patch out git requirement for version string — no .git in SRPM.
+# Must replace from find_package(Git) through the NR_VERSION lines that follow
+# endif(GIT_FOUND), otherwise line 55 overwrites NR_VERSION with empty.
+sed -i '/find_package(Git)/,/message(STATUS "NiftyReg version/c\
+set(NiftyReg_VERSION "%{version}")\
 set(NR_VERSION "%{version}")\
 add_definitions(-DNR_VERSION="${NR_VERSION}")\
 message(STATUS "NiftyReg version: ${NR_VERSION}")' CMakeLists.txt
@@ -66,6 +69,10 @@ rm -f %{buildroot}%{_prefix}/lib/*.a
 %{_bindir}/groupwise_niftyreg_run.sh
 
 %changelog
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-2
+- Fix git version patch: extend sed range to cover NR_VERSION override on line 55
+  (WRITE_BASIC_PACKAGE_VERSION_FILE was getting empty VERSION)
+
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-1
 - Initial package of NiftyReg 2.0.0
 - CPU-only build (CUDA/OpenCL disabled), static internal libraries

@@ -5,7 +5,7 @@
 
 Name:           greedy
 Version:        1.3.0~alpha
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Fast diffeomorphic image registration tool
 
 License:        GPL-3.0-or-later
@@ -23,8 +23,9 @@ BuildRequires:  fmt-devel
 BuildRequires:  utf8cpp-devel
 BuildRequires:  PEGTL-devel
 BuildRequires:  jsoncpp-devel
-# ITK transitive BuildRequires
+# ITK/VTK transitive BuildRequires
 BuildRequires:  hdf5-devel
+BuildRequires:  python3-devel
 %if 0%{?fedora}
 BuildRequires:  libminc-devel
 %endif
@@ -71,6 +72,9 @@ rm -f %{buildroot}/usr/lib/*.so
 %{_bindir}/greedy_propagation
 
 %changelog
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.0~alpha-2
+- Add python3-devel BuildRequires: VTK transitive dep via ITK5/VTK cmake config
+
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.0~alpha-1
 - Initial package of greedy 1.3.0-alpha (git snapshot %{shortcommit})
 - Built against system InsightToolkit5 and VTK with static internal libraries
