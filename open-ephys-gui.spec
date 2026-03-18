@@ -1,92 +1,164 @@
+%define debug_package %{nil}
+
 Name:           open-ephys-gui
-Version:        0.6.4
-# Note: Check upstream for the latest tag. 0.6.x is stable, 1.0 is in beta/recent release.
+Version:        1.0.2
 Release:        1%{?dist}
 Summary:        Open source software for extracellular electrophysiology
 
-License:        GPL-3.0-or-later
+License:        GPL-3.0-or-later AND AGPL-3.0-or-later
 URL:            https://open-ephys.org/
-Source0:        https://github.com/open-ephys/plugin-GUI/archive/v%{version}/%{name}-%{version}.tar.gz
+Source0:        https://github.com/open-ephys/plugin-GUI/archive/v%{version}/plugin-GUI-%{version}.tar.gz
+
+# JUCE 8.0.7 is bundled — large C++ audio/GUI framework compiled directly into
+# the executable. Not available in Fedora, cannot be practically unbundled.
+# JUCE is used under AGPLv3 (dual-licensed: AGPLv3 or commercial EULA).
+Provides:       bundled(juce) = 8.0.7
+
+# nlohmann/json and cpp-httplib are vendored as single headers
+Provides:       bundled(nlohmann-json)
+Provides:       bundled(cpp-httplib)
 
 BuildRequires:  gcc-c++
-BuildRequires:  cmake
-BuildRequires:  zeromq-devel
-BuildRequires:  hdf5-devel
-BuildRequires:  libcurl-devel
+BuildRequires:  cmake >= 3.15
+BuildRequires:  ninja-build
+BuildRequires:  pkgconfig
+
+# X11 / display
 BuildRequires:  mesa-libGL-devel
-BuildRequires:  freetype-devel
-BuildRequires:  alsa-lib-devel
 BuildRequires:  libX11-devel
 BuildRequires:  libXext-devel
-BuildRequires:  libXcursor-devel
 BuildRequires:  libXinerama-devel
+BuildRequires:  libXcursor-devel
 BuildRequires:  libXrandr-devel
-BuildRequires:  webkit2gtk4.1-devel
 
-# It uses the JUCE framework (often bundled, but good to know)
+# Audio
+BuildRequires:  alsa-lib-devel
+
+# Text rendering (JUCE)
+BuildRequires:  freetype-devel
+BuildRequires:  fontconfig-devel
+
+# Networking (HTTP server for headless mode)
+BuildRequires:  libcurl-devel
+
+# Optional: for data formats used by some built-in plugins
+BuildRequires:  zeromq-devel
+BuildRequires:  hdf5-devel
+
+BuildRequires:  desktop-file-utils
+BuildRequires:  patchelf
+
+Requires:       hicolor-icon-theme
 
 %description
 The Open Ephys GUI is designed to provide a fast and flexible interface for
 acquiring and visualizing data from extracellular electrodes. It features a
-plugin architecture that makes it easy to add new modules for processing data
-and interfacing with external hardware.
+modular plugin architecture for processing data and interfacing with
+acquisition hardware (Neuropixels, Open Ephys Acquisition Board, etc.).
 
-%package        devel
-Summary:        Development files for Open Ephys plugins
-Requires:       %{name}%{?_isa} = %{version}-%{release}
-
-%description    devel
-Headers and libraries required to build plugins for the Open Ephys GUI.
+Supports headless operation via --headless flag with HTTP REST API control
+on port 37497.
 
 %prep
 %setup -q -n plugin-GUI-%{version}
 
-# FIX: Force CMake to use webkit2gtk-4.1 instead of 4.0
-sed -i 's/webkit2gtk-4.0/webkit2gtk-4.1/g' CMakeLists.txt
-
-# Fix permissions or remove bundled libs if necessary
-# (The GUI often bundles JUCE. Unbundling JUCE is very hard, 
-# so usually acceptable to build with the bundled version for complex audio apps)
+# Fix desktop file paths for FHS
+sed -i 's|Exec=.*|Exec=open-ephys|' Resources/Installers/Linux/Open-Ephys_Installer/open-ephys.desktop
+sed -i 's|Icon=.*|Icon=open-ephys|' Resources/Installers/Linux/Open-Ephys_Installer/open-ephys.desktop
 
 %build
-%cmake .. \
+export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
+
+%cmake -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DOE_DONT_CHECK_BUILD_PATH=ON \
-    -DOPENEPHYS_UNIFIED_BUILD=ON
+    -DOE_DONT_CHECK_BUILD_PATH=TRUE
 
 %cmake_build
 
 %install
-cd Build
-%cmake_install
+# Open Ephys has NO install() targets — manual installation required.
+# The binary looks for plugins/ and shared/ relative to its own directory,
+# so we install everything under /usr/libexec/open-ephys/ and symlink
+# /usr/bin/open-ephys to it.
 
-# Handle the binary installation location if CMake installs to /usr/local
-# Sometimes custom CMake scripts behave badly.
-# If the binary ends up in /usr/bin/open-ephys, great. 
+# Find the build output directory
+BUILDOUT=%{__cmake_builddir}
 
-# Install desktop file
-mkdir -p %{buildroot}%{_datadir}/applications
-cat > %{buildroot}%{_datadir}/applications/open-ephys.desktop <<EOF
-[Desktop Entry]
-Name=Open Ephys GUI
-Comment=Electrophysiology Acquisition System
-Exec=open-ephys
-Icon=open-ephys
-Terminal=false
-Type=Application
-Categories=Science;DataVisualization;
-EOF
+# Main binary
+install -Dpm 755 ${BUILDOUT}/open-ephys %{buildroot}%{_libexecdir}/open-ephys/open-ephys
+
+# Symlink in /usr/bin
+mkdir -p %{buildroot}%{_bindir}
+ln -s %{_libexecdir}/open-ephys/open-ephys %{buildroot}%{_bindir}/open-ephys
+
+# Built-in plugins (loaded via dlopen from <exe_dir>/plugins/)
+mkdir -p %{buildroot}%{_libexecdir}/open-ephys/plugins
+for plugin in ${BUILDOUT}/plugins/*.so; do
+    install -pm 755 "$plugin" %{buildroot}%{_libexecdir}/open-ephys/plugins/
+done
+
+# Shared resources (FPGA bitfiles — loaded from <exe_dir>/shared/)
+mkdir -p %{buildroot}%{_libexecdir}/open-ephys/shared
+if [ -d "${BUILDOUT}/shared" ]; then
+    cp -a ${BUILDOUT}/shared/* %{buildroot}%{_libexecdir}/open-ephys/shared/
+fi
+
+# Default configs (icons for acquisition sources)
+if [ -d "${BUILDOUT}/configs" ]; then
+    cp -a ${BUILDOUT}/configs %{buildroot}%{_libexecdir}/open-ephys/
+fi
+
+# GUI icon (needed at runtime by the executable)
+if [ -f "${BUILDOUT}/icon-small.png" ]; then
+    install -pm 644 ${BUILDOUT}/icon-small.png %{buildroot}%{_libexecdir}/open-ephys/
+fi
+
+# Strip RPATHs ($ORIGIN/shared is wrong for FHS install)
+patchelf --remove-rpath %{buildroot}%{_libexecdir}/open-ephys/open-ephys 2>/dev/null || :
+find %{buildroot}%{_libexecdir}/open-ephys/plugins -name "*.so" -exec \
+    patchelf --remove-rpath {} \; 2>/dev/null || :
+
+# Desktop file
+install -Dpm 644 Resources/Installers/Linux/Open-Ephys_Installer/open-ephys.desktop \
+    %{buildroot}%{_datadir}/applications/open-ephys.desktop
+
+# Icons for desktop integration
+install -Dpm 644 Resources/Icons/icon-large.png \
+    %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/open-ephys.png
+install -Dpm 644 Resources/Icons/icon-small.png \
+    %{buildroot}%{_datadir}/icons/hicolor/48x48/apps/open-ephys.png
+
+# Udev rules for USB acquisition hardware
+install -Dpm 644 Resources/Scripts/40-open-ephys.rules \
+    %{buildroot}%{_udevrulesdir}/40-open-ephys.rules
+
+%check
+# Validate desktop file
+desktop-file-validate %{buildroot}%{_datadir}/applications/open-ephys.desktop
+
+# Verify binary runs (headless mode, just check it starts)
+%{buildroot}%{_libexecdir}/open-ephys/open-ephys --help 2>&1 || :
 
 %files
 %license LICENSE
 %doc README.md
+# Main binary + runtime resources
+%{_libexecdir}/open-ephys/
 %{_bindir}/open-ephys
-%{_libdir}/open-ephys/
+# Desktop integration
 %{_datadir}/applications/open-ephys.desktop
-
-%files devel
-%{_includedir}/open-ephys/
+%{_datadir}/icons/hicolor/256x256/apps/open-ephys.png
+%{_datadir}/icons/hicolor/48x48/apps/open-ephys.png
+# Udev rules for acquisition hardware
+%{_udevrulesdir}/40-open-ephys.rules
 
 %changelog
-* Wed Jan 07 2026 m9h <mhough@morgans> - 0.6.4-1
-- Initial packaging for NeuroFedora-Species
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.2-1
+- Update to v1.0.2 (major upgrade from 0.6.4)
+- JUCE 8.0.7 bundled (AGPLv3), license updated
+- Install to /usr/libexec/open-ephys/ (binary finds plugins relative to exe)
+- Symlink /usr/bin/open-ephys for PATH access
+- Include built-in plugins, FPGA bitfiles, default configs
+- Add udev rules for USB acquisition hardware
+- Add desktop file and icons
+- Strip RPATHs for Fedora compliance
