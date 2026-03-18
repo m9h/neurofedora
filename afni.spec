@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.0.08
-Release:        14%{?dist}
+Release:        17%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -537,8 +537,8 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_libexecdir}/afni/*.py
 %exclude %{_libexecdir}/afni/@*.py
 %{_libexecdir}/afni/lib_RetroTS
-%{_bindir}/afni_proc.py
-%{_bindir}/afni_system_check.py
+# Python scripts installed to /usr/bin by pyproject_install
+%{_bindir}/*.py
 
 # --- afni-tcsh ---
 # @-prefixed scripts are the main tcsh content; other tcsh scripts
@@ -566,8 +566,9 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_docdir}/afni/
 
 # --- afni-devel ---
+# AFNI cmake does not install public headers, so no include dir.
+# Unversioned .so symlinks for linking are created during lib move.
 %files devel
-%{_includedir}/afni/
 %{_libdir}/libmri.so
 %{_libdir}/lib3DEdge.so
 %{_libdir}/libeispack.so
@@ -576,6 +577,15 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-17
+- Fix python3-afni: capture all 124 pyproject-installed scripts via %%{_bindir}/*.py
+
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-16
+- Fix afni-devel: AFNI cmake does not install public headers (remove includedir)
+
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-15
+- Rebuild with all accumulated linter/user fixes
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-14
 - Fix %%files: remove bundled nifti/gifti install artifacts (conflict with system pkgs)
 - Fix %%files: add dcm2niix_afni to afni-core

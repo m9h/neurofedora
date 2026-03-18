@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b01
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -241,6 +241,9 @@ if [ -d %{buildroot}%{_datadir}/doc/ITK-6.0 ]; then
     rm -rf %{buildroot}%{_datadir}/doc/ITK-6.0
 fi
 
+# Remove stray openjpeg header installed by bundled openjpeg (system provides this)
+rm -rf %{buildroot}%{_includedir}/itkopenjpeg-*
+
 # Install examples for downstream developers
 mkdir -p %{buildroot}%{_datadir}/%{name}/examples
 cp -a Examples/* %{buildroot}%{_datadir}/%{name}/examples/ 2>/dev/null || true
@@ -297,6 +300,9 @@ mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver6
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-5
+- Remove stray itkopenjpeg-2.5 header (system openjpeg provides this)
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-4
 - Add doc and examples subpackages (matches Fedora ITK4 package structure)
 
