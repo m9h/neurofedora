@@ -5,7 +5,7 @@
 
 Name:           greedy
 Version:        1.3.0~alpha
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Fast diffeomorphic image registration tool
 
 License:        GPL-3.0-or-later
@@ -55,6 +55,9 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %install
 %cmake_install
 
+# Remove cmake export files generated in build dir (triggers check-files error)
+rm -f %{_vpath_builddir}/GreedyTargets*.cmake
+
 # Remove development files — no -devel subpackage
 rm -rf %{buildroot}%{_includedir}
 rm -rf %{buildroot}%{_libdir}/cmake
@@ -73,7 +76,8 @@ rm -f %{buildroot}/usr/lib/*.so
 %{_bindir}/greedy_propagation
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.0~alpha-3
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.0~alpha-4
+- Remove cmake export target files from build dir (unpackaged files error)
 - Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel)
 
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.0~alpha-1

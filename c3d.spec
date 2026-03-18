@@ -5,7 +5,7 @@
 
 Name:           c3d
 Version:        1.4.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Medical image format conversion and processing tool
 
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %install
 %cmake_install
 
+# Remove cmake export files generated in build dir (triggers check-files error)
+rm -f %{_vpath_builddir}/Convert3DTargets*.cmake
+
 # Remove development files — no -devel subpackage
 rm -rf %{buildroot}%{_includedir}
 rm -rf %{buildroot}%{_libdir}/cmake
@@ -68,9 +71,9 @@ rm -f %{buildroot}/usr/lib/*.so
 %{_bindir}/c3d_affine_tool
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-3
-- Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel):
-  ITK5 cmake config loads ITKVtkGlue which triggers full VTK find_package
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-4
+- Remove cmake export target files from build dir (unpackaged files error)
+- Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel)
 
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-1
 - Initial package of Convert3D 1.4.2 (git snapshot %{shortcommit})

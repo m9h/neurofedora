@@ -2,7 +2,7 @@
 
 Name:           plastimatch
 Version:        1.10.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Medical image registration and segmentation for radiation therapy
 
 License:        BSD-3-Clause
@@ -38,7 +38,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
 %cmake \
     -DCMAKE_CXX_STANDARD:STRING=17 \
-    -DBUILD_SHARED_LIBS:BOOL=OFF \
+    -DBUILD_SHARED_LIBS:BOOL=ON \
     -DPLM_SYSTEM_ITK:STRING=YES \
     -DITK_DIR:PATH=%{_prefix}/lib/cmake/ITK-5.4 \
     -DPLM_SYSTEM_DCMTK:STRING=YES \
@@ -48,7 +48,8 @@ export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -
     -DPLM_CONFIG_ENABLE_PYTHON:BOOL=OFF \
     -DPLM_CONFIG_ENABLE_CSHARP:BOOL=OFF \
     -DPLM_CONFIG_ENABLE_SUPERBUILD:BOOL=OFF \
-    -DPLM_CONFIG_INSTALL_LIBRARIES:BOOL=OFF \
+    -DPLM_CONFIG_INSTALL_LIBRARIES:BOOL=ON \
+    -DPLM_INSTALL_LIB_DIR:PATH=%{_lib} \
     -DPLM_BUILD_TESTING:BOOL=OFF \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON
 
@@ -57,21 +58,24 @@ export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -
 %install
 %cmake_install
 
-# Remove any stray development files
+# Remove development files — no -devel subpackage initially
 rm -rf %{buildroot}%{_includedir}
-rm -rf %{buildroot}%{_prefix}/lib/cmake
 rm -rf %{buildroot}%{_libdir}/cmake
-rm -f %{buildroot}%{_prefix}/lib/*.a
-rm -f %{buildroot}%{_libdir}/*.a
+rm -f %{buildroot}%{_libdir}/*.so
+
+%ldconfig_scriptlets
 
 %files
 %license LICENSE.TXT
 %doc README.TXT AUTHORS.TXT
 %{_bindir}/plastimatch
+%{_libdir}/lib*.so.*
 %{_datadir}/doc/plastimatch/
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-3
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-4
+- Switch to shared libs (upstream has proper SOVERSION)
+- Enable PLM_CONFIG_INSTALL_LIBRARIES (required for cmake export set)
 - Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel)
 
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-1
