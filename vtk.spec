@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -152,6 +152,8 @@ Requires:       pugixml-devel%{?_isa}
 Requires:       sqlite-devel%{?_isa}
 Requires:       utf8cpp-devel
 Requires:       xz-devel%{?_isa}
+Requires:       zlib-devel%{?_isa}
+Requires:       python3-devel
 
 %description devel
 This provides the VTK header files and cmake config required to compile
@@ -312,6 +314,10 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-9
+- Add missing vtk-devel Requires: zlib-devel, python3-devel
+  (VTK cmake config calls find_package(ZLIB) and find_package(Python3))
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-8
 - Downgrade libpq-devel and mariadb-connector-c-devel from Requires to
   Recommends: libpq-devel conflicts with postgresql-private-devel on F43,
