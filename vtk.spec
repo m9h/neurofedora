@@ -336,25 +336,25 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
   module dependencies; downstream packages need these -devel packages installed
 - vtk-devel: add Requires on vtk-qt subpackage (Qt .so symlinks need it)
 
-* Fri Feb 27 2026 Morgan Hough <morgan@example.com> - 9.5.2-5
+* Fri Feb 27 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-5
 - Explicitly enable VTK_MODULE_ENABLE_VTK_RenderingExternal=YES: module is not
   in the Rendering group so VTK_GROUP_ENABLE_Rendering=YES did not enable it;
   required by ITK-SNAP 4.x standalone.cmake FIND_PACKAGE(VTK COMPONENTS ...)
 
-* Thu Feb 26 2026 Morgan Hough <morgan@example.com> - 9.5.2-4
+* Thu Feb 26 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-4
 - Add debug_package suppression via define scope to fix EPEL 9 SRPM rebuild
   failure caused by auto-injected debuginfo stanza
 
-* Thu Feb 26 2026 Morgan Hough <morgan@example.com> - 9.5.2-3
+* Thu Feb 26 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-3
 - Fix unpackaged files: add licenses/VTK/ to base, add vtk.py
   and libdir/vtk/hierarchy/ to python3-vtk subpackage
 
-* Thu Feb 26 2026 Morgan Hough <morgan@example.com> - 9.5.2-2
+* Thu Feb 26 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-2
 - Bundle fast_float and eigen3 instead of using system versions; Fedora ships
   fast_float 8.x and eigen3 5.x (F44+) but VTK expects older major versions,
   causing SameMajorVersion cmake compat failures identical to ITK/Eigen3 issue
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 9.5.2-1
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-1
 - Initial COPR package of VTK 9.5.2 for Fedora 43/44
 - Simplified spec: no MPI, no Java, no testing/examples/doc packages
 - Targets neuroimaging apps requiring VTK >= 9.3 (ITK-SNAP, medInria)

@@ -78,38 +78,38 @@ find %{buildroot}%{_libdir} -maxdepth 1 -name '*.so' -type l -delete
 %{_libdir}/libl_*.so.*
 
 %changelog
-* Fri Feb 27 2026 Morgan Hough <morgan@example.com> - 2.6.5-8
+* Fri Feb 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-8
 - Rewrite changelog entries to remove RPM directive names (install, prep, files);
   EPEL 9 rpmbuild treats these as spec directives, causing "second install" error
 
-* Thu Feb 26 2026 Morgan Hough <morgan@example.com> - 2.6.5-7
+* Thu Feb 26 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-7
 - Add debug_package suppression via define scope to fix EPEL 9 SRPM rebuild
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 2.6.5-6
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-6
 - Patch Examples/CMakeLists.txt in prep to add SOVERSION 1 to antsUtilities:
   fixes rpmlint E: invalid-soname (library installed with unversioned SONAME)
 - Delete unversioned .so symlinks in install step: resolves devel-file-in-non-devel-package
   warnings; l_* and antsUtilities are internal libraries, not a public API
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 2.6.5-5
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-5
 - Add l_* and libantsUtilities shared libs to files list (required at runtime by ANTs
   binaries; each binary wraps its corresponding l_*.so entry point)
 - Add ldconfig scriptlets for proper shared library management
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 2.6.5-4
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-4
 - Add -DCMAKE_SKIP_INSTALL_RPATH=ON: ANTs binaries embed /usr/lib64 RPATH which
   is a standard system path; brp-check-rpaths treats this as a fatal error
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 2.6.5-3
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-3
 - Add -DUSE_SYSTEM_ITK=ON: without this, ANTS.cmake's staging/lib64 install rule
   triggers even with SUPERBUILD=OFF (condition guards on NOT USE_SYSTEM_ITK),
   causing cmake install to fail when staging dir was never populated by superbuild
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 2.6.5-2
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-2
 - Limit parallel build jobs to -j4: each ITK template g++ process peaks at ~3 GB;
   16-way parallelism OOMs even on 32 GB hosts and would fail on COPR 16 GB workers
 
-* Mon Feb 23 2026 Morgan Hough <morgan@example.com> - 2.6.5-1
+* Mon Feb 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-1
 - Upgrade to ANTs 2.6.5
 - Switch to direct build against system InsightToolkit5-devel (ANTs_SUPERBUILD=OFF)
 - Remove git BuildRequires (no longer downloading ITK at build time)

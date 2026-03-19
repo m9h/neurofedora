@@ -224,14 +224,14 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 - Fix install: remove create_symlink install(CODE) blocks that bypass DESTDIR
   (they create symlinks in /usr/ instead of $DESTDIR/usr/, causing permission errors)
 
-* Mon Mar 09 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-4
+* Mon Mar 09 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-4
 - Fix files section: add missing header subdirs (eigen, lsl, mensia, tcptagging)
 - Fix Boost.Asio: use boost::asio::connect() with resolver results (F44+)
 - Fix Boost.Filesystem: replace removed extension() free function (F44+)
 
-* Fri Mar 06 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-2
+* Fri Mar 06 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-2
 - Fix aarch64 build: make -msse2 flag conditional on x86
 - Fix F44+/rawhide: patch Boost io_service to io_context, remove resolver::query
 
-* Wed Mar 04 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-1
+* Wed Mar 04 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-1
 - Initial package of OpenViBE 3.7.0 for Fedora

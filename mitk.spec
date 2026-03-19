@@ -212,7 +212,10 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
-* Tue Mar 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-1
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-2
+- Fix ITK PhilipsREC IO factory linkage (add IOPhilipsREC to MitkCore deps)
+
+* Mon Mar 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-1
 - Major rewrite: disable superbuild, use system libraries
 - Use InsightToolkit5 5.4.5 and VTK 9.5.2 from COPR
 - Disable BlueBerry/CTK (Fedora CTK is Qt5-only)

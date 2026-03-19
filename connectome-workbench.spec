@@ -116,15 +116,13 @@ xvfb-run -a ctest --output-on-failure || :
 %{_datadir}/icons/hicolor/32x32/apps/wb_view.png
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-3.20260203gitf8a1b5a
-- Replace fragile find+install with %%cmake_install (upstream has install targets)
-- Add ninja-build BuildRequires
-- Add GCC 15 CXXFLAGS (-std=c++17 -include cstdint) for Fedora 43
-- Add desktop-file-validate to %%check
-- Add wb_shortcuts and bash-completion files
-- Install 32x32 icon alongside 128x128
-- Fix icon filename (workbench_128x128x32.png, not workbench.png)
-- Sync release to git snapshot versioning
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-4.20260203gitf8a1b5a
+- Use %%cmake_install instead of manual find+install
+- Add glib2-devel, ninja-build BuildRequires
+- GCC 15 CXXFLAGS (-std=c++17 -include cstdint)
+- Add wb_shortcuts, bash-completion, desktop-file-validate
+- Fix icon filenames, add 32x32 icon
+- Git snapshot release versioning
 
 * Sun Jan 04 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-1
 - Initial RPM release for Connectome Workbench v2.1.0

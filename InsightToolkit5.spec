@@ -324,32 +324,32 @@ fi
 * Thu Mar 05 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-10
 - Enable Module_ITKDeprecated=ON: dependency of ITKReview
 
-* Fri Feb 27 2026 Morgan Hough <morgan@example.com> - 5.4.5-9
+* Fri Feb 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-9
 - Add MorphologicalContourInterpolation remote module (Source3): required by
   ITK-SNAP 4.x which requests it as a FIND_PACKAGE(ITK COMPONENTS ...) component
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 5.4.5-8
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-8
 - Guard bundled MINC cmake cleanup with directory existence check
 
-* Wed Feb 25 2026 Morgan Hough <morgan@example.com> - 5.4.5-7
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-7
 - Remove cmake configs for ITK's bundled MINC library in the install step
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 5.4.5-6
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-6
 - Add AdaptiveDenoising remote module (Source2)
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 5.4.5-5
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-5
 - Bundle GenericLabelInterpolator remote module (Source1)
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 5.4.5-4
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-4
 - Disable Module_ITKGoogleTest (OFF)
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 5.4.5-3
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-3
 - Add transitive system-lib Requires to -devel
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 5.4.5-2
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-2
 - Remove zero-length stub.h placeholders
 
-* Mon Feb 23 2026 Morgan Hough <morgan@example.com> - 5.4.5-1
+* Mon Feb 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-1
 - Initial package of ITK 5.4.5
 
 * Tue Feb 03 2026 Maintainer <maintainer@example.com> - 5.4.2-1

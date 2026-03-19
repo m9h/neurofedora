@@ -129,7 +129,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/*.desktop
 %{_datadir}/icons/hicolor/128x128/apps/%{name}.png
 
 %changelog
-* Thu Feb 26 2026 Morgan Hough <morgan@example.com> - 1.2.20260104-2.gitd853f05
+* Thu Feb 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.20260104-2.gitd853f05
 - Switch debug_package suppression from global to define scope; fixes EPEL 9
   SRPM rebuild failure caused by auto-injected debuginfo stanza
 

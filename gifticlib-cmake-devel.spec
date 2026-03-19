@@ -57,7 +57,7 @@ test -f %{buildroot}%{_datadir}/cmake/GIFTI/GIFTIConfig.cmake
 - Add GIFTI namespace: find_package(GIFTI) now provides GIFTI::giftiio target
 - Required by AFNI cmake build system
 
-* Mon Feb 23 2026 Morgan Hough <morgan@example.com> - 1.0.9-1
+* Mon Feb 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.9-1
 - Initial packaging: CMake config files for gifticlib 1.0.9
 - Renamed to gifticlib-cmake-devel (devel dep on gifticlib-devel is correct)
 - Provides gifticlib::gifticlib imported target for find_package(gifticlib)

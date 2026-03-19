@@ -578,48 +578,14 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 %changelog
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-17
-- Fix python3-afni: capture all 124 pyproject-installed scripts via %%{_bindir}/*.py
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-16
-- Fix afni-devel: AFNI cmake does not install public headers (remove includedir)
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-15
-- Rebuild with all accumulated linter/user fixes
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-14
-- Fix %%files: remove bundled nifti/gifti install artifacts (conflict with system pkgs)
-- Fix %%files: add dcm2niix_afni to afni-core
-- Fix %%files: exclude @*.py from python3-afni (owned by afni-tcsh)
-- Fix %%files: move @-script and .py-script symlinks to correct subpackages
-- Fix %%files data: remove glob (no atlas files with COMP_ATLASES=OFF)
-- Fix rpmlint filter: actual names are libmodel_*/libplug_* (lib prefix)
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-13
-- Rewrite %%files: wildcard-based with %%exclude for subpackage separation
-- afni-gui and afni-suma temporarily empty (binaries in afni-core)
-
-* Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-12
-- Fix %%files: mrix not separate binary; plugins have lib prefix (libplug_*.so)
-- Fix %%check: use ls instead of test -f with glob (multi-file expansion)
-- Allow Python bytecompile errors (afnipy has Python 2 dead code)
-- Add libstdc++-static BR (dcm2niix uses -static-libstdc++)
-- Add -Wno-error=format-security (AFNI uses non-literal format strings)
-- Bundle nifticlib and gifticlib: system versions too old
-  (missing gifti_rotate_DAs_to_front, nifti_image_write_bricks_status)
-- Fix bundled gifti: add giftiio include dirs, GIFTI::giftiio alias,
-  redirect gifti's own FetchContent for nifti to local source
-- Fix SONAME patch: ensure leading newline before appending to CMakeLists.txt
-
-* Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-1
-- Complete rewrite: multi-subpackage architecture
-- Split into afni-libs, afni-core, afni-gui, afni-suma, python3-afni,
-  afni-tcsh, afni-rstats, afni-data, afni-doc, afni-devel
-- Programs in /usr/libexec/afni/ with selective /usr/bin symlinks
-- profile.d scripts for PATH and environment variables
-- Unbundle system nifticlib and gifticlib (via gifticlib-cmake-devel)
-- SONAME versioning for shared libraries
-- Bundled: f2c, XmHTML, GLw (not available as system packages)
-- GCC 15 / Fedora 43 compatibility flags
+- Multi-subpackage rewrite (afni-libs, afni-core, python3-afni, afni-tcsh,
+  afni-rstats, afni-data, afni-doc, afni-devel; afni-gui/afni-suma stubs)
+- Programs in /usr/libexec/afni/ with profile.d PATH and key /usr/bin symlinks
+- Bundle nifticlib and gifticlib (system versions too old for AFNI 26.x)
+- Bundle f2c, XmHTML, GLw (not in Fedora)
+- SONAME versioning for libmri, lib3DEdge, libeispack, libcoxplot, libtrack_tools
+- GCC 15 / Fedora 43 flags (-Wno-error=format-security, -std=gnu17)
+- libstdc++-static BR for dcm2niix static linking
 
 * Sun Feb 15 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-0
 - Initial basic spec for AFNI 26.0.08

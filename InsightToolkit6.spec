@@ -318,5 +318,5 @@ mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver6
   ldconfig scriptlets, bundled Provides, VTK transitive BuildRequires,
   debug_package suppression
 
-* Tue Feb 24 2026 Morgan Hough <morgan@example.com> - 6.0.0~b01-1
+* Tue Feb 24 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b01-1
 - Initial package for ITK 6.0 beta 1

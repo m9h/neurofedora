@@ -155,12 +155,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/open-ephys.desktop
 %{_udevrulesdir}/40-open-ephys.rules
 
 %changelog
-* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.2-1
-- Update to v1.0.2 (major upgrade from 0.6.4)
-- JUCE 8.0.7 bundled (AGPLv3), license updated
-- Install to /usr/libexec/open-ephys/ (binary finds plugins relative to exe)
-- Symlink /usr/bin/open-ephys for PATH access
-- Include built-in plugins, FPGA bitfiles, default configs
-- Add udev rules for USB acquisition hardware
-- Add desktop file and icons
-- Strip RPATHs for Fedora compliance
+* Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.2-3
+- Rewrite for v1.0.2 (was 0.6.4)
+- Bundle JUCE 8.0.7 (AGPLv3), nlohmann-json, cpp-httplib
+- Install to /usr/libexec/open-ephys/ (runtime plugin discovery needs it)
+- Add systemd-rpm-macros BR for %%{_udevrulesdir}
+- Build output in Build/Release/ not cmake build dir
