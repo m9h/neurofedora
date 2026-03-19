@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -138,6 +138,12 @@ set(ZLIB_FOUND TRUE)' CMakeLists.txt
 # from the external projects list.
 sed -i '/^get_property(MITK_EXTERNAL_PROJECTS GLOBAL PROPERTY MITK_EXTERNAL_PROJECTS)/a \
 list(REMOVE_ITEM MITK_EXTERNAL_PROJECTS ZLIB)' CMakeLists.txt
+
+# Fix ITK PhilipsREC IO factory: MITK defines ITK_IO_FACTORY_REGISTER_MANAGER
+# which triggers auto-registration of ALL IO factories including PhilipsREC.
+# But MitkCore doesn't list IOPhilipsREC in PACKAGE_DEPENDS, so the factory
+# registration symbol is unresolved. Add it to the IO modules list.
+sed -i 's|IOBioRad+IOBMP|IOBioRad+IOBMP+IOPhilipsREC|' Modules/Core/CMakeLists.txt
 
 # Fix LZ4 target name: VTK's FindLZ4 creates LZ4::LZ4 but MITK
 # expects LZ4::lz4_shared from its superbuild

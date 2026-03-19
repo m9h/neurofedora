@@ -6,7 +6,7 @@
 
 Name:           connectome-workbench
 Version:        2.1.0
-Release:        3.%{date}git%{shortcommit}%{?dist}
+Release:        4.%{date}git%{shortcommit}%{?dist}
 Summary:        HCP Visualization and Discovery Tool
 
 License:        GPL-2.0-only
@@ -22,6 +22,7 @@ BuildRequires:  qt5-qtxmlpatterns-devel
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  mesa-libGLU-devel
 BuildRequires:  glm-devel
+BuildRequires:  glib2-devel
 BuildRequires:  zlib-devel
 BuildRequires:  libxml2-devel
 BuildRequires:  git-core
