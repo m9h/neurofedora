@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -93,6 +93,12 @@ system, toolkit, visualization-toolkit).
 tar -xf %{SOURCE1} --strip-components=1 -C sdk
 tar -xf %{SOURCE2} --strip-components=1 -C designer
 tar -xf %{SOURCE3} --strip-components=1 -C extras
+
+# Remove install(CODE ... create_symlink ...) blocks — they use absolute paths
+# that bypass DESTDIR, trying to create symlinks in /usr/ instead of $DESTDIR/usr/.
+# The symlinks are redundant anyway (binaries already install to /usr/bin).
+find sdk designer extras -name CMakeLists.txt -exec \
+    sed -i '/install(CODE/,/^)/d' {} +
 
 # Fix hardcoded CMAKE_INSTALL_LIBDIR — upstream forces "lib" but Fedora needs
 # the arch-specific libdir (lib64 on x86_64)
@@ -214,6 +220,10 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-5
+- Fix install: remove create_symlink install(CODE) blocks that bypass DESTDIR
+  (they create symlinks in /usr/ instead of $DESTDIR/usr/, causing permission errors)
+
 * Mon Mar 09 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-4
 - Fix files section: add missing header subdirs (eigen, lsl, mensia, tcptagging)
 - Fix Boost.Asio: use boost::asio::connect() with resolver results (F44+)
