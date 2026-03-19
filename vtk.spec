@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -110,6 +110,7 @@ Requires:       cmake(Qt6Core)
 Requires:       cmake(Qt6Widgets)
 Requires:       cmake(Qt6OpenGL)
 Requires:       cmake(Qt6OpenGLWidgets)
+Requires:       qt6-qtdeclarative-devel
 # Transitive dependencies: VTK-vtk-module-find-packages.cmake runs
 # find_package() for every unbundled module when a downstream consumer
 # calls find_package(VTK).  All -devel packages below must be installed
@@ -314,6 +315,10 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-10
+- vtk-devel: add Requires qt6-qtdeclarative-devel (VTK cmake config
+  runs find_package(Qt6Qml) which requires Qt6Declarative headers)
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-9
 - Add missing vtk-devel Requires: zlib-devel, python3-devel
   (VTK cmake config calls find_package(ZLIB) and find_package(Python3))

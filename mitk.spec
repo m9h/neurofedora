@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -114,7 +114,6 @@ Requires:       InsightToolkit5-devel
 Requires:       vtk-devel
 Requires:       boost-devel
 Requires:       dcmtk-devel
-Requires:       eigen3-devel
 
 %description devel
 Development files, headers, and CMake config for building applications
@@ -212,6 +211,10 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-3
+- Remove incorrect eigen3-devel Requires from -devel subpackage
+  (MITK gets Eigen through ITK5 which bundles it)
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-2
 - Fix ITK PhilipsREC IO factory linkage (add IOPhilipsREC to MitkCore deps)
 
