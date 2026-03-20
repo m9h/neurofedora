@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -143,6 +143,11 @@ list(REMOVE_ITEM MITK_EXTERNAL_PROJECTS ZLIB)' CMakeLists.txt
 # But MitkCore doesn't list IOPhilipsREC in PACKAGE_DEPENDS, so the factory
 # registration symbol is unresolved. Add it to the IO modules list.
 sed -i 's|IOBioRad+IOBMP|IOBioRad+IOBMP+IOPhilipsREC|' Modules/Core/CMakeLists.txt
+
+# Fix cpp-httplib API break: Fedora ships 0.30+ which renamed
+# MultipartFormDataItems → UploadFormDataItems (same struct, just renamed)
+sed -i 's/httplib::MultipartFormDataItems/httplib::UploadFormDataItems/g' \
+    Modules/Segmentation/Interactions/mitkMonaiLabelTool.cpp
 
 # Fix LZ4 target name: VTK's FindLZ4 creates LZ4::LZ4 but MITK
 # expects LZ4::lz4_shared from its superbuild
