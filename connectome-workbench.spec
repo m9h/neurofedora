@@ -6,7 +6,7 @@
 
 Name:           connectome-workbench
 Version:        2.1.0
-Release:        5.%{date}git%{shortcommit}%{?dist}
+Release:        7.%{date}git%{shortcommit}%{?dist}
 Summary:        HCP Visualization and Discovery Tool
 
 License:        GPL-2.0-only
@@ -48,8 +48,7 @@ sed -i '/#include <memory>/a #include <cstdint>' src/Common/CaretRgb.h
 # FIX 2: Fix Qt5 header include
 sed -i 's/#include <QtEnvironmentVariables>/#include <QtCore>/g' src/Common/WorkbenchInstallationAssistant.cxx
 
-# FIX 3 removed: CMAKE_AUTOMOC=ON handles MOC generation for all Q_OBJECT
-# classes including CaretFileDialogPrivate and CaretFileDialogExtendable
+# MOC handled by CMAKE_AUTOMOC=ON
 
 %build
 cd src
