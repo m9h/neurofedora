@@ -5,7 +5,7 @@
 
 Name:           freesurfer
 Version:        8.2.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (CLI tools)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -39,20 +39,23 @@ BuildRequires:  libXi-devel
 BuildRequires:  vtk-devel
 BuildRequires:  InsightToolkit5-devel
 BuildRequires:  xxd
+# Unbundled system packages
+BuildRequires:  gifticlib-devel
+BuildRequires:  tetgen-devel
 
-# Bundled libraries — these have FreeSurfer-specific modifications or are not
-# separately packaged in Fedora. Unbundle as Fedora packages become available.
+# Bundled libraries — FreeSurfer-specific modifications or no system equivalent
+# minc: custom volume_io wrapper, not compatible with system libminc
+# netcdf: tightly coupled with bundled minc
+# nrrdio: standalone NrrdIO subset, different API from teem's nrrd.h
+# nifti: bundled version has znzeof() not in system nifticlib 3.0.1
 Provides:       bundled(minc)
 Provides:       bundled(netcdf)
+Provides:       bundled(nrrdio)
 Provides:       bundled(nifti)
-Provides:       bundled(gifti)
 Provides:       bundled(dicom)
 Provides:       bundled(dcm2niix)
 Provides:       bundled(cephes)
-Provides:       bundled(tetgen)
-Provides:       bundled(nrrdio)
 Provides:       bundled(svm-light)
-Provides:       bundled(glut)
 
 %description
 FreeSurfer is an open source software suite for processing and analyzing
@@ -78,8 +81,43 @@ sed -i 's/LST_Sort(LST_HEAD \*\* list, size_t nodeSize, int (\*compare) ())/LST_
 sed -i 's/add_compile_options(-w -fPIC)/add_compile_options(-w -fPIC -std=gnu89)/' \
     packages/CMakeLists.txt
 
-# Remove bundled glut from build — we use system freeglut via GLUT_SYSLIBS=ON
-sed -i '/^  glut$/d' packages/CMakeLists.txt
+# Remove unbundled packages from the bundled build list
+# Unbundle: glut (system freeglut), gifti (system gifticlib), tetgen (system tetgen)
+sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
+
+# System gifticlib lacks extern "C" guards needed for C++ compilation.
+# Create wrapper headers in the include/ dir (already in the include path).
+cat > include/gifti_io.h << 'GIFTIEOF'
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include </usr/include/gifti/gifti_io.h>
+#ifdef __cplusplus
+}
+#endif
+GIFTIEOF
+cat > include/gifti_xml.h << 'GIFTIEOF'
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include </usr/include/gifti/gifti_xml.h>
+#ifdef __cplusplus
+}
+#endif
+GIFTIEOF
+# Remove the gifti include path override — wrappers in include/ handle it
+sed -i '\|/packages/gifti|d' utils/CMakeLists.txt
+
+# Replace bundled gifti library target with system library name in utils link
+sed -i '/target_link_libraries(utils/,/)/{
+  s/\bgifti\b/giftiio/
+}' utils/CMakeLists.txt
+
+# Fix tetgen references everywhere: system lib is libtet.so, header at /usr/include/tetgen.h
+find . -name CMakeLists.txt -not -path './packages/*' -exec \
+    sed -i 's|${CMAKE_SOURCE_DIR}/packages/tetgen|/usr/include|g' {} +
+find . -name CMakeLists.txt -not -path './packages/*' -exec \
+    sed -i '/target_link_libraries/s/\btetgen\b/tet/g' {} +
 
 # vtkutils uses legacy VTK_INCLUDE_DIRS which is empty in VTK 9.5+.
 # Use modern VTK cmake targets instead.
@@ -161,6 +199,11 @@ find %{__cmake_builddir} -name cmake_install.cmake \
 %{_prefix}/lib/freesurfer/
 
 %changelog
+* Sat Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-2
+- Unbundle nifti (use system nifticlib), gifti (use system gifticlib),
+  tetgen (use system tetgen-devel)
+- Keep minc/netcdf/nrrdio bundled: FreeSurfer's versions are custom forks
+
 * Wed Mar 25 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-1
 - Initial Fedora package of FreeSurfer 8.2.0 CLI tools
 - MINIMAL build: core recon-all stream programs only, no GUI tools
