@@ -1,0 +1,68 @@
+--- cmake/functions.cmake.orig	2026-03-25 13:29:36.318391346 -0700
++++ cmake/functions.cmake	2026-03-25 13:29:51.526280383 -0700
+@@ -37,6 +37,8 @@
+          set(HOST_OS Ubuntu22)
+       elseif(OS_IDENT MATCHES "Ubuntu 24")
+          set(HOST_OS Ubuntu24)
++      elseif(OS_IDENT MATCHES "Fedora")
++         set(HOST_OS Fedora)
+       endif()
+       execute_process(COMMAND gcc \-dumpversion OUTPUT_VARIABLE GCC_VERSION)
+       string(STRIP ${GCC_VERSION} GCC_VERSION)
+--- CMakeLists.txt.orig	2026-03-25 13:29:36.319218972 -0700
++++ CMakeLists.txt	2026-03-25 13:32:38.474529468 -0700
+@@ -310,6 +310,13 @@
+    set(QT_SYSLIBS ON)
+    set(GLUT_SYSLIBS ON)
+    set(DISABLE_LINEPROF ON)
++elseif(HOST_OS MATCHES "Fedora")
++   set(ITK_SYSLIBS ON)
++   set(VTK_SYSLIBS ON)
++   set(QT_SYSLIBS ON)
++   set(GLUT_SYSLIBS ON)
++   set(DISABLE_LINEPROF ON)
++   set(CMAKE_CXX_STANDARD 17)
+ elseif(HOST_OS MATCHES "Rocky9")
+    set(QT_SYSLIBS ON)
+    set(VTK_SYSLIBS ON)
+@@ -332,12 +339,18 @@
+ 
+ # -------- gfortran/blas/lapack --------
+ if(NOT APPLE)
+-  if(HOST_OS MATCHES "CentOS9stream" OR HOST_OS MATCHES "CentOS9" OR HOST_OS MATCHES "Rocky9" OR HOST_OS MATCHES "CentOS8stream" OR HOST_OS MATCHES "CentOS8" OR HOST_OS MATCHES "Rocky8")
++  if(HOST_OS MATCHES "CentOS9stream" OR HOST_OS MATCHES "CentOS9" OR HOST_OS MATCHES "Rocky9" OR HOST_OS MATCHES "CentOS8stream" OR HOST_OS MATCHES "CentOS8" OR HOST_OS MATCHES "Rocky8" OR HOST_OS MATCHES "Fedora")
+      set(STATIC_QUADMATH OFF)
+      set(NO_STATIC_GFORTRAN ON)
+   endif()
+ 
+-  if(HOST_OS MATCHES "Ubuntu20" OR HOST_OS MATCHES "Ubuntu22" OR HOST_OS MATCHES "Ubuntu24")
++  if(HOST_OS MATCHES "Fedora")
++     set(CMAKE_CXX_STANDARD 17)
++     find_library(GFORTRAN_LIBRARIES HINTS /usr/lib64 /usr/lib /usr/lib/gcc/*/*/ NAMES libgfortran.a gfortran)
++     find_library(QUADMATH_LIBRARIES HINTS /usr/lib64 /usr/lib /usr/lib/gcc/*/*/ NAMES libquadmath.a libquadmath.so libquadmath.so.0)
++     find_library(BLAS_LIBRARIES NAMES libblas.so.3)
++     find_library(LAPACK_LIBRARIES NAMES liblapack.so.3)
++  elseif(HOST_OS MATCHES "Ubuntu20" OR HOST_OS MATCHES "Ubuntu22" OR HOST_OS MATCHES "Ubuntu24")
+      if((HOST_OS MATCHES "Ubuntu22" OR HOST_OS MATCHES "Ubuntu24") AND (HOST_OS_GCC_VERSION MATCHES "11" OR HOST_OS_GCC_VERSION MATCHES "13"))
+         set(CMAKE_CXX_STANDARD 17)
+         ## while does not compile...
+@@ -628,6 +641,10 @@
+    if(VTK_SYSLIBS)
+       find_package(VTK HINTS ${VTK_DIR} COMPONENTS CommonColor CommonComputationalGeometry CommonCore CommonDataModel CommonMath CommonSystem CommonTransforms FiltersCore FiltersExtraction FiltersGeneral FiltersGeometry FiltersHybrid FiltersModeling FiltersPoints FiltersSources GUISupportQt InteractionStyle ImagingCore ImagingGeneral ImagingMath ImagingMorphological ImagingOpenGL2 ImagingStencil InteractionStyle IOExport IOGeometry IOImage IOLegacy IOXML RenderingAnnotation RenderingContext2D RenderingContextOpenGL2 RenderingCore RenderingFreeType RenderingUI RenderingImage RenderingGL2PSOpenGL2 RenderingOpenGL2 RenderingLOD RenderingTk RenderingQt RenderingUI RenderingVolume RenderingVolumeOpenGL2)
+    endif()
++elseif(HOST_OS MATCHES "Fedora")
++   if(VTK_SYSLIBS)
++      find_package(VTK HINTS ${VTK_DIR} COMPONENTS CommonColor CommonComputationalGeometry CommonCore CommonDataModel CommonMath CommonSystem CommonTransforms FiltersCore FiltersExtraction FiltersGeneral FiltersGeometry FiltersHybrid FiltersModeling FiltersPoints FiltersSources InteractionStyle ImagingCore ImagingGeneral ImagingMath ImagingMorphological ImagingOpenGL2 ImagingStencil IOExport IOGeometry IOImage IOLegacy IOXML RenderingAnnotation RenderingContext2D RenderingContextOpenGL2 RenderingCore RenderingFreeType RenderingUI RenderingImage RenderingGL2PSOpenGL2 RenderingOpenGL2 RenderingLOD RenderingUI RenderingVolume RenderingVolumeOpenGL2)
++   endif()
+ else()
+    find_package(VTK HINTS ${VTK_DIR})
+ endif()
+@@ -681,6 +698,8 @@
+       else()
+          set(ITK_DIR /usr/lib/x86_64-linux-gnu/cmake CACHE PATH "ITK install directory")
+       endif()
++   elseif(HOST_OS MATCHES "Fedora")
++      set(ITK_DIR /usr/lib64/cmake/ITK-5.4 CACHE PATH "ITK install directory")
+    elseif(HOST_OS MATCHES "Rocky9")
+       set(ITK_DIR ${FS_PACKAGES_DIR}/itk/5.4rc01_rocky9/lib/cmake CACHE PATH "ITK install directory")
+    elseif(HOST_OS MATCHES "CentOS9stream" OR HOST_OS MATCHES "CentOS9")
