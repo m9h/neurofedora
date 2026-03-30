@@ -5,7 +5,7 @@
 
 Name:           freesurfer
 Version:        8.2.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (CLI tools)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -42,12 +42,15 @@ BuildRequires:  xxd
 # Unbundled system packages
 BuildRequires:  gifticlib-devel
 BuildRequires:  tetgen-devel
+BuildRequires:  libxml2-devel
 
 # Bundled libraries — FreeSurfer-specific modifications or no system equivalent
 # minc: custom volume_io wrapper, not compatible with system libminc
 # netcdf: tightly coupled with bundled minc
 # nrrdio: standalone NrrdIO subset, different API from teem's nrrd.h
 # nifti: bundled version has znzeof() not in system nifticlib 3.0.1
+# jpeg: imageio.cpp uses internal jinclude.h not in system libjpeg-turbo
+Provides:       bundled(jpeg)
 Provides:       bundled(minc)
 Provides:       bundled(netcdf)
 Provides:       bundled(nrrdio)
@@ -82,8 +85,27 @@ sed -i 's/add_compile_options(-w -fPIC)/add_compile_options(-w -fPIC -std=gnu89)
     packages/CMakeLists.txt
 
 # Remove unbundled packages from the bundled build list
-# Unbundle: glut (system freeglut), gifti (system gifticlib), tetgen (system tetgen)
 sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
+# jpeg stays bundled — imageio.cpp uses internal jinclude.h not in system libjpeg
+sed -i '/^  xml2$/d;/^  expat$/d' packages/CMakeLists.txt
+
+# Replace bundled xml2 include path with system path in utils/CMakeLists.txt
+sed -i 's|${CMAKE_SOURCE_DIR}/packages/xml2|/usr/include/libxml2|' utils/CMakeLists.txt
+
+# Replace bundled library targets with system library names in utils link
+sed -i '/target_link_libraries(utils/,/)/{
+  s/\bexpat\b/-lexpat/
+}' utils/CMakeLists.txt
+# xml2 target links in fsPrintHelp too
+find . -name CMakeLists.txt -not -path './packages/*' -exec \
+    sed -i '/target_link_libraries/s/\bxml2\b/-lxml2/g' {} +
+
+# GCC 15 + system libxml2: fsPrintHelp.cpp needs explicit cstdlib (was transitively included by bundled xml2)
+sed -i '1i #include <cstdlib>' utils/fsPrintHelp.cpp
+
+# ARM/aarch64: guard SSE intrinsics in affine.h — define ARM64 on non-x86
+sed -i 's|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64)|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64) \&\& defined(__x86_64__)|' \
+    include/affine.h
 
 # System gifticlib lacks extern "C" guards needed for C++ compilation.
 # Create wrapper headers in the include/ dir (already in the include path).
@@ -199,6 +221,11 @@ find %{__cmake_builddir} -name cmake_install.cmake \
 %{_prefix}/lib/freesurfer/
 
 %changelog
+* Sat Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-3
+- Unbundle xml2 (system libxml2), expat (system expat)
+- Keep jpeg bundled: imageio.cpp uses internal jinclude.h
+- Add aarch64 support: guard SSE intrinsics in affine.h with __x86_64__
+
 * Sat Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-2
 - Unbundle nifti (use system nifticlib), gifti (use system gifticlib),
   tetgen (use system tetgen-devel)
