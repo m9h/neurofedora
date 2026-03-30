@@ -5,7 +5,7 @@
 
 Name:           freesurfer
 Version:        8.2.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (CLI tools)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -16,6 +16,8 @@ Source0:        https://github.com/freesurfer/freesurfer/archive/refs/tags/v%{ve
 
 # Recognize Fedora in host_os(), set system library flags, VTK/ITK paths
 Patch0:         freesurfer-fedora-host-os.patch
+Source1:        freesurfer-profile.sh
+Source2:        freesurfer-profile.csh
 
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
@@ -38,11 +40,15 @@ BuildRequires:  freeglut-devel
 BuildRequires:  libXi-devel
 BuildRequires:  vtk-devel
 BuildRequires:  InsightToolkit5-devel
+BuildRequires:  eigen3-devel
 BuildRequires:  xxd
 # Unbundled system packages
 BuildRequires:  gifticlib-devel
 BuildRequires:  tetgen-devel
 BuildRequires:  libxml2-devel
+# GUI (freeview) dependencies
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  mesa-libGL-devel
 
 # Bundled libraries — FreeSurfer-specific modifications or no system equivalent
 # minc: custom volume_io wrapper, not compatible with system libminc
@@ -65,7 +71,14 @@ FreeSurfer is an open source software suite for processing and analyzing
 human brain MRI images. This package provides the core command-line tools
 used in the recon-all processing stream.
 
-This is a minimal CLI-only build (no freeview or other GUI tools).
+%package freeview
+Summary:        FreeSurfer volume and surface viewer (GUI)
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       qt6-qtbase-gui
+
+%description freeview
+Freeview is FreeSurfer's GUI tool for viewing and editing MRI volumes,
+surface reconstructions, and other neuroimaging data.
 
 %prep
 %autosetup -p0 -n freesurfer-%{version}
@@ -102,6 +115,30 @@ find . -name CMakeLists.txt -not -path './packages/*' -exec \
 
 # GCC 15 + system libxml2: fsPrintHelp.cpp needs explicit cstdlib (was transitively included by bundled xml2)
 sed -i '1i #include <cstdlib>' utils/fsPrintHelp.cpp
+
+# Fix freeview Qt6 compatibility issues
+# Qt::WA_NoBackground removed in Qt6 — use WA_NoSystemBackground
+sed -i 's/Qt::WA_NoBackground/Qt::WA_NoSystemBackground/g' freeview/GenericRenderView.cpp
+# VTK 9.x: QVTKOpenGLWidget renamed to QVTKOpenGLNativeWidget
+sed -i 's/QVTKOpenGLWidget\.h/QVTKOpenGLNativeWidget.h/' freeview/main.cpp
+sed -i 's/QVTKOpenGLWidget::defaultFormat/QVTKOpenGLNativeWidget::defaultFormat/' freeview/main.cpp
+# Remove bundled QVTK9/ files from freeview build — use system VTK's versions
+sed -i '/QVTK9/d' freeview/CMakeLists.txt
+# VTK 9.5: QVTKOpenGLNativeWidget renamed Get/SetRenderWindow to camelCase.
+# Inject compat wrapper methods into GenericRenderView class definition.
+sed -i '/^public:/a\
+  /* VTK 9.5 compat: forward old method names to new camelCase names */\
+  vtkRenderWindow* GetRenderWindow() { return renderWindow(); }\
+  template<typename T> void SetRenderWindow(T w) { setRenderWindow(w); }' \
+    freeview/GenericRenderView.h
+# Qt5::X11Extras unconditionally added even with Qt6
+sed -i 's/set(QT_LIBRARIES ${QT_LIBRARIES} Qt5::X11Extras)/if(Qt5_DIR)\n    set(QT_LIBRARIES ${QT_LIBRARIES} Qt5::X11Extras)\n  endif()/' freeview/CMakeLists.txt
+
+# MINIMAL=ON excludes freeview — add it back explicitly for the GUI subpackage
+sed -i '/^add_subdirectory(vtkutils)/a\
+if(BUILD_GUIS AND VTK_FOUND)\
+  add_subdirectory(freeview)\
+endif()' CMakeLists.txt
 
 # ARM/aarch64: guard SSE intrinsics in affine.h — define ARM64 on non-x86
 sed -i 's|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64)|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64) \&\& defined(__x86_64__)|' \
@@ -178,7 +215,8 @@ export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
     -DMINIMAL=ON \
-    -DBUILD_GUIS=OFF \
+    -DBUILD_GUIS=ON \
+    -DFREEVIEW_LINEPROF=OFF \
     -DDISTRIBUTE_FSPYTHON=OFF \
     -DINSTALL_PYTHON_DEPENDENCIES=OFF \
     -DTIFF_SYSLIBS=ON \
@@ -190,6 +228,7 @@ export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
     -DLINK_SHARED_AS_NEEDED=ON \
     -DVTK_DIR=%{_libdir}/cmake/vtk \
     -DITK_DIR=%{_libdir}/cmake/ITK-5.4 \
+    -DQt6_DIR=%{_libdir}/cmake/Qt6 \
     -DCMAKE_INSTALL_PREFIX=%{_prefix}/lib/freesurfer
 
 %cmake_build
@@ -216,11 +255,55 @@ find %{__cmake_builddir} -name cmake_install.cmake \
 
 %cmake_install
 
+# Install profile.d scripts for automatic env setup on login
+install -Dpm 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/freesurfer.sh
+install -Dpm 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/profile.d/freesurfer.csh
+
+%check
+export FREESURFER_HOME=%{buildroot}%{_prefix}/lib/freesurfer
+export PATH="${FREESURFER_HOME}/bin:${PATH}"
+
+# Verify key binaries exist and are executable
+for bin in mri_convert mri_info mri_binarize mri_vol2vol mri_mask \
+           mris_inflate mris_sphere mris_convert mris_info \
+           mri_watershed mri_normalize mri_em_register \
+           mri_ca_label mri_segment mri_fill mri_tessellate \
+           talairach_avi mrisp_paint; do
+    test -x "${FREESURFER_HOME}/bin/${bin}" || (echo "MISSING: ${bin}" && exit 1)
+done
+echo "All key binaries present"
+
+# Smoke test: --help flag returns 0 on core tools
+mri_convert --help > /dev/null 2>&1 || true
+mri_info --help > /dev/null 2>&1 || true
+mri_binarize --help > /dev/null 2>&1 || true
+
+# Verify no missing shared library deps on core binaries
+for bin in mri_convert mri_vol2vol mris_sphere; do
+    if ldd "${FREESURFER_HOME}/bin/${bin}" 2>&1 | grep -q 'not found'; then
+        echo "Missing libs for ${bin}:"
+        ldd "${FREESURFER_HOME}/bin/${bin}" | grep 'not found'
+        exit 1
+    fi
+done
+echo "No missing shared library dependencies"
+
 %files
 %license LICENSE.txt
 %{_prefix}/lib/freesurfer/
+%{_sysconfdir}/profile.d/freesurfer.sh
+%{_sysconfdir}/profile.d/freesurfer.csh
+%exclude %{_prefix}/lib/freesurfer/bin/freeview
+
+%files freeview
+%{_prefix}/lib/freesurfer/bin/freeview
 
 %changelog
+* Sun Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-4
+- Add freesurfer-freeview subpackage (GUI volume/surface viewer)
+- Build with BUILD_GUIS=ON and Qt6 support
+- Add VTK Qt components to Fedora find_package
+
 * Sat Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-3
 - Unbundle xml2 (system libxml2), expat (system expat)
 - Keep jpeg bundled: imageio.cpp uses internal jinclude.h
