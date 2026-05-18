@@ -1,9 +1,9 @@
-%global commit ed32a1b
+%global commit ef34ca9
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           elastix
-Version:        5.3.0
-Release:        2%{?dist}
+Version:        5.3.1
+Release:        4%{?dist}
 Summary:        A toolbox for rigid and nonrigid registration of images
 
 License:        Apache-2.0
@@ -12,7 +12,7 @@ Source0:        https://github.com/SuperElastix/elastix/archive/%{commit}/%{name
 
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
-BuildRequires:  InsightToolkit5-devel >= 5.4
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
 BuildRequires:  eigen3-devel
 BuildRequires:  hdf5-devel
 %if 0%{?fedora}
@@ -60,18 +60,21 @@ rm -rf %{buildroot}%{_libdir}/cmake
 rm -rf %{buildroot}/usr/lib/cmake
 rm -f %{buildroot}%{_libdir}/*.a
 rm -f %{buildroot}/usr/lib/*.a
-# Remove unversioned symlinks (devel files)
-rm -f %{buildroot}%{_libdir}/libelxANNlib.so
-rm -f %{buildroot}/usr/lib/libelxANNlib.so
-
 %files
 %license LICENSE
 %doc README.md
 %{_bindir}/elastix
 %{_bindir}/transformix
-%{_libdir}/libelxANNlib.so.*
+%{_libdir}/libelx-ANNlib.so
 
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.3.1-4
+- Rebuild against InsightToolkit5 5.4.6 (GDCM CVE-2026-3650, F44 target)
+- Bump BuildRequires: InsightToolkit5-devel >= 5.4.6
+
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.3.1-1
+- Update to 5.3.1
+
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 5.3.0-2
 - Make libminc-devel BuildRequires conditional on Fedora (not available on EPEL 9;
   elastix gets MINC support transitively through ITK which is also built without MINC on EPEL)

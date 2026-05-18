@@ -1,5 +1,5 @@
 Name:           liblsl
-Version:        1.16.2
+Version:        1.17.7
 Release:        1%{?dist}
 Summary:        Lab Streaming Layer (LSL) library
 
@@ -62,5 +62,8 @@ chrpath --delete %{buildroot}%{_bindir}/lslver
 %{_libdir}/cmake/LSL/
 
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.7-1
+- Update to liblsl 1.17.7 (upstream 2026-04-22)
+
 * Wed Jan 07 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.2-1
 - Initial RPM build for Fedora using standard macros

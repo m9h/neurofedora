@@ -1,10 +1,10 @@
 Name:           brainflow
-Version:        5.19.0
+Version:        5.22.1
 Release:        1%{?dist}
 Summary:        Biosensor Library (EEG, EMG, ECG)
 License:        MIT
 URL:            https://brainflow.org
-Source0:        https://github.com/brainflow-dev/brainflow/archive/refs/tags/5.19.0.tar.gz
+Source0:        https://github.com/brainflow-dev/brainflow/archive/refs/tags/%{version}.tar.gz
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
@@ -105,6 +105,12 @@ find cpp_package -name "*.h" -exec cp {} %{buildroot}%{_includedir}/brainflow/ \
 %endif
 
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.22.1-1
+- Update to BrainFlow 5.22.1 (upstream 2026-05-18)
+
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.21.0-1
+- Update to 5.21.0
+
 * Wed Jan 07 2026 Your Name <your.email@example.com> - 5.19.0-1
 - Initial package for Fedora
 - Enforced SONAME versioning (SOVERSION 5)
