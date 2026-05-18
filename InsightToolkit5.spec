@@ -5,8 +5,8 @@
 %define debug_package %{nil}
 
 Name:           InsightToolkit5
-Version:        5.4.5
-Release:        15%{?dist}
+Version:        5.4.6
+Release:        1%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -297,6 +297,13 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-1
+- Update to ITK 5.4.6 (upstream release 2026-05-01)
+- Backport of GDCM CVE-2026-3650 fix and a GDCM upstream sync
+- Stability fixes: VoronoiDiagram2DGenerator infinite loop, IPLCommonImageIO
+  null-check hardening, integer-only Bresenham line construction
+- Remote module commits unchanged from 5.4.5 (verified against 5.4.6 tags)
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.5-15
 - Add doc and examples subpackages (matches Fedora ITK4 package structure)
 
