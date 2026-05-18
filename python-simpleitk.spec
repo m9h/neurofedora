@@ -4,13 +4,22 @@
 %global sitk_minor 5
 
 Name:           python-simpleitk
-Version:        2.5.3
-Release:        2%{?dist}
+Version:        2.5.5
+Release:        1%{?dist}
 Summary:        Simplified interface to the Insight Toolkit (ITK) for image analysis
 
 License:        Apache-2.0
 URL:            https://simpleitk.org/
 Source0:        https://github.com/SimpleITK/SimpleITK/archive/refs/tags/v%{version}/SimpleITK-%{version}.tar.gz
+# Pre-fetched ExternalData blobs required by the R wrapping at build time.
+# CMake's ExternalData module otherwise downloads these from
+# https://simpleitk.s3.amazonaws.com/public/SHA512/<hash> during %%build,
+# which violates Fedora's no-network policy. Contains the 3 sha512-addressed
+# blobs referenced by Wrapping/R/Packaging/SimpleITK/{inst/extdata,man}:
+# two sample images and the man-page tarball. Built locally with:
+#   .ExternalData/SHA512/<hash> layout (matches sitkExternalData.cmake which
+#   appends ${SimpleITK_SOURCE_DIR}/.ExternalData to ExternalData_OBJECT_STORES).
+Source1:        SimpleITK-%{version}-R-ExternalData.tar.gz
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -21,12 +30,15 @@ BuildRequires:  ninja-build
 BuildRequires:  swig >= 4.0
 # Lua interpreter required for filter source code generation (not wrapping)
 BuildRequires:  lua
-BuildRequires:  InsightToolkit5-devel >= 5.4.5-14
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
 # ITK VtkGlue is needed for image display support
-BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.5-14
+BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.6
 # Python bindings
 BuildRequires:  python3-devel
 BuildRequires:  python3-numpy
+# R bindings (Fedora 44 ships R 4.6.0; SimpleITK 2.5.5 fixes R 4.6.0 API breaks)
+BuildRequires:  R-core-devel
+BuildRequires:  R-core
 # ITK transitive cmake deps
 BuildRequires:  fftw-devel
 BuildRequires:  expat-devel
@@ -116,8 +128,25 @@ Requires:       python3-numpy
 
 This package contains the Python 3 bindings for SimpleITK.
 
+%package -n R-SimpleITK
+Summary:        R bindings for SimpleITK
+Requires:       simpleitk%{?_isa} = %{version}-%{release}
+Requires:       R-core
+
+%description -n R-SimpleITK
+%{_description}
+
+This package contains the R bindings for SimpleITK, providing access
+to SimpleITK's image analysis filters from the R statistical
+environment.
+
 %prep
 %autosetup -n SimpleITK-%{version}
+
+# Unpack pre-fetched ExternalData blobs for the R wrapping. Placed at the
+# source root, sitkExternalData.cmake auto-detects ${SOURCE_DIR}/.ExternalData
+# and adds it to ExternalData_OBJECT_STORES — no network access required.
+tar -xzf %{SOURCE1} -C .
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
@@ -141,11 +170,11 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
     -DWRAP_DEFAULT=OFF \
     -DWRAP_PYTHON=ON \
     -DSimpleITK_PYTHON_USE_LIMITED_API=OFF \
+    -DWRAP_R=ON \
     -DWRAP_LUA=OFF \
     -DWRAP_JAVA=OFF \
     -DWRAP_CSHARP=OFF \
     -DWRAP_TCL=OFF \
-    -DWRAP_R=OFF \
     -DWRAP_RUBY=OFF
 
 %cmake_build
@@ -177,6 +206,17 @@ done
 install -m 0644 ${sitk_builddir}/Wrapping/Python/SimpleITK/_version.py \
     %{buildroot}%{python3_sitearch}/SimpleITK/
 
+# Install R bindings into Fedora's R library path.
+# SimpleITK's R cmake target builds the R package into
+# ${builddir}/Wrapping/R/R_libs/SimpleITK/ via `R CMD INSTALL --library=...`.
+# Relocate that tree into the system R library so it is discoverable as
+# library(SimpleITK).
+install -d %{buildroot}%{_libdir}/R/library
+if [ -d ${sitk_builddir}/Wrapping/R/R_libs/SimpleITK ]; then
+    cp -a ${sitk_builddir}/Wrapping/R/R_libs/SimpleITK \
+        %{buildroot}%{_libdir}/R/library/
+fi
+
 # Remove bundled docs installed by cmake (we use %doc/%license)
 rm -rf %{buildroot}%{_datadir}/doc/SimpleITK-%{sitk_major}.%{sitk_minor}
 
@@ -197,7 +237,19 @@ rm -rf %{buildroot}%{_datadir}/doc/SimpleITK-%{sitk_major}.%{sitk_minor}
 # Python package with SWIG extension, wrapper, and supporting files
 %{python3_sitearch}/SimpleITK/
 
+%files -n R-SimpleITK
+%{_libdir}/R/library/SimpleITK/
+
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-1
+- Update to SimpleITK 2.5.5 (upstream 2026-05-13)
+- Enable WRAP_R=ON: SimpleITK 2.5.5 includes the R 4.6.0 API-removal fixes
+  (PR #2585 R CLOENV, PR #2587 SWIG superbuild patch) needed against
+  Fedora 44's R 4.6.0
+- Add R-SimpleITK subpackage with R bindings installed under
+  %%{_libdir}/R/library/SimpleITK
+- Require InsightToolkit5 5.4.6 (upstream 2026-05-01, GDCM CVE-2026-3650)
+
 * Sun Mar 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.3-2
 - Add lua BuildRequires: needed for filter source code generation
 
