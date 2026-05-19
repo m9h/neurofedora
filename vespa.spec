@@ -40,6 +40,14 @@ BuildRequires:  python3-devel
 BuildRequires:  cmake(Qt6)
 BuildRequires:  cmake(Qt6Svg)
 BuildRequires:  qt6-qtbase-devel
+# More ParaView 6.x transitive find_package deps — each appears at
+# configure time when paraview-config.cmake loads its module manifest.
+BuildRequires:  protobuf-devel
+BuildRequires:  protobuf-compiler
+BuildRequires:  boost-devel
+BuildRequires:  python3-numpy
+BuildRequires:  hdf5-devel
+BuildRequires:  libxml2-devel
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
