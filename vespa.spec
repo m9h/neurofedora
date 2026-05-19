@@ -49,6 +49,13 @@ BuildRequires:  python3-numpy
 BuildRequires:  hdf5-devel
 BuildRequires:  libxml2-devel
 BuildRequires:  metis-devel
+# F44 paper-cut: lapack-devel's cmake config references /usr/lib64/libblas.a
+# and /usr/lib64/liblapack.a (static archives) which only live in
+# blas-static / lapack-static. Without these, find_package(LAPACK) succeeds
+# but imported-target resolution fails. Affects any consumer pulling
+# lapack via CGAL (vespa) or VTK's accelerated linear algebra options.
+BuildRequires:  blas-static
+BuildRequires:  lapack-static
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
