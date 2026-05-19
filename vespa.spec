@@ -48,6 +48,7 @@ BuildRequires:  boost-devel
 BuildRequires:  python3-numpy
 BuildRequires:  hdf5-devel
 BuildRequires:  libxml2-devel
+BuildRequires:  metis-devel
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
@@ -123,7 +124,14 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_TESTING=OFF \
     -DVESPA_BUILD_PV_PLUGIN=ON \
-    -DBUILD_PYTHON_WRAPPERS=ON
+    -DBUILD_PYTHON_WRAPPERS=ON \
+    `# F44 Eigen3 5.0.1 + VTK 9.5.2 incompatibility: VTK ships its own` \
+    `# FindEigen3.cmake module that greps for the legacy EIGEN_*_VERSION` \
+    `# macros which Eigen 5.x removed. The module-mode lookup reports` \
+    `# version "..", which fails every >= 3.x check. Eigen3 ships a` \
+    `# correct Eigen3Config.cmake at /usr/share/cmake/eigen3/.` \
+    `# Force config-mode globally so cmake bypasses VTK's broken shim.` \
+    -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
 
 %cmake_build
 
