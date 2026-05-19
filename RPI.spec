@@ -2,7 +2,7 @@
 
 Name:           RPI
 Version:        4.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Registration Programming Interface (INRIA)
 
 License:        BSD-3-Clause
@@ -12,10 +12,13 @@ Source0:        https://github.com/medInria/RPI/archive/refs/tags/v%{version}/RP
 BuildRequires:  cmake >= 3.24
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
-BuildRequires:  InsightToolkit5-devel >= 5.4.5
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
 BuildRequires:  hdf5-devel
-# ITK 5.4.5-10 VtkGlue pulls in VTK cmake config which demands these at configure time
-BuildRequires:  vtk-devel < 9.3
+# RPI itself doesn't use VTK (grep confirms 0 vtk* type references). The
+# transitive vtk-devel BR is for ITK's VtkGlue cmake-config which
+# find_package(VTK) at configure time. F44 ships VTK 9.5.x in system
+# and our COPR ships 9.5.2 — both satisfy this transitive need.
+BuildRequires:  vtk-devel
 BuildRequires:  python3-devel
 BuildRequires:  java-devel
 
@@ -88,6 +91,12 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %{_libdir}/cmake/common/
 
 %changelog
+* Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0-3
+- Drop vtk-devel < 9.3 BR (was defensive for the medInria chain's Qt5
+  pin; RPI itself has zero VTK API usage — grep confirmed). F44 system
+  VTK 9.5.x satisfies the ITK-VtkGlue transitive find_package needs.
+- Bump InsightToolkit5-devel requirement to 5.4.6
+
 * Tue Mar 03 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0-2
 - Fix itkTypeMacro wrong class name in itkStationaryVelocityFieldTransform.h
 

@@ -2,7 +2,7 @@
 
 Name:           TTK
 Version:        4.0.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Tensor ToolKit for diffusion MRI (INRIA)
 
 License:        BSD-2-Clause
@@ -12,10 +12,15 @@ Source0:        https://github.com/medInria/TTK/archive/refs/tags/v%{version}/TT
 BuildRequires:  cmake >= 3.24
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
-BuildRequires:  InsightToolkit5-devel >= 5.4.5-10
-# Pin to system VTK 9.2.6 (Qt5); COPR VTK 9.5.2 is Qt6-only
-BuildRequires:  vtk-devel < 9.3
-# java-devel needed because VTK 9.2.6 cmake targets reference JVM include paths
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
+# TTK uses VTK's stable PolyData/Points/CellArray/SmartPointer/IdType
+# surface; that API hasn't changed 9.2 -> 9.5+. The historical
+# `vtk-devel < 9.3` pin was for medInria-chain Qt5 coexistence on F43,
+# which F44 no longer requires.
+BuildRequires:  vtk-devel
+# java-devel was needed because old VTK 9.2.6 cmake targets referenced
+# JVM include paths transitively; with newer VTK it's not required, but
+# keeping it cheap-as-insurance.
 BuildRequires:  java-devel
 
 %description
@@ -158,6 +163,14 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %{_libdir}/cmake/ttkUtilCommands/
 
 %changelog
+* Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-4
+- Drop vtk-devel < 9.3 BR for F44 — TTK's VTK API surface
+  (PolyData/Points/CellArray/SmartPointer/IdType) is stable across
+  VTK 9.2 -> 9.5+; the existing `const vtkIdType*` GetNextCell sed
+  patches still apply against VTK 9.5.2. Qt-free at the source level
+  (zero QObject/QString hits).
+- Bump InsightToolkit5-devel requirement to 5.4.6
+
 * Tue Mar 03 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-3
 - Fix VTK 9.2.6 GetNextCell const vtkIdType* API change
 - Fix ITK 5.4 NumericTraits::GetLength rvalue binding (const ref)
