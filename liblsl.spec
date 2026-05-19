@@ -10,6 +10,7 @@ Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
 BuildRequires:  boost-devel
+BuildRequires:  pugixml-devel
 BuildRequires:  ninja-build
 BuildRequires:         chrpath
 
@@ -32,10 +33,14 @@ develop applications that use the Lab Streaming Layer.
 
 %build
 # Use Fedora cmake macro. The -GNinja flag forces the Ninja generator.
-# We disable bundled boost to comply with Fedora policies.
+# Disable bundled boost AND FetchContent-pulled pugixml to comply with
+# Fedora policies. liblsl 1.17.x renamed LSL_BundledBoost -> LSL_BUNDLED_BOOST
+# and added LSL_FETCH_PUGIXML (default ON) that downloads pugixml at build
+# time; both must be OFF for offline mock/COPR builds.
 %cmake -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DLSL_BundledBoost=OFF
+    -DLSL_BUNDLED_BOOST=OFF \
+    -DLSL_FETCH_PUGIXML=OFF
 
 %cmake_build
 
@@ -64,6 +69,9 @@ chrpath --delete %{buildroot}%{_bindir}/lslver
 %changelog
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.7-1
 - Update to liblsl 1.17.7 (upstream 2026-04-22)
+- Use system pugixml (1.17.x adds FetchContent pugixml v1.15 by default;
+  LSL_FETCH_PUGIXML=OFF + BuildRequires pugixml-devel for offline builds)
+- Update LSL_BundledBoost -> LSL_BUNDLED_BOOST (upstream renamed the option)
 
 * Wed Jan 07 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.2-1
 - Initial RPM build for Fedora using standard macros
