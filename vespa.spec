@@ -56,6 +56,9 @@ BuildRequires:  metis-devel
 # lapack via CGAL (vespa) or VTK's accelerated linear algebra options.
 BuildRequires:  blas-static
 BuildRequires:  lapack-static
+# Same F44 pattern: zlib-devel's cmake config references the ZLIB::ZLIBSTATIC
+# imported target pointing at /usr/lib64/libz.a, which lives in zlib-static.
+BuildRequires:  zlib-static
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
