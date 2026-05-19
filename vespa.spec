@@ -34,7 +34,12 @@ BuildRequires:  PEGTL-devel
 BuildRequires:  jsoncpp-devel
 BuildRequires:  nlohmann-json-devel
 BuildRequires:  python3-devel
+# ParaView 6.x's cmake config pulls in additional Qt6 sub-components at
+# find_package time (Qt6 is itself modular). Each one needs an explicit
+# BR or the find_package(ParaView) call fails before we get to compile.
 BuildRequires:  cmake(Qt6)
+BuildRequires:  cmake(Qt6Svg)
+BuildRequires:  qt6-qtbase-devel
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
