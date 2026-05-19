@@ -64,7 +64,7 @@ chrpath --delete %{buildroot}%{_bindir}/lslver
 %{_includedir}/lsl_c.h
 %{_includedir}/lsl_cpp.h
 %{_libdir}/liblsl.so
-%{_libdir}/cmake/LSL/
+%{_libdir}/cmake/lsl/
 
 %changelog
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.7-1
