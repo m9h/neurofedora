@@ -177,6 +177,12 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
 %install
 %cmake_install
 
+# Vespa's cmake mistakenly installs the bundled Python header
+# (/usr/include/Python.h) as part of vtk_module_wrap_python's
+# header-copy logic. Drop it to avoid clobbering the system
+# python3-devel-provided Python.h on install. Upstream bug.
+rm -f %{buildroot}%{_includedir}/Python.h
+
 %files
 %license License.txt
 %doc README.md
@@ -198,8 +204,13 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
 
 %files -n python3-vespa
 %{python3_sitearch}/vespa/
+# Python-binding cmake config — consumers who want to extend vespa's
+# Python wrapping need this; the regular vespa-devel cmake config
+# under cmake/vespa/ doesn't include the Python wrapping bits.
+%{_libdir}/cmake/vespaPython/
 
 %files devel
+%{_includedir}/vtkCGAL*.h
 # Client-server static archives — vtk_module_build emits these as
 # the .CS.a companion to each module .so; consumers only need them at
 # link time, not runtime.
