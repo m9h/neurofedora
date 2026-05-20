@@ -10,7 +10,7 @@
 
 Name:           itksnap
 Version:        4.4.0~beta2
-Release:        0.5%{?dist}
+Release:        0.6%{?dist}
 Summary:        Medical image segmentation tool for 3D/4D biomedical images
 
 License:        GPL-3.0-or-later
@@ -28,8 +28,10 @@ BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 
 # ITK 5.4+ from our COPR; installed to non-standard suffix path so ITK_DIR is
-# set explicitly in %%build.
-BuildRequires:  InsightToolkit5-devel
+# set explicitly in %%build. Pin to 5.4.6 — the -0.5 build against 5.4.5
+# segfaulted in libjsoncpp.so.26's static initializer on systems with 5.4.6
+# installed; the fresh build picks up current jsoncpp/gdcm chroot state.
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
 
 # VTK 9.3.1+ required; Fedora ships 9.2.6 so this comes from our COPR.
 BuildRequires:  vtk-devel
