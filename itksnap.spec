@@ -82,7 +82,7 @@ built as subprojects alongside ITK-SNAP.
 
 
 %prep
-%setup -q -n itksnap-%{snap_ver}
+%setup -q -n itksnap-%{itksnap_commit}
 
 # Populate git submodule directories from the pinned tarballs.
 # The upstream CMakeLists hard-codes ADD_SUBDIRECTORY into Submodules/{c3d,greedy};
@@ -129,7 +129,7 @@ rm -f %{buildroot}%{_bindir}/qt.conf
 
 # Main application — the forwarding wrapper and the real binary
 %{_bindir}/itksnap
-%{_prefix}/lib/snap-%{snap_ver}/ITK-SNAP
+%{_prefix}/lib/snap-4.4.0/ITK-SNAP
 
 # Workspace tool (CLI for managing ITK-SNAP workspaces)
 %{_bindir}/itksnap-wt
@@ -148,6 +148,18 @@ rm -f %{buildroot}%{_bindir}/qt.conf
 
 
 %changelog
+* Wed May 20 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.6
+- Rebuild against InsightToolkit5 5.4.6 (the -0.5 RPM was built against
+  5.4.5 on 2026-05-02 and segfaults at startup against a system with
+  ITK 5.4.6 installed: libjsoncpp.so.26's static initializer crashes
+  during dl_init for the ITK-SNAP binary, presumably due to ABI drift
+  in a VTK/ITK transitive that pulled in jsoncpp differently between
+  the build chroot then and the user system now).
+- Bump InsightToolkit5-devel BR to >= 5.4.6.
+
+* Mon May 04 2026 Morgan Hough <morgan@hough.dev> - 4.4.0-1
+- Update to stable 4.4.0 release (September 9, 2025)
+
 * Sun Mar 01 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.5
 - Remove qt.conf from /usr/bin (Qt deploy artifact, not needed for system install)
 
