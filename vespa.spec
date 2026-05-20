@@ -54,11 +54,21 @@ BuildRequires:  metis-devel
 # blas-static / lapack-static. Without these, find_package(LAPACK) succeeds
 # but imported-target resolution fails. Affects any consumer pulling
 # lapack via CGAL (vespa) or VTK's accelerated linear algebra options.
+# F44 papercut: -devel packages export cmake imported targets pointing at
+# /usr/lib64/lib*.a files that live in -static subpackages without the
+# -devel pulling them in. This is downstream-only — Fedora's own VTK
+# builds clean because it doesn't consume the broken exports — but any
+# package doing find_package(VTK) / find_package(ParaView) / find_package(CGAL)
+# hits each one in sequence. Front-load the static archives here.
 BuildRequires:  blas-static
 BuildRequires:  lapack-static
-# Same F44 pattern: zlib-devel's cmake config references the ZLIB::ZLIBSTATIC
-# imported target pointing at /usr/lib64/libz.a, which lives in zlib-static.
 BuildRequires:  zlib-static
+BuildRequires:  libpng-static
+BuildRequires:  libtiff-static
+BuildRequires:  bzip2-static
+BuildRequires:  xz-static
+BuildRequires:  expat-static
+BuildRequires:  libxml2-static
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha
