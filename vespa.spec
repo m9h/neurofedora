@@ -69,6 +69,10 @@ BuildRequires:  bzip2-static
 BuildRequires:  xz-static
 BuildRequires:  expat-static
 BuildRequires:  libxml2-static
+# ParaView 6's `paraview_client_documentation()` macro renders plugin
+# XML schema docs via xsltproc at build time; without it,
+# ParaViewClient.cmake:609 aborts.
+BuildRequires:  libxslt
 
 %description
 VESPA wraps the CGAL geometry library (surface mesh smoothing, alpha

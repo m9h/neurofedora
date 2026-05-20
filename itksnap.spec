@@ -84,7 +84,10 @@ built as subprojects alongside ITK-SNAP.
 
 
 %prep
-%setup -q -n itksnap-%{itksnap_commit}
+# Tarball expands to itksnap-%%{snap_ver} (with hyphen, e.g.
+# itksnap-4.4.0-beta2). The %%{itksnap_commit} macro was removed in an
+# earlier cleanup; restore use of %%{snap_ver}.
+%setup -q -n itksnap-%{snap_ver}
 
 # Populate git submodule directories from the pinned tarballs.
 # The upstream CMakeLists hard-codes ADD_SUBDIRECTORY into Submodules/{c3d,greedy};
