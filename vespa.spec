@@ -1,5 +1,15 @@
 %global debug_package %{nil}
 
+# Fedora's ParaView ships its private VTK libraries under
+# /usr/lib64/paraview/, not /usr/lib64/. RPM's auto-Requires extracts
+# SONAMEs from VESPAPlugin.so (libvtkRemoting*.so.1, libvtkCommonCore.so.1,
+# libvtksys.so.1, etc.) and looks for providers in standard library paths,
+# where they aren't indexed. The libraries are present at runtime — ParaView
+# adds /usr/lib64/paraview to LD_LIBRARY_PATH via its plugin loader — but
+# install-time resolution fails. Exclude the ParaView-private SONAMEs from
+# auto-Requires and rely on the explicit `Requires: paraview` instead.
+%global __requires_exclude ^libvtk.*\\.so\\.1\\(\\(64bit\\)\\)?$|^libvtk(Common|Filters|IO|Imaging|Interaction|Parallel|Remoting|Rendering|Views|sys).*\\.so
+
 Name:           vespa
 Version:        1.0
 Release:        1%{?dist}
@@ -88,8 +98,8 @@ unless a commercial CGAL license is obtained from GeometryFactory.
 
 %package libs
 Summary:        VTK modules for VESPA's CGAL bridge
-Requires:       vtk-libs%{?_isa}
-Requires:       CGAL-libs%{?_isa}
+Requires:       vtk%{?_isa}
+Requires:       CGAL%{?_isa}
 
 %description libs
 The vtkCGAL* VTK modules: Delaunay, PointSetProcessing,
@@ -125,6 +135,8 @@ VESPA's VTK modules.
 Summary:        Python 3 bindings for VESPA
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       python3
+# Fedora's VTK Python bindings package — the actual name on F44 is
+# python3-vtk; pull it explicitly so import works without manual setup.
 Requires:       python3-vtk
 
 %description -n python3-vespa
