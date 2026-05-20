@@ -131,12 +131,16 @@ VESPA's VTK modules.
 sed -i 's/find_package(Eigen3 3.2.0 REQUIRED)/find_package(Eigen3 REQUIRED)/' \
     CMakeLists.txt
 
-# Fedora 44 ships CGAL 6.1.1 (also SameMajorVersion compat). Same fix:
-# drop the version pin and rely on the source code working against
-# CGAL 6.x. If it doesn't, we'll surface the actual API breaks on
-# first build.
+# Fedora 44 ships CGAL 6.1.1 (also SameMajorVersion compat). Drop the
+# version pin and rely on the source code working against CGAL 6.x.
 sed -i 's/find_package(CGAL 5.3.0 REQUIRED)/find_package(CGAL REQUIRED)/' \
     CMakeLists.txt
+
+# CGAL 6.0 renamed AABB_traits<> -> AABB_traits_3<> as part of the 3D
+# namespace cleanup. Vespa 1.0 still uses the old name in exactly one
+# place. Mechanical s///.
+sed -i 's/CGAL::AABB_traits</CGAL::AABB_traits_3</g' \
+    vespa/PolygonMeshProcessing/vtkCGALSignedDistanceFunction.cxx
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
