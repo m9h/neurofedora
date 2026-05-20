@@ -121,6 +121,17 @@ Requires:       CGAL-devel
 Headers and cmake config files for building C++ applications against
 VESPA's VTK modules.
 
+%package -n python3-vespa
+Summary:        Python 3 bindings for VESPA
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+Requires:       python3
+Requires:       python3-vtk
+
+%description -n python3-vespa
+Python 3 module exposing VESPA's vtkCGAL* VTK modules
+(Algorithm, Delaunay, PointSetProcessing, PolygonMeshProcessing,
+ShapeReconstruction). `import vespa` after installing.
+
 %prep
 %autosetup -n %{name}-v%{version}
 
@@ -171,18 +182,28 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
 %doc README.md
 
 %files libs
-%{_libdir}/libvtkCGAL*.so.*
+# VTK modules build unversioned (no .so.1 suffix) — that's how VTK's
+# vtk_module_build() ships them. They live alongside the system VTK
+# install convention.
+%{_libdir}/libvtkCGALAlgorithm.so
+%{_libdir}/libvtkCGALDelaunay.so
+%{_libdir}/libvtkCGALPMP.so
+%{_libdir}/libvtkCGALPSP.so
+%{_libdir}/libvtkCGALSR.so
+# VTK hierarchy descriptors used by ParaView's introspection at load time
+%{_libdir}/vtk/hierarchy/vespa/
 
 %files paraview-plugin
-# Plugin .so lands under PARAVIEW_PLUGIN_SUBDIR which on F44 resolves
-# to /usr/lib64/paraview/paraview/plugins/VESPAPlugin/. Wildcarded
-# because the exact name suffix depends on ParaView 6.x's plugin
-# manifest format.
-%{_libdir}/paraview/paraview/plugins/VESPAPlugin*
+%{_libdir}/paraview/plugins/VESPAPlugin/
+
+%files -n python3-vespa
+%{python3_sitearch}/vespa/
 
 %files devel
-%{_includedir}/vtkCGAL*
-%{_libdir}/libvtkCGAL*.so
+# Client-server static archives — vtk_module_build emits these as
+# the .CS.a companion to each module .so; consumers only need them at
+# link time, not runtime.
+%{_libdir}/libvtkCGAL*CS.a
 %{_libdir}/cmake/vespa/
 
 %changelog

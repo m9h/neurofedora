@@ -132,9 +132,11 @@ rm -f %{buildroot}%{_bindir}/qt.conf
 %files
 %license COPYING
 
-# Main application — the forwarding wrapper and the real binary
+# Main application — the forwarding wrapper and the real binary.
+# Upstream installs the real binary under snap-${VERSION}/ which includes
+# the -beta2 suffix; use %%{snap_ver} to track the version cleanly.
 %{_bindir}/itksnap
-%{_prefix}/lib/snap-4.4.0/ITK-SNAP
+%{_prefix}/lib/snap-%{snap_ver}/ITK-SNAP
 
 # Workspace tool (CLI for managing ITK-SNAP workspaces)
 %{_bindir}/itksnap-wt
