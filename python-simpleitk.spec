@@ -1,11 +1,9 @@
-%define debug_package %{nil}
-
 %global sitk_major 2
 %global sitk_minor 5
 
 Name:           python-simpleitk
 Version:        2.5.5
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Simplified interface to the Insight Toolkit (ITK) for image analysis
 
 License:        Apache-2.0
@@ -24,6 +22,9 @@ BuildRequires:  ninja-build
 BuildRequires:  swig >= 4.0
 # Lua interpreter required for filter source code generation (not wrapping)
 BuildRequires:  lua
+# Doxygen API HTML for the simpleitk-doc subpackage
+BuildRequires:  doxygen
+BuildRequires:  graphviz
 BuildRequires:  InsightToolkit5-devel >= 5.4.6
 # ITK VtkGlue is needed for image display support
 BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.6
@@ -91,7 +92,7 @@ and 4D images.}
 %description %{_description}
 
 %package -n simpleitk
-Summary:        C++ libraries for SimpleITK
+Summary:        C++ shared libraries
 Provides:       simpleitk = %{version}-%{release}
 
 %description -n simpleitk
@@ -100,16 +101,16 @@ Provides:       simpleitk = %{version}-%{release}
 This package contains the core SimpleITK C++ shared libraries.
 
 %package -n simpleitk-devel
-Summary:        Development files for SimpleITK
+Summary:        Development files
 Requires:       simpleitk%{?_isa} = %{version}-%{release}
-Requires:       InsightToolkit5-devel >= 5.4.5
+Requires:       InsightToolkit5-devel >= 5.4.6
 
 %description -n simpleitk-devel
 Headers and cmake configuration files for developing C++ applications
 with SimpleITK.
 
 %package -n python3-simpleitk
-Summary:        Python 3 bindings for SimpleITK
+Summary:        Python 3 bindings
 Requires:       simpleitk%{?_isa} = %{version}-%{release}
 Requires:       python3-numpy
 %{?python_provide:%python_provide python3-simpleitk}
@@ -118,6 +119,16 @@ Requires:       python3-numpy
 %{_description}
 
 This package contains the Python 3 bindings for SimpleITK.
+
+%package -n simpleitk-doc
+Summary:        Doxygen-generated API HTML documentation
+BuildArch:      noarch
+
+%description -n simpleitk-doc
+%{_description}
+
+This package contains the Doxygen-generated HTML API reference for
+SimpleITK. After install, browse %{_docdir}/simpleitk-doc/html/index.html.
 
 %prep
 %autosetup -n SimpleITK-%{version}
@@ -131,7 +142,11 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_TESTING=OFF \
     -DBUILD_EXAMPLES=OFF \
-    -DBUILD_DOXYGEN=OFF \
+    -DBUILD_DOXYGEN=ON \
+    `# USE_ITK_DOXYGEN_TAGS defaults to ON and fetches ITK's tag file at` \
+    `# configure time. With SimpleITK_FORBID_DOWNLOADS=ON that fetch is` \
+    `# blocked; the build aborts. Disable the cross-link tags entirely.` \
+    -DUSE_ITK_DOXYGEN_TAGS=OFF \
     -DSimpleITK_BUILD_DISTRIBUTE=ON \
     -DSimpleITK_FORBID_DOWNLOADS=ON \
     -DSimpleITK_INT64_PIXELIDS=ON \
@@ -189,8 +204,35 @@ install -m 0644 ${sitk_builddir}/Wrapping/Python/SimpleITK/_version.py \
 
 # R bindings install step removed — WRAP_R=OFF in this release.
 
-# Remove bundled docs installed by cmake (we use %doc/%license)
+# Move the Doxygen HTML output into the doc subpackage's docdir. Upstream
+# emits it to a sibling `Documentation/html/` under the build tree.
+install -d %{buildroot}%{_docdir}/simpleitk-doc
+if [ -d ${sitk_builddir}/Documentation/html ]; then
+    cp -a ${sitk_builddir}/Documentation/html %{buildroot}%{_docdir}/simpleitk-doc/
+fi
+
+# Remove bundled docs installed by cmake (we use %doc/%license).
+# Note: this strips the cmake-installed doc dir but the doxygen output we
+# just placed under %%{_docdir}/simpleitk-doc/ is intentional and stays.
 rm -rf %{buildroot}%{_datadir}/doc/SimpleITK-%{sitk_major}.%{sitk_minor}
+
+%check
+# Minimal import + version check. Runs against the just-installed Python
+# module in %%{buildroot}; uses PYTHONPATH because the module isn't on the
+# system path yet at %%check time.
+PYTHONPATH=%{buildroot}%{python3_sitearch} \
+LD_LIBRARY_PATH=%{buildroot}%{_libdir} \
+%{python3} -c "
+import SimpleITK as sitk
+print('SimpleITK', sitk.Version_VersionString())
+print('ITK', sitk.Version_ITKVersionString())
+assert sitk.Version_MajorVersion() == %{sitk_major}, 'wrong major'
+assert sitk.Version_MinorVersion() == %{sitk_minor}, 'wrong minor'
+# Touch a representative filter to confirm the C++ symbols resolve at runtime
+img = sitk.Image(64, 64, sitk.sitkUInt8)
+img = sitk.SmoothingRecursiveGaussian(img, 1.0)
+print('SmoothingRecursiveGaussian ok')
+"
 
 %ldconfig_scriptlets -n simpleitk
 
@@ -201,15 +243,39 @@ rm -rf %{buildroot}%{_datadir}/doc/SimpleITK-%{sitk_major}.%{sitk_minor}
 %{_libdir}/libSimpleITK*-%{sitk_major}.%{sitk_minor}.so.1
 
 %files -n simpleitk-devel
+%doc NOTICE Readme.md
 %{_includedir}/SimpleITK-%{sitk_major}.%{sitk_minor}/
 %{_libdir}/libSimpleITK*-%{sitk_major}.%{sitk_minor}.so
 %{_libdir}/cmake/SimpleITK-%{sitk_major}.%{sitk_minor}/
 
 %files -n python3-simpleitk
+%doc NOTICE Readme.md
 # Python package with SWIG extension, wrapper, and supporting files
 %{python3_sitearch}/SimpleITK/
 
+%files -n simpleitk-doc
+%license LICENSE
+%doc NOTICE Readme.md
+%{_docdir}/simpleitk-doc/html/
+
 %changelog
+* Wed May 20 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-3
+- Six Fedora-review-prep fixes:
+  1. Drop `%%define debug_package %%{nil}` so the standard Fedora
+     strip+debuginfo flow runs. Produces a proper simpleitk-debuginfo
+     subpackage; shrinks the simpleitk binary RPM by ~75%%.
+  2. Add %%check stanza that imports SimpleITK and exercises one
+     representative filter against the just-built tree.
+  3. Enable BUILD_DOXYGEN=ON + new simpleitk-doc noarch subpackage
+     shipping HTML API reference under %%{_docdir}/simpleitk-doc/html/.
+     USE_ITK_DOXYGEN_TAGS=OFF to keep SimpleITK_FORBID_DOWNLOADS=ON.
+  4. Add %%doc NOTICE Readme.md to simpleitk-devel and
+     python3-simpleitk subpackages (rpmlint no-documentation).
+  5. Bump simpleitk-devel's transitive Requires: InsightToolkit5-devel
+     to >= 5.4.6 (was >= 5.4.5, stale).
+  6. Drop "SimpleITK"/"for SimpleITK" from subpackage Summary: tags
+     (rpmlint name-repeated-in-summary).
+
 * Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-2
 - Disable WRAP_R for now. Build #10480856 failed at step 1057/1058
   compiling SimpleITKR_wrap.cxx — the SWIG-generated R wrapper writes
