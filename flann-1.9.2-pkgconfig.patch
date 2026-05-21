@@ -1,0 +1,21 @@
+diff -up ./cmake/CMakeLists.txt.pkgconfig ./cmake/CMakeLists.txt
+--- ./cmake/CMakeLists.txt.pkgconfig	2023-11-24 16:13:41.227198233 -0500
++++ ./cmake/CMakeLists.txt	2023-11-24 16:14:09.260315341 -0500
+@@ -1,5 +1,6 @@
+ set(PKG_DESC "Fast Library for Approximate Nearest Neighbors")
+ set(pkg_conf_file ${CMAKE_CURRENT_BINARY_DIR}/flann.pc)
++set(PKG_EXTERNAL_DEPS liblz4)
+ configure_file(flann.pc.in ${pkg_conf_file} @ONLY)
+ install(FILES ${pkg_conf_file}
+     DESTINATION ${FLANN_LIB_INSTALL_DIR}/pkgconfig/ COMPONENT pkgconfig)
+diff -up ./cmake/flann.pc.in.pkgconfig ./cmake/flann.pc.in
+--- ./cmake/flann.pc.in.pkgconfig	2023-11-24 16:12:41.651926632 -0500
++++ ./cmake/flann.pc.in	2023-11-24 16:14:28.933375955 -0500
+@@ -8,6 +8,6 @@ Name: @PROJECT_NAME@
+ Description: @PKG_DESC@
+ Version: @FLANN_VERSION@
+ Requires: @PKG_EXTERNAL_DEPS@
+-Libs: -L${libdir} @LZ4_STATIC_LDFLAGS@ -lflann -lflann_cpp
++Libs: -L${libdir} -lflann -lflann_cpp
+ Cflags: -I${includedir}
+ 

@@ -1,0 +1,11 @@
+diff -up ./src/python/setup.py.tpl.py3.12 ./src/python/setup.py.tpl
+--- ./src/python/setup.py.tpl.py3.12	2023-07-13 22:11:48.092595159 -0400
++++ ./src/python/setup.py.tpl	2023-07-13 22:12:01.942651329 -0400
+@@ -1,6 +1,6 @@
+ #!/usr/bin/env python2
+ 
+-from distutils.core import setup
++from setuptools import setup
+ from os.path import exists, abspath, dirname, join
+ import os
+ import sys

@@ -1,0 +1,43 @@
+diff -up ./src/python/CMakeLists.txt.fixpyflann ./src/python/CMakeLists.txt
+--- ./src/python/CMakeLists.txt.fixpyflann	2016-08-04 19:20:50.000000000 -0400
++++ ./src/python/CMakeLists.txt	2020-08-05 22:23:54.069400292 -0400
+@@ -5,8 +5,8 @@ install( FILES ${CMAKE_CURRENT_BINARY_DI
+ 
+ 
+ # python instalation
+-if (PYTHON_EXECUTABLE)
+-    install(CODE "execute_process(
+-        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/setup.py install
+-        WORKING_DIRECTORY \"${CMAKE_CURRENT_SOURCE_DIR}\")")
+-endif()
++#if (PYTHON_EXECUTABLE)
++#    install(CODE "execute_process(
++#        COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/setup.py install
++#        WORKING_DIRECTORY \"${CMAKE_CURRENT_SOURCE_DIR}\")")
++#endif()
+diff -up ./src/python/pyflann/flann_ctypes.py.fixpyflann ./src/python/pyflann/flann_ctypes.py
+--- ./src/python/pyflann/flann_ctypes.py.fixpyflann	2020-08-05 22:23:54.070400287 -0400
++++ ./src/python/pyflann/flann_ctypes.py	2020-08-05 22:26:17.075653702 -0400
+@@ -150,7 +150,7 @@ def load_flann_library():
+ 
+     root_dir = os.path.abspath(os.path.dirname(__file__))
+ 
+-    libnames = ['libflann.so']
++    libnames = ['libflann.so.1.9']
+     libdir = 'lib'
+     if sys.platform == 'win32':
+         libnames = ['flann.dll', 'libflann.dll']
+@@ -161,12 +161,7 @@ def load_flann_library():
+         for libname in libnames:
+             try:
+                 #print 'Trying ',os.path.join(root_dir,'lib',libname)
+-                flannlib = cdll[os.path.join(root_dir, libdir, libname)]
+-                return flannlib
+-            except Exception:
+-                pass
+-            try:
+-                flannlib = cdll[os.path.join(root_dir, 'build', libdir, libname)]
++                flannlib = cdll[os.path.join(root_dir,libname)]
+                 return flannlib
+             except Exception:
+                 pass

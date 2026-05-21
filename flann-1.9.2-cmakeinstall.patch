@@ -1,0 +1,12 @@
+diff -up ./CMakeLists.txt.cmakeinstall ./CMakeLists.txt
+--- ./CMakeLists.txt.cmakeinstall	2023-07-18 22:21:48.541943969 -0400
++++ ./CMakeLists.txt	2023-07-18 22:21:56.855987924 -0400
+@@ -164,7 +164,7 @@ else()
+ endif()
+ 
+ # install and export variables
+-set(config_install_dir "lib/cmake/${PROJECT_NAME}")
++set(config_install_dir "lib${LIB_SUFFIX}/cmake/${PROJECT_NAME}")
+ set(generated_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
+ set(version_config "${generated_dir}/flann-config-version.cmake")
+ set(project_config "${generated_dir}/flann-config.cmake")
