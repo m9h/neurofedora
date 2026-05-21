@@ -85,7 +85,10 @@ Python 3 bindings for flann
 sed -i 's/"lib"/"%{_lib}"/' cmake/flann_utils.cmake
 
 %build
-%cmake -DBUILD_MATLAB_BINDINGS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=ON 
+# CMake 4.x (F44 ships 4.3) rejects cmake_minimum_required < 3.5.
+# flann 1.9.2's CMakeLists has the old required-version pin; pass the
+# compatibility flag rather than carry a patch.
+%cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_MATLAB_BINDINGS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=ON
 %cmake_build
 %cmake_build %{!?rhel:--target} doc
 
