@@ -1,11 +1,11 @@
-%global commit d4d963629d7dfdca4b0607907f0e91827c22ea2a
+%global commit 16ea1366df8dac6cafe744b134dffc1635e5146d
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 %define debug_package %{nil}
 
 Name:           c3d
-Version:        1.4.2
-Release:        6%{?dist}
+Version:        1.4.6
+Release:        2%{?dist}
 Summary:        Medical image format conversion and processing tool
 
 License:        GPL-3.0-or-later
@@ -16,6 +16,7 @@ BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  InsightToolkit5-devel >= 5.4
 BuildRequires:  hdf5-devel
+BuildRequires:  eigen3-devel
 # VTK transitive deps (ITK5 cmake config loads ITKVtkGlue → find_package(VTK))
 # vtk-devel should Require these but does not yet
 BuildRequires:  python3-devel
@@ -71,6 +72,10 @@ rm -f %{buildroot}/usr/lib/*.so
 %{_bindir}/c3d_affine_tool
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.6-2
+- Update to 1.4.6
+- Add eigen3-devel BuildRequires (ITK5 cmake config requires Eigen3)
+
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.4.2-4
 - Remove cmake export target files from build dir (unpackaged files error)
 - Add VTK transitive BuildRequires (python3-devel, qt6-qtdeclarative-devel)

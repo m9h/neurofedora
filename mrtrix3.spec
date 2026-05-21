@@ -45,7 +45,7 @@ group-level analyses.
 sed -i 's|#!/usr/bin/env python|#!/usr/bin/python3|' configure build
 
 # 2. Compiler Flags (CXXFLAGS)
-export CXXFLAGS="%{optflags} -g"
+export CXXFLAGS="%{optflags} -g -std=gnu++17 -fpermissive"
 
 # 3. Linker Flags (Map Fedora's LDFLAGS to MRtrix's LINKFLAGS)
 export LDFLAGS="%{?__global_ldflags}"

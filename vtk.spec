@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.5.2
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -235,6 +235,7 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_ImagingOpenGL2:STRING=YES \
     -DVTK_MODULE_USE_EXTERNAL_VTK_cli11:BOOL=ON \
     -DVTK_MODULE_USE_EXTERNAL_VTK_doubleconversion:BOOL=ON \
     -DVTK_MODULE_USE_EXTERNAL_VTK_eigen:BOOL=OFF \
@@ -315,6 +316,11 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Tue Mar 24 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-11
+- Enable VTK::ImagingOpenGL2 module (provides libvtkImagingOpenGL2.so.1):
+  module is not in the Imaging group so VTK_GROUP_ENABLE_Imaging=YES did not
+  enable it; required by FreeSurfer 8.2.0 RPM
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-10
 - vtk-devel: add Requires qt6-qtdeclarative-devel (VTK cmake config
   runs find_package(Qt6Qml) which requires Qt6Declarative headers)

@@ -2,11 +2,14 @@
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global date        20260203
 
+# Disable LTO — causes undefined references across shared lib boundaries
+%global _lto_cflags %{nil}
+
 %define debug_package %{nil}
 
 Name:           connectome-workbench
 Version:        2.1.0
-Release:        7.%{date}git%{shortcommit}%{?dist}
+Release:        8.%{date}git%{shortcommit}%{?dist}
 Summary:        HCP Visualization and Discovery Tool
 
 License:        GPL-2.0-only

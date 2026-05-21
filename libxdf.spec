@@ -1,6 +1,6 @@
 Name:           libxdf
-Version:        0.99
-Release:        1%{?dist}
+Version:        0.99.10
+Release:        2%{?dist}
 Summary:        C++ library for loading XDF (Extensible Data Format) files
 # FIX 1: Use specific SPDX identifier (Check your LICENSE file to confirm 2 or 3 clause)
 License:        BSD-3-Clause
@@ -34,7 +34,7 @@ sed -i '/#include <cmath>/a #include <cstdint>' xdf.cpp
 # FIX 3: Force SONAME versioning for Fedora compliance
 # We append a CMake command to set the SOVERSION to 0 and VERSION to 0.99
 # This makes the build produce libxdf.so.0 and libxdf.so.0.99
-echo 'set_target_properties(xdf-shared PROPERTIES VERSION %{version} SOVERSION 0)' >> CMakeLists.txt
+echo 'set_target_properties(xdf PROPERTIES VERSION %{version} SOVERSION 0)' >> CMakeLists.txt
 
 %build
 %cmake -DBUILD_SHARED_LIBS=ON \
@@ -65,6 +65,9 @@ install -m 0644 xdf.h %{buildroot}%{_includedir}/xdf.h
 %{_libdir}/libxdf.so
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.99.10-1
+- Update to 0.99.10
+
 * Wed Jan 07 2026 Your Name <your.email@example.com> - 0.99-1
 - Initial package for Fedora
 - Patched for GCC 15

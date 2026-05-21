@@ -1,8 +1,8 @@
 %define debug_package %{nil}
 
 Name:           morpheus
-Version:        2.3.7
-Release:        2%{?dist}
+Version:        2.3.9
+Release:        1%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -63,7 +63,7 @@ GUI for creating, editing, running, and visualizing multicellular
 models.
 
 %prep
-%autosetup -n morpheus-%{version}
+%autosetup -n morpheus-v%{version}
 
 # Morpheus bundles muParser, gnuplot_i, tiny-process-lib, qtsingleapp.
 # Fedora 43 xtensor 0.27.0 restructured its include layout (xtensor/containers/
@@ -149,6 +149,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-1
+- Update to 2.3.9
+
 * Sat Mar 14 2026 Morgan Hough <mhough@fedoraproject.org> - 2.3.7-2
 - Bundle xtensor/xtl/xsimd 0.24.6/0.7.5/10.0.0 (Fedora 43 xtensor 0.27.0 incompatible headers)
 - Add doxygen BuildRequires (GUI appdoc)

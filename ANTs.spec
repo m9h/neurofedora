@@ -8,7 +8,7 @@
 
 Name:           ANTs
 Version:        2.6.5
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Advanced Normalization Tools for medical imaging
 
 License:        Apache-2.0
@@ -20,7 +20,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.16
 BuildRequires:  make
 BuildRequires:  zlib-devel
-BuildRequires:  InsightToolkit5-devel
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
 # These are transitive deps re-found by ITK's module cmake files (ITKHDF5.cmake, ITKMINC.cmake, etc.)
 # when a downstream project does include(${ITK_USE_FILE}).
 BuildRequires:  hdf5-devel
@@ -78,6 +78,10 @@ find %{buildroot}%{_libdir} -maxdepth 1 -name '*.so' -type l -delete
 %{_libdir}/libl_*.so.*
 
 %changelog
+* Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-9
+- Rebuild against InsightToolkit5 5.4.6 (GDCM CVE-2026-3650, F44 target)
+- Bump BuildRequires: InsightToolkit5-devel >= 5.4.6
+
 * Fri Feb 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-8
 - Rewrite changelog entries to remove RPM directive names (install, prep, files);
   EPEL 9 rpmbuild treats these as spec directives, causing "second install" error

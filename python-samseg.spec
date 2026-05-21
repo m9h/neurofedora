@@ -2,12 +2,12 @@
 %define _python_dist_allow_version_zero 1
 
 %global pypi_name samseg
-%global commit ccb17cbcdad707fbbf65e5e934fc89b95cc8529a
+%global commit e86d8762c9140d5e3d4250e90d7ec947a575c355
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 
 Name:           python-%{pypi_name}
-Version:        0.4a0
-Release:        3%{?dist}
+Version:        0.5a0
+Release:        1%{?dist}
 Summary:        Sequence Adaptive Multimodal SEGmentation
 
 License:        MIT
@@ -64,7 +64,7 @@ extensive preprocessing.
 # Remove bundled dirs to ensure we use system libraries
 rm -rf pybind11 ITK
 
-# Fix C++11 → C++17 for ITK 5.4 / GCC 15 compatibility
+# Fix C++11 -> C++17 for ITK 5.4 / GCC 15 compatibility
 sed -i 's/CMAKE_CXX_STANDARD 11/CMAKE_CXX_STANDARD 17/' CMakeLists.txt
 
 # Remove -Werror flags from subdirectory cmake files
@@ -91,9 +91,16 @@ done
 # Convert 'Pointer/ConstPointer varname = 0' local variable declarations
 find gems \( -name '*.cxx' -o -name '*.h' \) \
   -exec sed -i -E 's/(Pointer\s+\w+)\s*=\s*0;/\1 = nullptr;/g' {} +
-# Convert 'return 0;' → 'return nullptr;' in Pointer-returning functions
+# Convert 'return 0;' -> 'return nullptr;' in Pointer-returning functions
 find gems \( -name '*.cxx' -o -name '*.h' \) \
   -exec sed -i 's/return 0;/return nullptr;/g' {} +
+
+# Remove pinned ml-dtypes version and git-pinned surfa URL from setup.cfg
+sed -i '/ml-dtypes==/d' setup.cfg
+sed -i '/surfa @ git+/d' setup.cfg
+
+# Relax numpy pinning
+sed -i 's/numpy >= 2.0/numpy/' setup.cfg
 
 %build
 export ITK_DIR=%{_prefix}/lib/cmake/ITK-5.4
@@ -106,7 +113,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %pyproject_save_files %{pypi_name}
 
 %check
-# Load the C extension .so directly — samseg __init__.py imports numba which may not be available
+# Load the C extension .so directly -- samseg __init__.py imports numba which may not be available
 cd /
 %{python3} -c "
 import importlib.util, sys, os
@@ -131,6 +138,11 @@ for f in os.listdir(so_dir):
 %{_bindir}/segment_subregions
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.5a0-1
+- Update to 0.5a (new commit e86d876)
+- Remove pinned ml-dtypes and git-pinned surfa from setup.cfg
+- Relax numpy version requirement
+
 * Wed Mar 11 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4a0-3
 - Add VTK transitive BuildRequires (ITK VtkGlue cmake config)
 - Add ITK 5 SmartPointer nullptr conversion and itkExceptionObject fix

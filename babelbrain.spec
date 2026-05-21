@@ -126,10 +126,8 @@ exec %{__python3} %{python3_sitelib}/BabelBrain/BabelBrain.py "\$@"
 EOF
 chmod +x %{buildroot}%{_bindir}/babelbrain
 
-# Fix invalid RPATHs in bundled binaries
-chrpath -d %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/elastix/linux/bin/elastix
-chrpath -d %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/elastix/linux/bin/transformix
-chrpath -d %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/elastix/linux/lib/*.so*
+# Remove bundled external binaries to use system ones
+rm -rf %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/elastix
 
 # Fix script permissions
 chmod +x %{buildroot}%{python3_sitelib}/BabelBrain/CreateVoxelMask.py
@@ -152,6 +150,12 @@ rm -f %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/*/run_mac_transformi
 
 * Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.1-2
 - Fix script permissions and clean up non-Linux scripts
+- Fix RPATHs for bundled elastix binaries
+- Disable debuginfo generation for bundled binaries
+
+* Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.1-1
+- Initial package
+ssions and clean up non-Linux scripts
 - Fix RPATHs for bundled elastix binaries
 - Disable debuginfo generation for bundled binaries
 

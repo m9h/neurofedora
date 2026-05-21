@@ -1,8 +1,8 @@
 %define debug_package %{nil}
 
 Name:           simnibs
-Version:        4.5.0
-Release:        4%{?dist}
+Version:        4.6.0
+Release:        1%{?dist}
 Summary:        Simulation of Non-Invasive Brain Stimulation
 
 License:        GPL-3.0-only
@@ -45,7 +45,6 @@ Requires:       python3-numba
 Requires:       python3-fmm3dpy
 Requires:       python3-pygpc
 Requires:       python3-samseg
-Requires:       python3-charm_gems
 Requires:       python3-petsc4py
 Requires:       python3-qt5
 Suggests:       fsl
@@ -76,18 +75,24 @@ rm -rf simnibs/external/bin/*
 rm -rf simnibs/external/wheels/*
 
 # Relax pinned version requirements
-sed -i 's/fmm3dpy==1.0.0/fmm3dpy>=1.0.0/' pyproject.toml
-sed -i 's/pygpc==0.4.1/pygpc>=0.4.1/' pyproject.toml
+sed -i 's/fmm3dpy==1.0.4/fmm3dpy>=1.0.0/' pyproject.toml
+sed -i 's/pygpc>=0.4.1/pygpc>=0.4.1/' pyproject.toml
 
 # Remove conda-only deps that are system libs on Fedora
 sed -i '/mkl ;/d' pyproject.toml
 sed -i '/tbb ;/d' pyproject.toml
 
-# Pin numpy < 2 for build (upstream requirement)
-sed -i "s/'numpy >= 1.26, < 2'/'numpy'/" pyproject.toml
+# Remove deps not yet packaged for Fedora
+sed -i '/"brainnet/d' pyproject.toml
+sed -i '/"cortech/d' pyproject.toml
+sed -i '/"gmsh/d' pyproject.toml
 
 # Remove petsc4py from build deps (not yet packaged, only needed at runtime)
 sed -i '/"petsc4py"/d' pyproject.toml
+
+# Relax numpy version (upstream requires >=2, system may have 1.x)
+sed -i 's/"numpy>=2"/"numpy"/' pyproject.toml
+sed -i "s/'numpy>=2'/'numpy'/" pyproject.toml
 
 # ---- Patch setup.py for system (non-conda) build ----
 # Remove conda requirement check
@@ -105,26 +110,6 @@ sed -i '/from distutils.dep_util import newer_group/d' setup.py
 # Remove the changed_meshing block that used newer_group (assigned but never used)
 sed -i '/changed_meshing = (/,/^        )$/d' setup.py
 
-# ---- Fix C source files for GCC 15 / Cython compilation ----
-# Python.h defines I as _Complex_I (C99 complex macro); this clashes with
-# parameter names in CAT C utilities included via Cython 'cdef extern from'
-sed -i '/#include "limits.h"/a #undef I' simnibs/segmentation/cat_c_utils/cat_vol_eidist.c
-sed -i '/#include "float.h"/a #undef I' simnibs/segmentation/cat_c_utils/cat_vbdist.c
-
-# Fix FINFINITY macro trailing semicolons (causes parse errors in expressions)
-sed -i 's/#define FINFINITY (FLT_MAX+FLT_MAX);/#define FINFINITY (FLT_MAX+FLT_MAX)/' \
-    simnibs/segmentation/cat_c_utils/cat_vol_eidist.c
-sed -i 's|#define FINFINITY 1.0f/0.0f;|#define FINFINITY (1.0f/0.0f)|' \
-    simnibs/segmentation/cat_c_utils/cat_vol_eidist.c
-
-# ---- Fix CGAL 6 const-correctness bug ----
-# CGAL 6.0.3 Add_features_in_domain<false>::operator() takes Image_3& (non-const)
-# but Labeled_mesh_domain_3 passes const Image_3 weights_. Create local patched copy.
-mkdir -p cgal_fix/CGAL
-cp /usr/include/CGAL/Labeled_mesh_domain_3.h cgal_fix/CGAL/
-sed -i 's/void operator()(const CGAL::Image_3&, CGAL::Image_3&,/void operator()(const CGAL::Image_3\&, const CGAL::Image_3\&,/' \
-    cgal_fix/CGAL/Labeled_mesh_domain_3.h
-
 # ---- Port _cgal_intersect.cpp from CGAL 5 to CGAL 6 ----
 # CGAL 6 replaced boost::optional with std::optional
 sed -i 's/boost::optional/std::optional/g' simnibs/mesh_tools/cgal/_cgal_intersect.cpp
@@ -137,6 +122,14 @@ sed -i 's/boost::get<Point>(\&(inter->first))/std::get_if<Point>(\&(inter->first
 sed -i 's/boost::get<Segment>(\&(inter->first))/std::get_if<Segment>(\&(inter->first))/g' \
     simnibs/mesh_tools/cgal/_cgal_intersect.cpp
 
+# ---- Fix CGAL 6 const-correctness bug ----
+# CGAL 6.0.3 Add_features_in_domain<false>::operator() takes Image_3& (non-const)
+# but Labeled_mesh_domain_3 passes const Image_3 weights_. Create local patched copy.
+mkdir -p cgal_fix/CGAL
+cp /usr/include/CGAL/Labeled_mesh_domain_3.h cgal_fix/CGAL/
+sed -i 's/void operator()(const CGAL::Image_3&, CGAL::Image_3&,/void operator()(const CGAL::Image_3\&, const CGAL::Image_3\&,/' \
+    cgal_fix/CGAL/Labeled_mesh_domain_3.h
+
 %build
 export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -I$PWD/cgal_fix"
@@ -148,7 +141,7 @@ export CFLAGS="%{optflags} -Wno-error=implicit-function-declaration -Wno-error=i
 %pyproject_save_files simnibs
 
 %check
-# Full import requires scipy, numba, h5py, etc. — just verify extensions built
+# Full import requires scipy, numba, h5py, etc. -- just verify extensions built
 cd /
 %{python3} -c "
 import os, struct
@@ -209,6 +202,12 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 %{_bindir}/simnibs_gui
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-1
+- Update to 4.6.0
+- Remove cat_c_utils patches (files removed upstream)
+- Relax fmm3dpy version pin (was ==1.0.4, now >=1.0.0)
+- Remove new unpackaged deps (brainnet, cortech, gmsh) from pyproject.toml
+
 * Wed Mar 11 2026 Morgan Hough <morgan.hough@gmail.com> - 4.5.0-4
 - Fix C99 complex I macro clash with CAT C utilities (undef I)
 - Fix FINFINITY macro trailing semicolons

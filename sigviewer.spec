@@ -1,5 +1,5 @@
 Name:           sigviewer
-Version:        0.6.4
+Version:        0.7.1
 Release:        1%{?dist}
 Summary:        Viewing and inspection of biosignals (EEG, EMG, ECG)
 License:        GPL-3.0-or-later
@@ -85,6 +85,9 @@ install -m 644 sigviewer.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
 %{_datadir}/icons/hicolor/scalable/apps/sigviewer.svg
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-1
+- Update to 0.7.1
+
 * Wed Jan 07 2026 Your Name <your.email@example.com> - 0.6.4-1
 - Initial package for Fedora
 - Switched to QMake build system

@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -149,6 +149,15 @@ sed -i '/set_target_properties.*LINKER_LANGUAGE CXX/a \
 # Fix cmake minimum version for CMake 4+ compatibility
 sed -i 's|cmake_minimum_required(VERSION 3.12...3.29.1)|cmake_minimum_required(VERSION 3.12...4.0)|' CMakeLists.txt
 
+# Fix cmake config install paths: upstream uses TYPE LIB (dumps into libdir)
+# and installs VMTK-Targets to the build dir. Fix both to use standard cmake dir.
+sed -i 's|install(EXPORT VMTK-Targets DESTINATION ${VMTK_BINARY_DIR})|install(EXPORT VMTK-Targets DESTINATION %{_lib}/cmake/vmtk)|' CMakeLists.txt
+sed -i 's|TYPE LIB|DESTINATION %{_lib}/cmake/vmtk|' CMakeLists.txt
+
+# Fix tetgen install: upstream puts libtet.a in BIN_DIR (bug)
+sed -i 's|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_BIN_DIR}|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_LIB_DIR}|' \
+    vtkVmtk/Utilities/tetgen1.4.3/CMakeLists.txt
+
 %build
 # GCC 15 / Fedora 43+ compatibility
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -fpermissive"
@@ -167,8 +176,10 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
     -DVMTK_SCRIPTS_ENABLED:BOOL=ON \
     -DVMTK_USE_RENDERING:BOOL=ON \
     -DVMTK_BUILD_TETGEN:BOOL=ON \
+    -DVMTK_TEST_DATA_SOURCE:STRING=in-place \
     -DVMTK_BUILD_TESTING:BOOL=OFF \
     -DBUILD_VMTK_DOCUMENTATION:BOOL=OFF \
+    -DVMTK_PYTHON_VERSION:STRING=python%{python3_version} \
     -DVMTK_MINIMAL_INSTALL:BOOL=OFF \
     -DCMAKE_CXX_STANDARD:STRING=17 \
     -DCMAKE_CXX_STANDARD_REQUIRED:BOOL=ON \
@@ -189,6 +200,15 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
 %install
 %cmake_install
 
+# Fix Python shebangs: upstream uses "#!/usr/bin/env python" which Fedora rejects
+find %{buildroot}%{_bindir} -type f -exec \
+    sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} +
+find %{buildroot}%{python3_sitelib} -name '*.py' -exec \
+    sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} +
+
+# Remove stray __init__ script from bindir (cmake installs it alongside bin scripts)
+rm -f %{buildroot}%{_bindir}/__init__
+
 # Strip RPATHs for Fedora compliance
 find %{buildroot}%{_libdir} -name '*.so*' -exec chrpath --delete {} \; 2>/dev/null || :
 find %{buildroot}%{_bindir} -type f -exec chrpath --delete {} \; 2>/dev/null || :
@@ -205,6 +225,9 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_includedir}/vmtk/
 %{_libdir}/libvtkvmtk*.so
 %{_libdir}/cmake/vmtk/
+# Bundled static archives (OpenNL, tetgen)
+%{_libdir}/libnl.a
+%{_libdir}/libtet.a
 
 %files -n python3-%{name}
 # Python wrapper C extensions (arch-specific .so modules)
@@ -215,6 +238,14 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Mon Apr 21 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.2.20250820git311f4792
+- Fix VMTK_PYTHON_VERSION detection (upstream uses wrong cmake variable names)
+- Fix cmake config install paths to standard libdir/cmake/vmtk/
+- Fix tetgen static archive install to libdir (was bindir)
+- Fix Python shebangs: #!/usr/bin/env python → #!/usr/bin/python3
+- Add VMTK_TEST_DATA_SOURCE=in-place to avoid Git build requirement
+- Remove stray __init__ from bindir
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.1.20250820git311f4792
 - Initial package (git snapshot for VTK 9.5 / ITK 5.4 support)
 - Superbuild disabled; builds against system VTK 9.5.2 and ITK 5.4.5

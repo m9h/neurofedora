@@ -51,7 +51,7 @@ Requires:       eigen3-devel
 Header files and cmake config for developing against the MNE-CPP libraries.
 
 %prep
-%autosetup -n mne-cpp-%{commit}
+%autosetup -n mne-cpp-%{version}
 
 # Remove bundled Eigen install (uses system eigen3-devel at build time,
 # but Eigen headers would be installed to /usr/include/Eigen/ conflicting with system)
@@ -93,7 +93,7 @@ for libcml in src/libraries/*/CMakeLists.txt; do
     # Add VERSION/SOVERSION after the add_library call
     if grep -q 'add_library' "$libcml"; then
         sed -i "/^[[:space:]]*target_compile_definitions/i\\
-set_target_properties(\${TARGET_NAME} PROPERTIES VERSION 0.1.9 SOVERSION 0)" \
+set_target_properties(\${TARGET_NAME} PROPERTIES VERSION %{version} SOVERSION 2)" \
             "$libcml"
     fi
 done
@@ -189,6 +189,10 @@ fi
 %{_includedir}/mne_*/
 
 %changelog
+* Mon May 04 2026 Morgan Hough <morgan.hough@gmail.com> - 2.2.1-1
+- Update to stable release v2.2.1
+- Set SOVERSION to 2 for libraries
+
 * Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.9^20260304git1daca51-3
 - Fix lib/ to lib64/ move: mkdir -p target directory first
 - Remove Eigen signature_of_eigen3_matrix_library marker file

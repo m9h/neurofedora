@@ -6,11 +6,11 @@
 # Upstream hardcodes USE_LIBRARY_VERSIONS=OFF and sets empty SOVERSION.
 # We override this to inject proper SOVERSION for Fedora shared lib policy.
 # When USE_LIBRARY_VERSIONS=ON, upstream sets SOVERSION=MAJOR.MINOR (4.7).
-%global cc3d_soversion 4.7
+%global cc3d_soversion 4.8
 
 Name:           compucell3d
-Version:        4.7.0
-Release:        5%{?dist}
+Version:        4.8.0
+Release:        1%{?dist}
 Summary:        Multi-scale virtual tissue simulation environment
 
 License:        MIT
@@ -267,6 +267,9 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 %{_libdir}/libSerializerDE.so
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.8.0-1
+- Update to 4.8.0
+
 * Sun Mar 15 2026 Morgan Hough <mhough@fedoraproject.org> - 4.7.0-5
 - Add all VTK transitive cmake BuildRequires for clean COPR builds
 - Add qt6-qtdeclarative-devel (VTK cmake config requires Qt6Quick)

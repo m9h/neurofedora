@@ -1,5 +1,5 @@
 Name:           geant4
-Version:        11.4.0
+Version:        11.4.1
 Release:        1%{?dist}
 Summary:        Toolkit for the simulation of the passage of particles through matter
 License:        Geant4
@@ -149,5 +149,8 @@ EOF
 %{_datadir}/geant4/data/
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 11.4.1-1
+- Update to 11.4.1
+
 * Mon Feb 02 2026 Antigravity <antigravity@example.com> - 11.4.0-1
 - Initial package for Geant4 11.4.0 with bundled data package

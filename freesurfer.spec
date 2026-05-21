@@ -5,8 +5,8 @@
 
 Name:           freesurfer
 Version:        8.2.0
-Release:        4%{?dist}
-Summary:        Neuroimaging analysis and visualization suite (CLI tools)
+Release:        7%{?dist}
+Summary:        Neuroimaging analysis and visualization suite
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
 # Allows redistribution with conditions; not OSI-approved
@@ -41,6 +41,7 @@ BuildRequires:  libXi-devel
 BuildRequires:  vtk-devel
 BuildRequires:  InsightToolkit5-devel
 BuildRequires:  eigen3-devel
+BuildRequires:  petsc-devel
 BuildRequires:  xxd
 # Unbundled system packages
 BuildRequires:  gifticlib-devel
@@ -71,6 +72,23 @@ FreeSurfer is an open source software suite for processing and analyzing
 human brain MRI images. This package provides the core command-line tools
 used in the recon-all processing stream.
 
+%package -n python3-%{name}
+Summary:        FreeSurfer Python scripts and tools
+Requires:       %{name} = %{version}-%{release}
+Requires:       python3-nibabel
+Requires:       python3-numpy
+Requires:       python3-scipy
+Requires:       python3-scikit-learn
+Requires:       python3-surfa
+Requires:       python3-samseg
+Requires:       python3-pyyaml
+Requires:       python3-six
+
+%description -n python3-%{name}
+Python scripts and tools for FreeSurfer, including aparcstats2table,
+asegstats2table, samseg wrappers, and other processing utilities.
+Requires system Python with neuroimaging packages.
+
 %package freeview
 Summary:        FreeSurfer volume and surface viewer (GUI)
 Requires:       %{name}%{?_isa} = %{version}-%{release}
@@ -79,6 +97,15 @@ Requires:       qt6-qtbase-gui
 %description freeview
 Freeview is FreeSurfer's GUI tool for viewing and editing MRI volumes,
 surface reconstructions, and other neuroimaging data.
+
+%package tracula
+Summary:        FreeSurfer tractography tools (TRACULA)
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description tracula
+TRACULA (TRActs Constrained by UnderLying Anatomy) tools for automated
+reconstruction of white matter pathways using diffusion MRI data.
+Note: Full TRACULA processing requires FSL (bedpostx, probtrackx2).
 
 %prep
 %autosetup -p0 -n freesurfer-%{version}
@@ -134,15 +161,25 @@ sed -i '/^public:/a\
 # Qt5::X11Extras unconditionally added even with Qt6
 sed -i 's/set(QT_LIBRARIES ${QT_LIBRARIES} Qt5::X11Extras)/if(Qt5_DIR)\n    set(QT_LIBRARIES ${QT_LIBRARIES} Qt5::X11Extras)\n  endif()/' freeview/CMakeLists.txt
 
-# MINIMAL=ON excludes freeview — add it back explicitly for the GUI subpackage
-sed -i '/^add_subdirectory(vtkutils)/a\
-if(BUILD_GUIS AND VTK_FOUND)\
-  add_subdirectory(freeview)\
-endif()' CMakeLists.txt
+# Remove annex tarball extractions everywhere — data not in source tarball (git-annex)
+find . -name CMakeLists.txt -exec sed -i '/install_tarball/d' {} +
+
+# anatomicuts and resurf need ITK JPEG2000/PhilipsREC IO modules not in our ITK build — skip for now
+sed -i '/add_subdirectories(/,/)/{/anatomicuts/d;/resurf/d}' CMakeLists.txt
 
 # ARM/aarch64: guard SSE intrinsics in affine.h — define ARM64 on non-x86
 sed -i 's|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64)|#if (__GNUC__ > 3) \&\& !defined(HAVE_MCHECK) \&\& !defined(ARM64) \&\& defined(__x86_64__)|' \
     include/affine.h
+
+# ARM/aarch64: guard SSE intrinsics in affine.hpp — wrap xmmintrin.h include
+# and SSE template specializations with __x86_64__ guards.
+# The generic template implementations (lines 178-214) provide loop-based fallbacks.
+sed -i 's|#include <xmmintrin.h>|#ifdef __x86_64__\n#include <xmmintrin.h>\n#endif|' include/affine.hpp
+# Wrap SSE specializations: insert #ifdef before first, #endif after last
+# Wrap SSE specializations in #ifdef __x86_64__ ... #endif
+# Insert #ifdef before the first specialization, #endif before namespace close
+sed -i -z 's|//! Specialise matrix-vector for float and use SSE|#ifdef __x86_64__\n\n//! Specialise matrix-vector for float and use SSE|' include/affine.hpp
+sed -i -z 's|}\n\n}\n\n\n#endif|}\n\n#endif // __x86_64__\n\n}\n\n\n#endif|' include/affine.hpp
 
 # System gifticlib lacks extern "C" guards needed for C++ compilation.
 # Create wrapper headers in the include/ dir (already in the include path).
@@ -192,7 +229,7 @@ sed -i '/^void vtkRGBATransferFunction::SetColorSpaceToHSVNoWrap/,/^}/s/^/\/\//'
 
 # Remove install(CODE) blocks that hardcode CMAKE_INSTALL_PREFIX:
 # 1. build-stamp.txt (single line in top-level CMakeLists.txt)
-sed -i '/^install(CODE.*build-stamp/d' CMakeLists.txt
+sed -i '/build-stamp/d' CMakeLists.txt
 # 2. Python symlink calls in top-level CMakeLists.txt
 sed -i '/symlink(.*python.*bin.*python3)/d' CMakeLists.txt
 # 3. Python subdir: gut the entire file — we don't distribute fspython
@@ -209,12 +246,12 @@ function(install_append_help SCRIPT HELPTEXT DESTINATION)\
 endfunction()' cmake/functions.cmake
 
 %build
-export CFLAGS="%{optflags} -Wno-error"
+export CFLAGS="%{optflags} -Wno-error -std=gnu17"
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
-    -DMINIMAL=ON \
+    -DMINIMAL=OFF \
     -DBUILD_GUIS=ON \
     -DFREEVIEW_LINEPROF=OFF \
     -DDISTRIBUTE_FSPYTHON=OFF \
@@ -241,11 +278,18 @@ touch %{__cmake_builddir}/distribution/average/cmake_install.cmake
 # Empty the python cmake_install — we don't distribute fspython
 echo "" > %{__cmake_builddir}/python/cmake_install.cmake
 
-# Remove ALL cmake install files that try to run pip or reference fspython.
-# Empty them entirely — these subdirs only install python packages we don't need.
-find %{__cmake_builddir} -name cmake_install.cmake -exec \
-    grep -l 'fspython\|pip install\|python3\.8' {} + | \
-    while read f; do echo "# Cleared for RPM build" > "$f"; done
+# Remove ALL cmake install files that reference fspython, pip, model files, or
+# run execute_process with hardcoded paths. Empty them entirely.
+python3 -c "
+import os, re
+for root, dirs, files in os.walk('$(echo %{__cmake_builddir})'):
+    for fn in files:
+        if fn == 'cmake_install.cmake':
+            path = os.path.join(root, fn)
+            txt = open(path).read()
+            if re.search(r'fspython|pip install|python3\.8|Could not install|Could not extract|install_directories|install_symlinks_fspython', txt):
+                open(path, 'w').write('# Cleared for RPM build\n')
+"
 
 # Fix generated cmake_install files: install(CODE) blocks baked the literal prefix
 # into file(MAKE_DIRECTORY), configure_file(), execute_process, and message() calls.
@@ -254,6 +298,10 @@ find %{__cmake_builddir} -name cmake_install.cmake \
     -exec sed -i '/file(MAKE_DIRECTORY\|configure_file\|execute_process\|message(STATUS/s|/usr/lib/freesurfer|$ENV{DESTDIR}/usr/lib/freesurfer|g' {} +
 
 %cmake_install
+
+# Fix ambiguous Python shebangs (Fedora rejects #!/usr/bin/env python)
+find %{buildroot}%{_prefix}/lib/freesurfer -type f -exec \
+    sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} + 2>/dev/null || :
 
 # Install profile.d scripts for automatic env setup on login
 install -Dpm 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/freesurfer.sh
@@ -294,11 +342,30 @@ echo "No missing shared library dependencies"
 %{_sysconfdir}/profile.d/freesurfer.sh
 %{_sysconfdir}/profile.d/freesurfer.csh
 %exclude %{_prefix}/lib/freesurfer/bin/freeview
+%exclude %{_prefix}/lib/freesurfer/bin/dmri_*
+%exclude %{_prefix}/lib/freesurfer/python/
+
+%files -n python3-%{name}
+%{_prefix}/lib/freesurfer/python/
 
 %files freeview
 %{_prefix}/lib/freesurfer/bin/freeview
 
+%files tracula
+%{_prefix}/lib/freesurfer/bin/dmri_*
+
 %changelog
+* Tue Apr 22 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-7
+- Fix aarch64 build: guard SSE intrinsics in affine.hpp with __x86_64__
+- Fix ambiguous python shebang in fsfast/bin/par2schedule
+
+* Sun Mar 30 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-5
+- Full build (MINIMAL=OFF): all FreeSurfer programs
+- Add python3-freesurfer subpackage for Python scripts
+- Add freesurfer-tracula subpackage for diffusion tractography tools
+- Add petsc-devel BuildRequires for tracula
+- Proper subpackage split per RPM Fusion guidelines
+
 * Sun Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-4
 - Add freesurfer-freeview subpackage (GUI volume/surface viewer)
 - Build with BUILD_GUIS=ON and Qt6 support

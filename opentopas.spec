@@ -1,5 +1,5 @@
 Name:           opentopas
-Version:        4.2.2
+Version:        4.2.3
 Release:        1%{?dist}
 Summary:        Monte Carlo tool for particle simulation
 License:        MIT
@@ -126,6 +126,9 @@ rm -rf %{buildroot}%{_prefix}/examples
 %{_libdir}/*.a
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.2.3-1
+- Update to 4.2.3
+
 * Mon Feb 02 2026 Antigravity <antigravity@example.com> - 4.2.2-1
 - Initial package for OpenTOPAS 4.2.2
 

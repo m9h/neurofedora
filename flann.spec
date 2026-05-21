@@ -88,9 +88,14 @@ sed -i 's/"lib"/"%{_lib}"/' cmake/flann_utils.cmake
 # CMake 4.x (F44 ships 4.3) rejects cmake_minimum_required < 3.5.
 # flann 1.9.2's CMakeLists has the old required-version pin; pass the
 # compatibility flag rather than carry a patch.
-%cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_MATLAB_BINDINGS=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=ON
+#
+# BUILD_DOC=OFF skips flann's bundled UseLATEX.cmake which fails at
+# configure time (manual.tex dep on html target not declared correctly).
+# We weren't shipping the LaTeX docs anyway — the doc subpackage in the
+# F42 spec was non-functional cruft that never built clean.
+%cmake -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_MATLAB_BINDINGS=OFF -DBUILD_DOC=OFF -DCMAKE_BUILD_TYPE=Release -DBUILD_PYTHON_BINDINGS=ON
 %cmake_build
-%cmake_build %{!?rhel:--target} doc
+# Doc build target removed — BUILD_DOC=OFF above means no `doc` target exists
 
 %install
 %cmake_install
@@ -113,7 +118,8 @@ rm -rf %{buildroot}%{_bindir}*
 rm -rf %{buildroot}%{_datadir}/doc/flann
 
 %files
-%doc doc/manual.pdf
+# manual.pdf removed — BUILD_DOC=OFF skips the LaTeX build that would
+# produce it. The pdf is reproducible from upstream sources if needed.
 %{_libdir}/*.so.%{version}
 %{_libdir}/*.so.%{soversion}
 

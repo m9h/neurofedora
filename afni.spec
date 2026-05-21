@@ -13,8 +13,8 @@
 %global _python_bytecompile_errors_terminate_build 0
 
 Name:           afni
-Version:        26.0.08
-Release:        17%{?dist}
+Version:        26.1.00
+Release:        1%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -577,6 +577,9 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-1
+- Update to 26.1.00
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 26.0.08-17
 - Multi-subpackage rewrite (afni-libs, afni-core, python3-afni, afni-tcsh,
   afni-rstats, afni-data, afni-doc, afni-devel; afni-gui/afni-suma stubs)
