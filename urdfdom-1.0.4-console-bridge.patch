@@ -1,0 +1,12 @@
+diff -up ./CMakeLists.txt.console-bridge ./CMakeLists.txt
+--- ./CMakeLists.txt.console-bridge	2020-08-04 20:40:25.998492153 -0400
++++ ./CMakeLists.txt	2020-08-04 20:40:53.368291778 -0400
+@@ -41,7 +41,7 @@ if (NOT MSVC)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+ endif()
+ 
+-find_package(console_bridge 0.3 REQUIRED)
++find_package(console_bridge REQUIRED)
+ include_directories(SYSTEM ${console_bridge_INCLUDE_DIRS})
+ link_directories(${console_bridge_LIBRARY_DIRS})
+ 
