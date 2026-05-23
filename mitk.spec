@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        4%{?dist}
+Release:        6%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -153,6 +153,13 @@ sed -i 's/httplib::MultipartFormDataItems/httplib::UploadFormDataItems/g' \
 # expects LZ4::lz4_shared from its superbuild
 sed -i 's/LZ4::lz4_shared/LZ4::LZ4/g' Modules/DataTypesExt/CMakeLists.txt
 
+# Boost 1.87+ removed boost::detail::lcast_get_precision<T>().
+# It always returned std::numeric_limits<T>::max_digits10; substitute that.
+sed -i 's|boost::detail::lcast_get_precision<\([A-Za-z_][A-Za-z0-9_]*\)>()|std::numeric_limits<\1>::max_digits10|g' \
+    Modules/Core/include/mitkLexicalCast.h
+grep -q '^#include <limits>' Modules/Core/include/mitkLexicalCast.h || \
+    sed -i '0,/^#include/{s|^#include|#include <limits>\n#include|}' Modules/Core/include/mitkLexicalCast.h
+
 # Remove bundled libraries that we use from system
 # (Keep CppMicroServices - it's a modified fork we must bundle)
 
@@ -216,6 +223,11 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-6
+- Fix Boost 1.87+ FTBFS in Modules/Core/include/mitkLexicalCast.h:37 —
+  boost::detail::lcast_get_precision<T>() was removed. Replace with
+  std::numeric_limits<T>::max_digits10 (its historical implementation).
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-3
 - Remove incorrect eigen3-devel Requires from -devel subpackage
   (MITK gets Eigen through ITK5 which bundles it)
