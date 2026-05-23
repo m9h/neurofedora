@@ -5,7 +5,7 @@
 
 Name:           minc-tools
 Version:        2.3.2
-Release:        5.%{date}git%{shortcommit}%{?dist}
+Release:        6.%{date}git%{shortcommit}%{?dist}
 Summary:        Basic command-line tools for MINC files
 
 License:        BSD-3-Clause
@@ -50,6 +50,11 @@ sed -i '/^IF(COMMAND CMAKE_POLICY)/,/^ENDIF(COMMAND CMAKE_POLICY)/d' CMakeLists.
 # (the same removed CMP0026 mechanism). Disable the Testing subdir entirely
 # (we don't run upstream's tests in the RPM build anyway).
 sed -i '/add_subdirectory[[:space:]]*(Testing)/Id; /ADD_SUBDIRECTORY[[:space:]]*(Testing)/Id' CMakeLists.txt
+
+# netCDF API: F44/rawhide netcdf renamed _FillValue to NC_FillValue (the leading
+# underscore identifier was always reserved-to-the-implementation in ISO C and
+# newer netcdf headers no longer expose it). progs/mincgen/ncgentab.y uses it.
+find progs -name '*.[chyl]' -exec sed -i 's/\b_FillValue\b/NC_FillValue/g' {} +
 
 # --- FIX 3: Cleanly Rewrite conversion/CMakeLists.txt ---
 # We overwrite this file to:
@@ -146,6 +151,10 @@ fi
 %{_mandir}/man1/*.1*
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.2-6.20260106gite382598
+- Rename _FillValue to NC_FillValue in progs/mincgen — newer libnetcdf
+  drops the underscore-prefixed identifier (reserved-to-implementation)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.2-5.20260106gite382598
 - Drop CMAKE_POLICY(SET CMP0026 OLD) block (CMP0026 was removed in cmake 4.x);
   disable Testing/ subdir (its GET_PROPERTY ... LOCATION reads are also gone)

@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -58,6 +58,12 @@ sed -i '/CMTKLibraryDepends.cmake/d' core/CMakeLists.txt
 
 # cmake 4.x removed CMP0005; bundled numdiff sets it to OLD which now errors
 sed -i '/cmake_policy(SET CMP0005 OLD)/d' core/Utilities/numdiff-5.2.1/CMakeLists.txt
+
+# Disable bundled numdiff entirely — its C sources (errors.c, new.c) FTBFS
+# on GCC 16 (stricter ISO C parser, macro expansion errors). numdiff is a
+# test utility CMTK itself doesn't link against, so dropping the subdir is safe.
+sed -i '/ADD_SUBDIRECTORY[[:space:]]*(numdiff/Id; /add_subdirectory[[:space:]]*(numdiff/Id' \
+    core/Utilities/CMakeLists.txt 2>/dev/null || true
 
 %build
 cd core
@@ -121,6 +127,11 @@ export LD_LIBRARY_PATH=%{buildroot}%{_libdir}/cmtk
 %{_libdir}/cmtk/*.cmake
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-4
+- Disable bundled numdiff subdir: errors.c and new.c FTBFS on GCC 16
+  (stricter ISO C parsing rejects the macro expansions). numdiff is a
+  test utility CMTK doesn't link against, so the subdir can go.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-3
 - Remove cmake 4.x dead commands (policy floor isn't enough):
   - EXPORT_LIBRARY_DEPENDENCIES + CMTKLibraryDepends install in core/CMakeLists.txt:698

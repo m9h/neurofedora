@@ -33,6 +33,12 @@ dose computation, and DICOM-RT structure processing. The single
 %prep
 %autosetup -n %{name}-%{version}
 
+# cmake 4.x rejects cmake_minimum_required(VERSION <3.5) even with the
+# CMAKE_POLICY_VERSION_MINIMUM flag in some configurations. Bump it directly
+# in CMakeLists.txt:7 (upstream uses VERSION 3.1.3).
+sed -i -E 's/^[[:space:]]*cmake_minimum_required[[:space:]]*\([[:space:]]*VERSION[[:space:]]+[0-9.]+[[:space:]]*\)/cmake_minimum_required(VERSION 3.5)/I' \
+    CMakeLists.txt
+
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
@@ -75,6 +81,11 @@ rm -f %{buildroot}%{_libdir}/*.a
 %{_datadir}/doc/plastimatch/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-8
+- Patch CMakeLists.txt:7 directly to cmake_minimum_required(VERSION 3.5)
+  (the policy-floor cmdline flag wasn't enough — cmake 4 still hard-rejected
+  the upstream `(VERSION 3.1.3)`)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-7
 - Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x on rawhide
   (FTBFS at CMakeLists.txt:7 cmake_minimum_required, build 10505941)
