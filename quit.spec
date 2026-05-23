@@ -1,6 +1,6 @@
 Name:           quit
 Version:        3.4
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Quantitative Imaging Tools for MRI data processing
 
 License:        MPL-2.0
