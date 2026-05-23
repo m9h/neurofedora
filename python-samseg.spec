@@ -7,7 +7,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.5a0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Sequence Adaptive Multimodal SEGmentation
 
 License:        MIT
@@ -27,7 +27,9 @@ BuildRequires:  gcc-c++
 BuildRequires:  InsightToolkit5-devel >= 5.4.5
 BuildRequires:  zlib-devel
 # ITK 5.4.5 VtkGlue cmake config transitively requires VTK at find_package time
-BuildRequires:  vtk-devel < 9.3
+# (was pinned to <9.3 for the retired system Qt5 VTK 9.2.6; samseg doesn't
+# use VTK directly so the COPR VTK 9.5/9.6 is fine)
+BuildRequires:  vtk-devel
 BuildRequires:  java-devel
 BuildRequires:  libtheora-devel
 BuildRequires:  qt5-qtbase-devel
@@ -138,7 +140,10 @@ for f in os.listdir(so_dir):
 %{_bindir}/segment_subregions
 
 %changelog
-* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.5a0-1
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.5a0-2
+- Drop vtk-devel <9.3 pin (system VTK 9.2.6 Qt5 retired on F44+)
+
+* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.5a0-1
 - Update to 0.5a (new commit e86d876)
 - Remove pinned ml-dtypes and git-pinned surfa from setup.cfg
 - Relax numpy version requirement

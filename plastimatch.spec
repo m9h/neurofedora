@@ -75,6 +75,10 @@ rm -f %{buildroot}%{_libdir}/*.a
 %{_datadir}/doc/plastimatch/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-7
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x on rawhide
+  (FTBFS at CMakeLists.txt:7 cmake_minimum_required, build 10505941)
+
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-4
 - Switch to shared libs (upstream has proper SOVERSION)
 - Enable PLM_CONFIG_INSTALL_LIBRARIES (required for cmake export set)

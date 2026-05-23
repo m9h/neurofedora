@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -50,6 +50,14 @@ developing applications that use %{name}.
 # Fix conflict with std::byte in C++17/20
 # Rename CMTK's 'byte' to 'cmtk_byte'
 grep -rle "\bbyte\b" core | xargs sed -i 's/\bbyte\b/cmtk_byte/g'
+
+# cmake 4.x removed EXPORT_LIBRARY_DEPENDENCIES (deprecated in 3.0, gone in 4.0)
+sed -i '/EXPORT_LIBRARY_DEPENDENCIES/d' core/CMakeLists.txt
+# Also remove the install of the now-non-existent CMTKLibraryDepends.cmake
+sed -i '/CMTKLibraryDepends.cmake/d' core/CMakeLists.txt
+
+# cmake 4.x removed CMP0005; bundled numdiff sets it to OLD which now errors
+sed -i '/cmake_policy(SET CMP0005 OLD)/d' core/Utilities/numdiff-5.2.1/CMakeLists.txt
 
 %build
 cd core
@@ -113,6 +121,11 @@ export LD_LIBRARY_PATH=%{buildroot}%{_libdir}/cmtk
 %{_libdir}/cmtk/*.cmake
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-3
+- Remove cmake 4.x dead commands (policy floor isn't enough):
+  - EXPORT_LIBRARY_DEPENDENCIES + CMTKLibraryDepends install in core/CMakeLists.txt:698
+  - cmake_policy(SET CMP0005 OLD) in bundled numdiff (CMP0005 was removed)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-2
 - Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x compatibility (F44+)
 

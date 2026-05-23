@@ -2,7 +2,7 @@
 
 Name:           simnibs
 Version:        4.6.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Simulation of Non-Invasive Brain Stimulation
 
 License:        GPL-3.0-only
@@ -122,6 +122,16 @@ sed -i 's/boost::get<Point>(\&(inter->first))/std::get_if<Point>(\&(inter->first
 sed -i 's/boost::get<Segment>(\&(inter->first))/std::get_if<Segment>(\&(inter->first))/g' \
     simnibs/mesh_tools/cgal/_cgal_intersect.cpp
 
+# ---- CGAL 6: create_labeled_image_mesh_domain takes named parameters ----
+# Old form (CGAL 5): ::create_labeled_image_mesh_domain(image, relative_error_bound)
+# New form (CGAL 6): ::create_labeled_image_mesh_domain(
+#                       CGAL::parameters::image(image)
+#                       .relative_error_bound(relative_error_bound))
+# Both _cgal_intersect.cpp (already patched above) and _mesh_volumes.cpp
+# use this; rawhide build 10505996 failed on the latter.
+sed -i 's|::create_labeled_image_mesh_domain(image, *1e-10)|::create_labeled_image_mesh_domain(CGAL::parameters::image(image).relative_error_bound(1e-10))|g' \
+    simnibs/mesh_tools/cgal/_mesh_volumes.cpp
+
 # ---- Fix CGAL 6 const-correctness bug ----
 # CGAL 6.0.3 Add_features_in_domain<false>::operator() takes Image_3& (non-const)
 # but Labeled_mesh_domain_3 passes const Image_3 weights_. Create local patched copy.
@@ -205,6 +215,10 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 %{_bindir}/simnibs_gui
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-3
+- CGAL 6 (rawhide/F45): port _mesh_volumes.cpp create_labeled_image_mesh_domain
+  to the named-parameter form (matches existing _cgal_intersect.cpp patches)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-2
 - Drop upstream-installed top-level tools/ package (Python 3.14 site-packages
   bleed; was triggering "Installed (but unpackaged) file(s) found" on F44)
