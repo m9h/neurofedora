@@ -1,6 +1,6 @@
 Name:           quit
 Version:        3.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Quantitative Imaging Tools for MRI data processing
 
 License:        MPL-2.0
@@ -91,5 +91,10 @@ cmake -S External/fmt -B External/fmt/build \
 %{_bindir}/qi
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-2
+- Add missing Source2 Findargs.cmake (was referenced but never committed,
+  blocking SRPM rebuild). Simple header-only find module providing
+  args::args INTERFACE target.
+
 * Mon Mar 30 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-1
 - Initial package for Fedora
