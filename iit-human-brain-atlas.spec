@@ -1,6 +1,6 @@
 Name:           iit-human-brain-atlas
 Version:        5.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        IIT Human Brain Atlas (MRI templates and labels)
 
 # Non-commercial research/educational use only.
@@ -50,6 +50,10 @@ test -f %{buildroot}%{_datadir}/neurofedora/atlases/iit/IITmean_FA.nii.gz
 %{_datadir}/neurofedora/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0-2
+- Rebuild for F44+rawhide chroots (no spec changes; source IIT_Atlas_v5.0.zip
+  re-derived from NITRC-multi-file-downloads selection, 115 files / 2.2 GB)
+
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0-1
 - Initial IIT Human Brain Atlas data package
 - Saves data to /usr/share/neurofedora/atlases/iit for cross-package use
