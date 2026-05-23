@@ -3,7 +3,7 @@
 
 Name:           mrtrix3
 Version:        3.0.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Advanced Diffusion MRI Processing and Visualisation
 
 License:        MPL-2.0
