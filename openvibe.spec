@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -127,8 +127,10 @@ sed -i 's/set(OV_EIGEN_FLAGS "-msse2")/if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64
     sdk/CMakeLists.txt extras/CMakeLists.txt
 
 # Boost 1.87+ (F44+): io_service removed, use io_context; resolver::query removed
+# The tcpip-client example uses io_service AND tcp::resolver::query — both gone.
 sed -i 's/boost::asio::io_service/boost::asio::io_context/g' \
-    extras/modules/tcptagging/include/tcptagging/CStimulusSender.h
+    extras/modules/tcptagging/include/tcptagging/CStimulusSender.h \
+    extras/applications/examples/openvibe-to-tcpip/src/tcpip-client.cpp
 # Replace the query+resolve+connect block with modern Boost.Asio API
 # resolver.resolve() returns results_type, use boost::asio::connect() instead of socket.connect(*iter)
 sed -i '/const boost::asio::ip::tcp::resolver::query query/,/m_oStimulusSocket.connect(\*endpointIterator, error);/c\\t\t\tauto endpoints = resolver.resolve(sAddress, sStimulusPort);\n\t\t\tboost::asio::connect(m_oStimulusSocket, endpoints, error);' \
@@ -223,6 +225,11 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-7
+- Extend boost::asio::io_service sed to also cover the tcpip-client example
+  (extras/applications/examples/openvibe-to-tcpip/src/tcpip-client.cpp);
+  3.7.0-6 missed this second occurrence (build 10506010 FTBFS on Boost 1.87)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-6
 - Force-include <algorithm> via CXXFLAGS for GCC 16: CBoxAlgorithmErpPlot.cpp
   uses std::none_of without the include, which used to be pulled in
