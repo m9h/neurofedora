@@ -191,6 +191,11 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-3
+- Source0: full URL instead of bare filename so COPR's SCM/rpkg path can
+  spectool-fetch it. The bare filename failed SRPM build instantly on rawhide
+  (build 10506557 — 4-second fail, no logs because no SRPM was produced).
+
 * Wed May 06 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-2
 - Bundle GDCM and MINC to fix ITK 6.0 beta target errors
 - Clean up spec file and use versioned install paths
