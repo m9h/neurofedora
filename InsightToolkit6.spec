@@ -8,12 +8,12 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        2%{?dist}
+Release:        4%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
 URL:            https://itk.org/
-Source0:        ITK-%{itk_ver}.tar.gz
+Source0:        https://github.com/InsightSoftwareConsortium/ITK/archive/v%{itk_ver}.tar.gz#/ITK-%{itk_ver}.tar.gz
 # Remote modules (pre-populated for offline mock/COPR builds)
 # GenericLabelInterpolator: required by ANTs
 %global glinterp_commit ebf2436469ccf82c08fab54b7446f699ad0eae01
