@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -54,6 +54,7 @@ grep -rle "\bbyte\b" core | xargs sed -i 's/\bbyte\b/cmtk_byte/g'
 %build
 cd core
 %cmake \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_SKIP_RPATH=ON \
     -DCMTK_INSTALL_BIN_DIR=bin \
@@ -112,6 +113,9 @@ export LD_LIBRARY_PATH=%{buildroot}%{_libdir}/cmtk
 %{_libdir}/cmtk/*.cmake
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-2
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x compatibility (F44+)
+
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-1
 - Initial CMTK package
 - Updated licenses and installation paths

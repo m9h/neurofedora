@@ -2,7 +2,7 @@
 
 Name:           simnibs
 Version:        4.6.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Simulation of Non-Invasive Brain Stimulation
 
 License:        GPL-3.0-only
@@ -138,6 +138,9 @@ export CFLAGS="%{optflags} -Wno-error=implicit-function-declaration -Wno-error=i
 
 %install
 %pyproject_install
+# Upstream wheel installs a top-level `tools/` package at site-packages root
+# (collides with Python global namespace; not part of `simnibs`). Drop it.
+rm -rf %{buildroot}%{python3_sitearch}/tools
 %pyproject_save_files simnibs
 
 %check
@@ -202,7 +205,12 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 %{_bindir}/simnibs_gui
 
 %changelog
-* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-1
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-2
+- Drop upstream-installed top-level tools/ package (Python 3.14 site-packages
+  bleed; was triggering "Installed (but unpackaged) file(s) found" on F44)
+- Fix bogus changelog weekday: Apr 23 2026 is Thursday, not Wednesday
+
+* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-1
 - Update to 4.6.0
 - Remove cat_c_utils patches (files removed upstream)
 - Relax fmm3dpy version pin (was ==1.0.4, now >=1.0.0)
@@ -228,5 +236,5 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 - Remove tools subpackage (extensions are in python3-simnibs)
 - Remove mkl/tbb conda-only deps from pyproject.toml
 
-* Tue Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.5.0-1
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.5.0-1
 - Initial package for SimNIBS 4.5.0

@@ -5,7 +5,7 @@
 
 Name:           minc-tools
 Version:        2.3.2
-Release:        3.%{date}git%{shortcommit}%{?dist}
+Release:        4.%{date}git%{shortcommit}%{?dist}
 Summary:        Basic command-line tools for MINC files
 
 License:        BSD-3-Clause
@@ -96,6 +96,7 @@ EOF
 export CFLAGS="%{optflags} -std=gnu17 -fcommon"
 
 %cmake \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DLIBMINC_DIR=%{_libdir}/cmake/libminc \
     -DLIBMINC_INCLUDE_DIR=%{_includedir} \
     -DLIBMINC_LIBRARY=%{_libdir}/libminc.so
@@ -134,6 +135,9 @@ fi
 %{_mandir}/man1/*.1*
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.2-4.20260106gite382598
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x compatibility (F44+)
+
 * Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.2-2.20260106gite382598
 - Fix man page installation: /usr/man/ -> /usr/share/man/
 - Include man pages in files list
