@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -160,7 +160,10 @@ sed -i '/^[[:space:]]*itpp[[:space:]]*$/d' \
     extras/contrib/plugins/processing/signal-processing/CMakeLists.txt
 
 %build
-export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
+# -include algorithm: GCC 16 no longer pulls <algorithm> transitively through
+# other STL headers, so std::none_of/any_of/find in CBoxAlgorithmErpPlot.cpp
+# (and likely siblings) FTBFS. Force-include everywhere (matches cstdint).
+export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -include algorithm -fpermissive"
 
 %cmake -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -220,6 +223,11 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-6
+- Force-include <algorithm> via CXXFLAGS for GCC 16: CBoxAlgorithmErpPlot.cpp
+  uses std::none_of without the include, which used to be pulled in
+  transitively but GCC 16 / libstdc++ no longer does
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-5
 - Fix install: remove create_symlink install(CODE) blocks that bypass DESTDIR
   (they create symlinks in /usr/ instead of $DESTDIR/usr/, causing permission errors)
