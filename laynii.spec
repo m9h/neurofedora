@@ -1,12 +1,11 @@
 Name:           laynii
 Version:        2.10.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Suite of C++ programs for layer-fMRI neuroimaging analysis
 
 License:        BSD-3-Clause
 URL:            https://github.com/layerfMRI/LAYNII
 Source0:        %{url}/archive/v%{version}/LAYNII-%{version}.tar.gz
-Patch0:         0001-Fix-missing-cstdint-include-in-idalib.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  make
@@ -41,15 +40,20 @@ correlation analysis.
 Built with Dear ImGui, SDL2, and OpenGL for fluid, responsive visualization.
 
 %prep
-%autosetup -n LAYNII-%{version} -p1
+%autosetup -n LAYNII-%{version}
 
 # Use Fedora compiler and linker flags instead of hardcoded -O3
 sed -i 's|^CFLAGS\t*=.*-std=c++11 -DHAVE_ZLIB|CFLAGS = %{optflags} -std=c++11 -DHAVE_ZLIB|' Makefile
 sed -i '/^CFLAGS.*+=.*-O3/d' Makefile
 sed -i 's|^LFLAGS\t*=.*|LFLAGS = %{build_ldflags} -lm -lz|' Makefile
 
-# Apply Fedora flags to ida Makefile
-sed -i 's|^CXXFLAGS = -std=c++11|CXXFLAGS = %{optflags} -std=c++11|' ida/src/Makefile
+# Apply Fedora flags to ida Makefile.
+# -include cstdint: ida/dep/idalib.h declares uint64_t-returning functions but
+# does not include <cstdint>; GCC 13+/16 no longer pulls it in transitively
+# from <stdio.h>/<iostream>/<cmath>. Force-include covers idalib and any
+# sibling .cpp with the same issue (replaces former
+# 0001-Fix-missing-cstdint-include-in-idalib.patch which was missing from git).
+sed -i 's|^CXXFLAGS = -std=c++11|CXXFLAGS = %{optflags} -std=c++11 -include cstdint|' ida/src/Makefile
 sed -i '/^CXXFLAGS += -O3/d' ida/src/Makefile
 # Relax format warnings that Fedora's -Werror=format-security promotes to errors
 # (upstream uses llu format specifier for uint64_t and empty ImGui format strings)
@@ -178,6 +182,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/laynii-ida.desktop
 %{_datadir}/icons/hicolor/scalable/apps/laynii.svg
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.10.0-2
+- Drop missing Patch0 (0001-Fix-missing-cstdint-include-in-idalib.patch was
+  referenced in the spec but never committed to git, blocking SRPM rebuild);
+  replace with -include cstdint in ida/src CXXFLAGS (same effect, no patch file)
+
 * Sun Mar 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.10.0-1
 - Initial package for Fedora
 - Add laynii-ida subpackage with GUI visualization application
