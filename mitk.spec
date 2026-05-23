@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -165,7 +165,7 @@ grep -q '^#include <limits>' Modules/Core/include/mitkLexicalCast.h || \
 
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
-export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor"
+export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
 export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 
 # Unset env vars to prevent Conda/system tool interference

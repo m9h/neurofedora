@@ -20,11 +20,22 @@ find_package_handle_standard_args(args
     REQUIRED_VARS args_INCLUDE_DIR
 )
 
-if(args_FOUND AND NOT TARGET args::args)
-    add_library(args::args INTERFACE IMPORTED)
-    set_target_properties(args::args PROPERTIES
-        INTERFACE_INCLUDE_DIRECTORIES "${args_INCLUDE_DIR}"
-    )
+if(args_FOUND)
+    # taywee::args is the canonical target name used by upstream consumers
+    # (QUIT's Source/CMakeLists.txt does target_link_libraries(... taywee::args)).
+    if(NOT TARGET taywee::args)
+        add_library(taywee::args INTERFACE IMPORTED)
+        set_target_properties(taywee::args PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${args_INCLUDE_DIR}"
+        )
+    endif()
+    # Compatibility alias name some other projects use.
+    if(NOT TARGET args::args)
+        add_library(args::args INTERFACE IMPORTED)
+        set_target_properties(args::args PROPERTIES
+            INTERFACE_INCLUDE_DIRECTORIES "${args_INCLUDE_DIR}"
+        )
+    endif()
 endif()
 
 mark_as_advanced(args_INCLUDE_DIR)

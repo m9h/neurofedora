@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -16,6 +16,9 @@ Source0:        https://github.com/jefferis/cmtk/archive/%{commit}/%{name}-%{ver
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  fftw-devel
+# numdiff: when found by FIND_PROGRAM in core/Utilities/CMakeLists.txt, cmtk's
+# bundled numdiff-5.2.1 subdir is skipped (its C99 sources FTBFS on GCC 16).
+BuildRequires:  numdiff
 BuildRequires:  mxml-devel
 # dcmtk-devel causes API compatibility issues with current CMTK 3.4.0
 # BuildRequires:  dcmtk-devel
