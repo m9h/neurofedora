@@ -1,6 +1,6 @@
 Name:           sigviewer
 Version:        0.7.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Viewing and inspection of biosignals (EEG, EMG, ECG)
 License:        GPL-3.0-or-later
 URL:            https://github.com/cbrnr/sigviewer
@@ -21,13 +21,10 @@ BuildRequires:  cmake(Qt6Svg)
 BuildRequires:  cmake(Qt6LinguistTools)
 BuildRequires:  cmake(Qt6Test)
 
-# External libraries — upstream pins LIBXDF 0.99.10 and LIBBIOSIG 3.9.4 and
-# expects pre-built STATIC libs in external/. We use the system shared libs:
-#   * libxdf  0.99.10 (COPR mhough/neurofedora — exact version match)
-#   * libbiosig 2.6.1 (Fedora — older than upstream pin; the FATAL_ERROR
-#     version check is bypassed via the stub versions.cmake in %prep)
+# External libraries — both at the exact versions upstream pins (now both
+# in COPR mhough/neurofedora: libxdf 0.99.10 and biosig4c++ 3.9.4).
 BuildRequires:  libxdf-devel >= 0.99.10
-BuildRequires:  biosig4c++-devel
+BuildRequires:  biosig4c++-devel >= 3.9.4
 
 Requires:       qt6-qtbase
 Requires:       qt6-qtsvg
@@ -89,6 +86,11 @@ fi
 %{_datadir}/icons/hicolor/scalable/apps/sigviewer.svg
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-3
+- Require biosig4c++-devel >= 3.9.4 (now in COPR); both pinned external deps
+  are at the exact versions upstream expects, so the stub versions.cmake
+  matches reality.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-2
 - Port spec from qmake/Qt5 to cmake/Qt6 (upstream 0.7.1 dropped qmake).
 - Stub external/versions.cmake to satisfy upstream's pinned-version FATAL_ERROR
