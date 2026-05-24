@@ -138,6 +138,12 @@ _require_installed() {
     grep -qE "freesurfer" <<<"$output\n$stderr" || { echo "expected /freesurfer/ in output, got: $output $stderr"; false; }
 }
 
+@test "afni (cli): afni -ver 2>&1" {
+    _require_installed "afni"
+    run --separate-stderr bash -c "afni -ver 2>&1"
+    grep -qE "AFNI_version" <<<"$output\n$stderr" || { echo "expected /AFNI_version/ in output, got: $output $stderr"; false; }
+}
+
 @test "opentopas (cli): test -x /usr/bin/topas" {
     _require_installed "opentopas"
     run --separate-stderr bash -c "test -x /usr/bin/topas"
@@ -225,6 +231,12 @@ _require_installed() {
 @test "dtk-qt6 (lib): test -f /usr/lib64/libdtkCore.so" {
     _require_installed "dtk-qt6"
     run --separate-stderr bash -c "test -f /usr/lib64/libdtkCore.so"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "RPI-devel (lib): test -d /usr/include/RegistrationAddOn && test -d /usr/lib64/cmake/RPI" {
+    _require_installed "RPI-devel"
+    run --separate-stderr bash -c "test -d /usr/include/RegistrationAddOn && test -d /usr/lib64/cmake/RPI"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -357,6 +369,18 @@ _require_installed() {
 @test "ctk (lib): test -f /usr/lib64/libCTKCore.so.0.1" {
     _require_installed "ctk"
     run --separate-stderr bash -c "test -f /usr/lib64/libCTKCore.so.0.1"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "vespa-libs (lib): test -d /usr/lib64/vtk/plugins || ls /usr/lib64/libvtkCGAL*.so* 2>/dev/null | head -1" {
+    _require_installed "vespa-libs"
+    run --separate-stderr bash -c "test -d /usr/lib64/vtk/plugins || ls /usr/lib64/libvtkCGAL*.so* 2>/dev/null | head -1"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "vespa-paraview-plugin (lib): test -f /usr/lib64/paraview*/plugins/VESPAPlugin/VESPAPlugin.so || ls /usr/lib64/paraview*/plugins/VESPA*/*.so 2>/dev/null | head -1" {
+    _require_installed "vespa-paraview-plugin"
+    run --separate-stderr bash -c "test -f /usr/lib64/paraview*/plugins/VESPAPlugin/VESPAPlugin.so || ls /usr/lib64/paraview*/plugins/VESPA*/*.so 2>/dev/null | head -1"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 

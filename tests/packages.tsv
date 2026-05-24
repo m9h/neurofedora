@@ -48,8 +48,8 @@ mrtrix3	cli	mrconvert --version	MRtrix
 # WIP-F44: connectome-workbench	cli	wb_command -version 2>&1	Connectome Workbench
 # WIP-F44: minc-tools	cli	mincinfo -version 2>&1	mincinfo
 freesurfer	cli	mri_info --version 2>&1	freesurfer
-# BROKEN-PKG: afni — /usr/bin/afni can't find /usr/lib64/afni/libmrix.so (no ld.so.conf entry, no RPATH); afni.spec needs to ship a /etc/ld.so.conf.d/afni.conf or set CMAKE_INSTALL_RPATH
-# afni	cli	afni -ver	AFNI
+# Fixed in afni-26.1.00-2: libmrix/libSUMA/libXmHTML/libf2c/libsegtools moved to %_libdir
+afni	cli	afni -ver 2>&1	AFNI_version
 
 # ─── Quantitative MRI / simulation ─────────────────────────────────────────────
 # WIP-F44: bart	cli	bart version 2>&1	v
@@ -87,8 +87,8 @@ flann	lib	test -f /usr/lib64/libflann.so.1.9
 
 # ─── INRIA medInria chain (libs) ───────────────────────────────────────────────
 dtk-qt6	lib	test -f /usr/lib64/libdtkCore.so
-# BROKEN-PKG: RPI — COPR build ships no files beyond the spec+tarball (empty install)
-# RPI	lib	test -d /usr/include/RPI || test -d /usr/lib64/cmake/RPI
+# RPI is header-only by design: the main pkg is empty, content ships in RPI-devel
+RPI-devel	lib	test -d /usr/include/RegistrationAddOn && test -d /usr/lib64/cmake/RPI
 TTK	lib	test -f /usr/lib64/libttkAlgorithms.so.1
 
 # ─── Python — neuroimaging stack ───────────────────────────────────────────────
@@ -140,8 +140,10 @@ PythonQt	lib	test -f /usr/lib64/libPythonQt.so
 ctk	lib	test -f /usr/lib64/libCTKCore.so.0.1
 
 # ─── Spectroscopy ──────────────────────────────────────────────────────────────
-# BROKEN-PKG: vespa — COPR build ships only docs + spec, no binary
-# vespa	cli	test -x /usr/bin/vespa
+# vespa main pkg is an empty metapackage by design; content ships in vespa-libs
+# (VTK modules) and vespa-paraview-plugin (loadable ParaView plugin)
+vespa-libs	lib	test -d /usr/lib64/vtk/plugins || ls /usr/lib64/libvtkCGAL*.so* 2>/dev/null | head -1
+vespa-paraview-plugin	lib	test -f /usr/lib64/paraview*/plugins/VESPAPlugin/VESPAPlugin.so || ls /usr/lib64/paraview*/plugins/VESPA*/*.so 2>/dev/null | head -1
 
 # ─── Layer-specific neuroimaging ──────────────────────────────────────────────
 laynii	cli	LN2_LAYERS 2>&1	equi-distant

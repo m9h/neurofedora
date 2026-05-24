@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.1.00
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -346,9 +346,23 @@ rm -f  %{buildroot}%{_bindir}/gifti_test
 rm -rf %{buildroot}%{_datadir}/cmake/NIFTI
 
 # -- Move shared libraries from private dir to system libdir --
-# Core shared libs with SONAMEs go to %%{_libdir} for ldconfig
+# Core shared libs go to %%{_libdir} so the dynamic linker can find them
+# without an RPATH or LD_LIBRARY_PATH dance.
+#
+# The first group (mri 3DEdge eispack coxplot track_tools) have proper
+# versioned SONAMEs (libfoo.so.26). The second group (mrix SUMA XmHTML
+# f2c segtools) have UNVERSIONED SONAMEs (just libfoo.so) but are still
+# directly NEEDED by /usr/libexec/afni/afni and dozens of 3d* binaries
+# — readelf -d confirmed at packaging time. They were silently
+# orphaned in /usr/lib64/afni/ where ldconfig doesn't see them, so
+# `afni` and friends would fail with "libmrix.so: cannot open shared
+# object file" the moment a user ran them. The harness caught this.
+#
+# Only model_/plugin_ libs (true AFNI plugins loaded via dlopen with
+# AFNI_PLUGINPATH/AFNI_MODELPATH) stay in /usr/lib64/afni/.
 mkdir -p %{buildroot}%{_libdir}
-for lib in mri 3DEdge eispack coxplot track_tools; do
+for lib in mri 3DEdge eispack coxplot track_tools \
+           mrix SUMA XmHTML f2c segtools; do
   if ls %{buildroot}%{_prefix}/%{_lib}/afni/lib${lib}.so* 2>/dev/null; then
     mv %{buildroot}%{_prefix}/%{_lib}/afni/lib${lib}.so* %{buildroot}%{_libdir}/
   fi
@@ -482,6 +496,15 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_libdir}/libeispack.so.*
 %{_libdir}/libcoxplot.so.*
 %{_libdir}/libtrack_tools.so.*
+# Unversioned-SONAME libs: NEEDED directly by /usr/libexec/afni/afni and
+# many 3d* binaries. Live in %%{_libdir} (not %%{_libdir}/afni) so
+# ldconfig finds them at runtime. No -devel symlink ships for these
+# because their SONAME *is* the unversioned name (upstream choice).
+%{_libdir}/libmrix.so
+%{_libdir}/libSUMA.so
+%{_libdir}/libXmHTML.so
+%{_libdir}/libf2c.so
+%{_libdir}/libsegtools.so
 %dir %{_libdir}/afni
 %{_libdir}/afni/*.so*
 %config(noreplace) %{_sysconfdir}/profile.d/afni.sh
@@ -577,6 +600,17 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-2
+- Move libmrix, libSUMA, libXmHTML, libf2c, libsegtools out of the private
+  /usr/lib64/afni/ subdir to /usr/lib64/ so ldconfig finds them at runtime.
+  Without this, /usr/bin/afni and most 3d* tools fail at startup with
+  "libmrix.so: cannot open shared object file" — the dynamic linker has
+  no RPATH (patchelf strips it) and no LD_LIBRARY_PATH (profile.d only
+  exports AFNI_PLUGINPATH/AFNI_MODELPATH). These libs have unversioned
+  SONAMEs but are NEEDED entries on every afni binary, not dlopen
+  plugins, so they belong on the standard ld search path. Surfaced by
+  the neurofedora test harness.
+
 * Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-1
 - Update to 26.1.00
 
