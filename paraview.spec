@@ -1,329 +1,562 @@
-# Disable LTO — causes linker issues with large C++ builds
-%global _lto_cflags %{nil}
+#LTO fails at the moment
+%undefine _lto_cflags
 
-# Suppress debug packages — they are enormous for ParaView
-%define debug_package %{nil}
-
-# Limit parallelism to prevent OOM on COPR workers
-%global _smp_mflags -j4
+%if 0%{?fedora}
+%define _legacy_common_support 1
+%endif
 
 %global pv_maj 6
 %global pv_min 1
 %global pv_patch 0
 %global pv_majmin %{pv_maj}.%{pv_min}
+#global rcsuf RC2
+%{?rcsuf:%global relsuf .%{rcsuf}}
+%{?rcsuf:%global versuf -%{rcsuf}}
+
+# No MPI (yet) in flatpaks
+%if 0%{?flatpak}
+%bcond_with mpich
+%bcond_with openmpi
+%else
+%bcond_without mpich
+# No openmpi on i668 with openmpi 5 in Fedora 40+
+%if 0%{?fedora} >= 40
+%ifarch %{ix86}
+%bcond_with openmpi
+%else
+%bcond_without openmpi
+%endif
+%else
+%bcond_without openmpi
+%endif
+%endif
+
+# cgnslib is too old on EL8
+%if 0%{?el8}
+%bcond_with cgnslib
+%else
+%bcond_without cgnslib
+%endif
+%if %{with cgnslib}
+%global vtk_use_system_cgnslib -DVTK_MODULE_USE_EXTERNAL_ParaView_cgns:BOOL=ON
+%else
+%global vtk_use_system_cgnslib -DVTK_MODULE_USE_EXTERNAL_ParaView_cgns:BOOL=OFF
+%endif
+
+# Enable VisitBridge plugin (bz#1546474)
+%bcond_with VisitBridge
+
+%bcond_without protobuf
+%if %{with protobuf}
+%global vtk_use_system_protobuf -DVTK_MODULE_USE_EXTERNAL_ParaView_protobuf:BOOL=ON
+%else
+%global vtk_use_system_protobuf -DVTK_MODULE_USE_EXTERNAL_ParaView_protobuf:BOOL=OFF
+%endif
 
 Name:           paraview
 Version:        %{pv_maj}.%{pv_min}.%{pv_patch}
-Release:        1%{?dist}
-Summary:        Parallel visualization application using VTK
+Release:        %autorelease
+Summary:        Parallel visualization application
 
 License:        BSD-3-Clause
 URL:            https://www.paraview.org/
-Source0:        https://www.paraview.org/files/v%{pv_majmin}/ParaView-v%{version}.tar.gz
-# MIME type definition for ParaView data files
+Source0:        https://www.paraview.org/files/v%{pv_majmin}/ParaView-v%{version}%{?versuf}.tar.gz
 Source1:        paraview.xml
+Source2:        https://www.paraview.org/files/v%{pv_majmin}/ParaViewGettingStarted-%{version}.pdf
+# Fix cmake files install location
+# https://gitlab.kitware.com/paraview/paraview/issues/19724
+Patch0:         paraview-cmakedir.patch
+# always_inline fails on ppc64le
+# https://gitlab.kitware.com/vtk/vtk/-/issues/19622
+# https://bugzilla.redhat.com/show_bug.cgi?id=2386242
+Patch2:         vtk-ppc64-no-always-inline.patch
+# Fix build with newer freetype
+# https://gitlab.kitware.com/vtk/vtk/-/issues/18033
+Patch3:         paraview-freetype.patch
+# Fix location of resources
+Patch4:         paraview-resources.patch
 
-# Fix location of resources (look in share/paraview as well as share/paraview-VERSION)
-Patch0:         paraview-resources.patch
-# Fix build with Qt 6.10.1 — cast unscoped enums to int in QtTesting
-# https://gitlab.kitware.com/paraview/qttesting/-/commit/c11a762d
-Patch1:         paraview-qt6101-qttesting.diff
-# Fix build with Qt 6.10.1 — cast unscoped enums to int in ParaView Qt code
-# https://gitlab.kitware.com/paraview/paraview/-/commit/cd7e633d
-Patch2:         paraview-qt6101-main.patch
-
-ExcludeArch:    %{ix86}
-
-# ---- Build Tools ----
 BuildRequires:  cmake >= 3.12
-BuildRequires:  gcc-c++
-BuildRequires:  ninja-build
-BuildRequires:  patchelf
-BuildRequires:  desktop-file-utils
-BuildRequires:  libappstream-glib
-
-# ---- External VTK 9.6.2 from mhough/neurofedora COPR ----
-# Requires VTK_MODULE_ENABLE_VTK_IOPIO=WANT in VTK (added in COPR vtk-9.6.2-4)
-BuildRequires:  vtk-devel >= 9.6.2
-
-# ---- VTK transitive cmake deps ----
-# VTK-vtk-module-find-packages.cmake runs find_package() for all unbundled
-# modules; these -devel packages must be present or configure fails.
-# (Once vtk-devel Requires are hardened, this block can be removed.)
-BuildRequires:  boost-devel
-BuildRequires:  cgnslib-devel
-BuildRequires:  double-conversion-devel
-BuildRequires:  expat-devel
-BuildRequires:  fmt-devel >= 8.1.0
-BuildRequires:  freetype-devel
-BuildRequires:  gdal-devel
-BuildRequires:  hdf5-devel
-BuildRequires:  json-devel
-BuildRequires:  jsoncpp-devel
-BuildRequires:  libarchive-devel
-BuildRequires:  libGL-devel
-BuildRequires:  libharu-devel
-BuildRequires:  libjpeg-devel
-BuildRequires:  libogg-devel
-BuildRequires:  libpng-devel
-BuildRequires:  libpq-devel
-BuildRequires:  libtheora-devel
-BuildRequires:  libtiff-devel
-BuildRequires:  libX11-devel
-BuildRequires:  libXcursor-devel
-BuildRequires:  libXext-devel
-BuildRequires:  libxml2-devel
-BuildRequires:  libXt-devel
+BuildRequires:  make
 BuildRequires:  lz4-devel
-BuildRequires:  mariadb-connector-c-devel
-BuildRequires:  netcdf-cxx-devel
-BuildRequires:  nlohmann-json-devel
-BuildRequires:  openslide-devel
-BuildRequires:  PEGTL-devel
-BuildRequires:  proj-devel
-BuildRequires:  pugixml-devel
-BuildRequires:  sqlite-devel
-BuildRequires:  utf8cpp-devel
-BuildRequires:  xz-devel
-BuildRequires:  zlib-devel
-
-# ---- Qt6 ----
 BuildRequires:  cmake(Qt6)
-BuildRequires:  cmake(Qt6Core5Compat)
+BUildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  cmake(Qt6Svg)
 BuildRequires:  cmake(Qt6UiPlugin)
-
-# ---- Python ----
+BuildRequires:  /usr/bin/xsltproc
 BuildRequires:  python3-devel
-
-# ---- Other direct ParaView dependencies ----
+BuildRequires:  python3-netcdf4
+%if %{with cgnslib}
+BuildRequires:  cgnslib-devel
+%endif
 BuildRequires:  cli11-devel
-BuildRequires:  eigen3-devel
-BuildRequires:  fast_float-devel
-BuildRequires:  openssl-devel
-BuildRequires:  protobuf-devel
-BuildRequires:  readline-devel
+BuildRequires:  gdal-devel
+BuildRequires:  hdf5-devel
 BuildRequires:  tk-devel
+BuildRequires:  fast_float-devel
+BuildRequires:  freetype-devel, libtiff-devel, zlib-devel
+BuildRequires:  expat-devel
+BuildRequires:  readline-devel
+BuildRequires:  openssl-devel
+BuildRequires:  gnuplot
+BuildRequires:  wget
+BuildRequires:  boost-devel
+BuildRequires:  eigen3-devel
+BuildRequires:  hwloc-devel
+BuildRequires:  libjpeg-devel
+BuildRequires:  libpng-devel
+BuildRequires:  libtheora-devel
+BuildRequires:  libxml2-devel
+BuildRequires:  libXcursor-devel
+BuildRequires:  libXt-devel
+BuildRequires:  netcdf-cxx-devel
+BuildRequires:  cmake(nlohmann_json)
+BuildRequires:  patchelf
+BuildRequires:  PEGTL-devel
+BuildRequires:  proj-devel
+%if %{with protobuf}
+BuildRequires:  protobuf-devel
+%endif
+BuildRequires:  sqlite-devel
+BuildRequires:  utf8cpp-devel
+BuildRequires:  vtk-devel
+# For validating desktop and appdata files
+BuildRequires:  desktop-file-utils
+BuildRequires:  libappstream-glib
+BuildRequires:  glibc-langpack-en
+# Test dependencies
+BuildRequires:  mesa-libEGL
 
-# ---- Runtime dependencies ----
-Requires:       %{name}-data = %{version}-%{release}
-Requires:       hdf5%{?_hdf5_version: = %{_hdf5_version}}
-Requires:       python3-numpy
-Requires:       qt6-qtsvg%{?_isa}
+Requires: hdf5%{?_hdf5_version: = %{_hdf5_version}}
+Requires: %{name}-data = %{version}-%{release}
+Requires: python3-pygments
+Requires: python3-six
+Requires: python3-netcdf4
+Requires: python3-numpy
+Requires: python3-twisted
+Requires: python3-autobahn
+# ParaView requires svg support via icon plugins, so no direct linking involved
+Requires: qt6-qtsvg%{?_isa}
 
-# ParaView bundles these components even when using external VTK
-Provides:       bundled(catalyst) = 2.0
-Provides:       bundled(diy2)
-Provides:       bundled(exprtk) = 2.71
-Provides:       bundled(h5part) = 1.6.6
-Provides:       bundled(icet)
-Provides:       bundled(ioss)
-Provides:       bundled(kwsys-base64)
-Provides:       bundled(kwsys-commandlinearguments)
-Provides:       bundled(kwsys-directory)
-Provides:       bundled(kwsys-dynamicloader)
-Provides:       bundled(kwsys-encoding)
-Provides:       bundled(kwsys-fstream)
-Provides:       bundled(kwsys-fundamentaltype)
-Provides:       bundled(kwsys-glob)
-Provides:       bundled(kwsys-md5)
-Provides:       bundled(kwsys-process)
-Provides:       bundled(kwsys-regularexpression)
-Provides:       bundled(kwsys-status)
-Provides:       bundled(kwsys-system)
-Provides:       bundled(kwsys-systeminformation)
-Provides:       bundled(kwsys-systemtools)
-Provides:       bundled(libharu)
-Provides:       bundled(qttesting)
-Provides:       bundled(verdict) = 1.4.0
-Provides:       bundled(xdmf2)
+# Bundled KWSys
+# https://fedorahosted.org/fpc/ticket/555
+# Components used are specified in VTK/Utilities/KWSys/CMakeLists.txt
+Provides: bundled(kwsys-base64)
+Provides: bundled(kwsys-commandlinearguments)
+Provides: bundled(kwsys-directory)
+Provides: bundled(kwsys-dynamicloader)
+Provides: bundled(kwsys-encoding)
+Provides: bundled(kwsys-fstream)
+Provides: bundled(kwsys-fundamentaltype)
+Provides: bundled(kwsys-glob)
+Provides: bundled(kwsys-md5)
+Provides: bundled(kwsys-process)
+Provides: bundled(kwsys-regularexpression)
+Provides: bundled(kwsys-status)
+Provides: bundled(kwsys-system)
+Provides: bundled(kwsys-systeminformation)
+Provides: bundled(kwsys-systemtools)
+# Bundled cgnslib
+%if !%{with cgnslib}
+Provides: bundled(cgnslib) = 4.1
+%endif
+# Bundled protobuf
+%if !%{with protobuf}
+Provides: bundled(protobuf) = 2.3.0
+%endif
 
-# Do not auto-provide anything from paraview's private library directory
-%global __provides_exclude_from ^%{_libdir}/paraview/.*$
-# Do not auto-require paraview's private libraries
+# Do not provide anything in paraview's library directory
+%global __provides_exclude_from ^(%{_libdir}/paraview/|%{_libdir}/.*/lib/paraview/).*$
+# Do not require anything provided in paraview's library directory
+# This list needs to be maintained by hand
+# TODO - need to just exclude the private paraview "vtk" libraries
+%if %{with protobuf}
 %global __requires_exclude ^lib(catalyst|LegacyGhostCellsGenerator|IceT|pq|QtTesting|StereoCursorViews|vtk).*$
+%else
+%global __requires_exclude ^lib(catalyst|LegacyGhostCellsGenerator|IceT|pq|QtTesting|StereoCursorViews|vtk|protobuf).*$
+%endif
+
+ExcludeArch: %{ix86}
+
+#-- Plugin: VRPlugin - Virtual Reality Devices and Interactor styles : Disabled - Requires VRPN
+#-- Plugin: MantaView - Manta Ray-Cast View : Disabled - Requires Manta
+#-- Plugin: ForceTime - Override time requests : Disabled - Build is failing
+#-- Plugin: VaporPlugin - Plugin to read NCAR VDR files : Disabled - Requires vapor
+
+# -DVTK_DIR=%%{_libdir}/vtk \\\
+
+# Add -DOMPI_SKIP_MPICXX to work around issue with MPI linkage and exodus
+# https://gitlab.kitware.com/paraview/paraview/-/issues/20060
+%global paraview_cmake_options \\\
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \\\
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \\\
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING="-DNDEBUG -DOMPI_SKIP_MPICXX" \\\
+        -DCMAKE_INSTALL_DOCDIR:PATH=share/doc/%{name} \\\
+        -DOpenGL_GL_PREFERENCE=GLVND \\\
+        -DPARAVIEW_BUILD_SHARED_LIBS:BOOL=ON \\\
+        -DPARAVIEW_VERSIONED_INSTALL:BOOL=OFF \\\
+        -DPARAVIEW_ENABLE_GDAL:BOOL=ON \\\
+        -DPARAVIEW_USE_PYTHON:BOOL=ON \\\
+        -DPARAVIEW_INSTALL_DEVELOPMENT_FILES:BOOL=ON \\\
+        -DVTK_PYTHON_VERSION=3 \\\
+        -DPARAVIEW_BUILD_WITH_EXTERNAL:BOOL=ON \\\
+        -DPARAVIEW_USE_EXTERNAL_VTK:BOOL=ON \\\
+        %{?vtk_use_system_cgnslib} \\\
+        %{?vtk_use_system_protobuf} \\\
+        -DBUILD_EXAMPLES:BOOL=ON \\\
+        -DBUILD_TESTING:BOOL=OFF \\\
+        -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
+
+%global paraview_cmake_mpi_options \\\
+        -DCMAKE_PREFIX_PATH:PATH=$MPI_HOME \\\
+        -DCMAKE_INSTALL_PREFIX:PATH=$MPI_HOME \\\
+        -DCMAKE_INSTALL_CMAKEDIR:PATH=lib/cmake \\\
+        -DCMAKE_INSTALL_INCLUDEDIR:PATH=../../include/$MPI_COMPILER/%{name} \\\
+        -DCMAKE_INSTALL_LIBDIR:PATH=lib/%{name} \\\
+        -DHDF5_INCLUDE_DIRS:PATH=$MPI_INCLUDE \\\
+        -DQtTesting_INSTALL_LIB_DIR=lib/%{name} \\\
+        -DQtTesting_INSTALL_CMAKE_DIR=lib/%{name}/CMake \\\
+        -DPARAVIEW_USE_MPI:BOOL=ON \\\
+        -DICET_BUILD_TESTING:BOOL=ON \\\
+%if %{with VisitBridge} \
+        -DPARAVIEW_ENABLE_VISITBRIDGE=ON \\\
+%endif \
+        %{paraview_cmake_options}
 
 %description
 ParaView is an open-source, multi-platform data analysis and visualization
 application. ParaView users can quickly build visualizations to analyze their
 data using qualitative and quantitative techniques. The data exploration can
-be done interactively in 3D or programmatically using ParaView's batch
+be done interactively in 3D or programmatically using ParaView’s batch
 processing capabilities.
 
-This package is built against external VTK 9.5.2 from the mhough/neurofedora
-COPR, with Python 3 and Qt6 support enabled. MPI, Catalyst, raytracing,
-and VisitBridge are disabled for simplicity.
+ParaView was developed to analyze extremely large datasets using distributed
+memory computing resources. It can be run on supercomputers to analyze
+datasets of petascale size as well as on laptops for smaller data.
 
-%package data
+NOTE: The version in this package has NOT been compiled with MPI support.
+%if %{with openmpi}
+Install the paraview-openmpi package to get a version compiled with openmpi.
+%endif
+%if %{with mpich}
+Install the paraview-mpich package to get a version compiled with mpich.
+%endif
+
+
+%package        data
 Summary:        Data files for ParaView
+
 Requires:       %{name} = %{version}-%{release}
+
 BuildArch:      noarch
 
-%description data
-Architecture-independent data files for ParaView including icons, desktop
-integration, and shared resources.
+%description    data
+%{summary}.
 
-%package devel
+
+%package        devel
 Summary:        Development files for %{name}
+
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       vtk-devel%{?_isa}
 
-%description devel
-Headers, cmake config, and static libraries for developing applications
-that use ParaView.
+Provides:       %{name}-static = %{version}-%{release}
+Provides:       %{name}-static%{?_isa} = %{version}-%{release}
 
-%package -n python3-%{name}
-Summary:        Python 3 bindings for %{name}
-Requires:       %{name}%{?_isa} = %{version}-%{release}
+%description    devel
+The %{name}-devel package contains libraries and header files for
+developing applications that use %{name}.
+
+
+%package        doc
+Summary:        Documentation files for ParaView
+
+BuildRequires:  doxygen
+BuildRequires:  graphviz
+BuildRequires:  hardlink
+
+BuildRequires:  python3-devel
+BuildRequires:  python3-numpy
+BuildRequires:  python3-sphinx
+BuildRequires:  python3-twisted
+BuildRequires:  python3-autobahn
+BuildRequires:  python3-markupsafe
+
+BuildArch:      noarch
+
+%description    doc
+%{summary}.
+
+%global mpi_list %{nil}
+
+%if %{with openmpi}
+%global mpi_list %mpi_list openmpi
+%package        openmpi
+Summary:        Parallel visualization application
+
+BuildRequires:  openmpi-devel
+BuildRequires:  netcdf-openmpi-devel
+BuildRequires:  python3-mpi4py-openmpi
+BuildRequires:  vtk-openmpi-devel
+
+Requires:       %{name}-data = %{version}-%{release}
+Requires:       python3-autobahn
+Requires:       python3-mpi4py-openmpi
 Requires:       python3-numpy
+Requires:       python3-pygments
+Requires:       python3-six
+Requires:       python3-twisted
+# ParaView requires svg support via icon plugins, so no direct linking involved
+Requires:       qt6-qtsvg%{?_isa}
 
-%description -n python3-%{name}
-Python 3 bindings for ParaView, providing programmatic access to the
-ParaView visualization pipeline.
+%description    openmpi
+This package contains copies of the ParaView server binaries compiled with
+OpenMPI.  These are named pvserver_openmpi, pvbatch_openmpi, etc.
+
+You will need to load the openmpi-%{_arch} module to setup your path properly.
+
+
+%package        openmpi-devel
+Summary:        Development files for %{name}-openmpi
+
+Requires:       %{name}-openmpi%{?_isa} = %{version}-%{release}
+
+Provides:       %{name}-openmpi-static = %{version}-%{release}
+Provides:       %{name}-openmpi-static%{?_isa} = %{version}-%{release}
+
+%description    openmpi-devel
+The %{name}-openmpi-devel package contains libraries and header files for
+developing applications that use %{name}-openmpi.
+%endif
+
+
+%if %{with mpich}
+%global mpi_list %mpi_list mpich
+%package        mpich
+Summary:        Parallel visualization application
+
+BuildRequires:  mpich-devel
+BuildRequires:  netcdf-mpich-devel
+BuildRequires:  python3-mpi4py-mpich
+BuildRequires:  vtk-mpich-devel
+
+Requires:       %{name}-data = %{version}-%{release}
+Requires:       python3-autobahn
+Requires:       python3-mpi4py-mpich
+Requires:       python3-numpy
+Requires:       python3-pygments
+Requires:       python3-six
+Requires:       python3-twisted
+# ParaView requires svg support via icon plugins, so no direct linking involved
+Requires:       qt6-qtsvg%{?_isa}
+
+%description    mpich
+This package contains copies of the ParaView server binaries compiled with
+mpich.  These are named pvserver_mpich, pvbatch_mpich, etc.
+
+You will need to load the mpich-%{_arch} module to setup your path properly.
+
+
+%package        mpich-devel
+Summary:        Development files for %{name}-mpich
+
+Requires:       %{name}-mpich%{?_isa} = %{version}-%{release}
+
+Provides:       %{name}-mpich-static = %{version}-%{release}
+Provides:       %{name}-mpich-static%{?_isa} = %{version}-%{release}
+
+%description    mpich-devel
+The %{name}-mpich-devel package contains libraries and header files for
+developing applications that use %{name}-mpich.
+%endif
+
 
 %prep
-%autosetup -p1 -n ParaView-v%{version}
+%autosetup -p1 -n ParaView-v%{version}%{?versuf}
+
+%if %{with VisitBridge}
+cp -p Utilities/VisItBridge/README.md Utilities/VisItBridge/README-VisItBridge.md
+
+# See https://gitlab.kitware.com/paraview/paraview/issues/17456
+rm -f Utilities/VisItBridge/databases/readers/Vs/VsStaggeredField.C
+%endif
 
 # Install python properly
 sed -i -s '/VTK_INSTALL_PYTHON_USING_CMAKE/s/TRUE/FALSE/' CMakeLists.txt
+#Remove included thirdparty sources just to be sure
+for x in %{?_with_cgnslib:vtkcgns} %{?_with_protobuf:vtkprotobuf}
+do
+  rm -r ThirdParty/*/${x}
+done
+# We need VTK/Utilities/Doxygen to build docs
+# https://gitlab.kitware.com/paraview/paraview/-/issues/23120
+rm -r VTK/[A-TV-Za-z]* VTK/Utilities/[A-CE-Za-z]* VTK/Utilities/D[A-Za-np-z]*
+
+# $mpi will be evaluated in the loops below
+%global _vpath_builddir %{_vendor}-%{_target_os}-build-${mpi:-serial}
+
+
+%conf
+# Try to limit memory consumption on some arches
+%ifarch %{arm}
+%global optflags %(echo %{optflags} | sed 's/-g /-g1 /')
+%endif
+%cmake -Wno-dev \
+        -DCMAKE_INSTALL_CMAKEDIR:PATH=%{_lib}/cmake \
+        -DCMAKE_INSTALL_LIBDIR:PATH=%{_lib}/%{name} \
+        -DPARAVIEW_BUILD_DEVELOPER_DOCUMENTATION:BOOL=ON \
+        -DQtTesting_INSTALL_LIB_DIR=%{_lib}/%{name} \
+        -DQtTesting_INSTALL_CMAKE_DIR=%{_lib}/%{name}/CMake \
+        %{paraview_cmake_options}
+
+for mpi in %{mpi_list}
+do
+  module load mpi/$mpi-%{_arch}
+  %cmake -Wno-dev %{paraview_cmake_mpi_options}
+  module purge
+done
+
 
 %build
-# GCC 15 / Fedora 43 compatibility
-export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
-export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
-
-%cmake -GNinja -Wno-dev \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DCMAKE_INSTALL_DOCDIR:PATH=share/doc/%{name} \
-    -DCMAKE_INSTALL_LIBDIR:PATH=%{_lib}/paraview \
-    -DOpenGL_GL_PREFERENCE=GLVND \
-    \
-    -DPARAVIEW_USE_EXTERNAL_VTK:BOOL=ON \
-    -DVTK_DIR:PATH=%{_libdir}/cmake/vtk \
-    \
-    -DPARAVIEW_BUILD_SHARED_LIBS:BOOL=ON \
-    -DPARAVIEW_VERSIONED_INSTALL:BOOL=OFF \
-    -DPARAVIEW_INSTALL_DEVELOPMENT_FILES:BOOL=ON \
-    \
-    -DPARAVIEW_USE_PYTHON:BOOL=ON \
-    -DVTK_PYTHON_VERSION=3 \
-    -DPARAVIEW_ENABLE_GDAL:BOOL=OFF \
-    \
-    -DPARAVIEW_USE_MPI:BOOL=OFF \
-    -DPARAVIEW_ENABLE_CATALYST:BOOL=OFF \
-    -DPARAVIEW_ENABLE_RAYTRACING:BOOL=OFF \
-    -DPARAVIEW_ENABLE_VISITBRIDGE:BOOL=OFF \
-    -DPARAVIEW_ENABLE_XDMF3:BOOL=OFF \
-    -DPARAVIEW_ENABLE_FIDES:BOOL=OFF \
-    -DPARAVIEW_ENABLE_ADIOS2:BOOL=OFF \
-    -DPARAVIEW_ENABLE_FFMPEG:BOOL=OFF \
-    -DPARAVIEW_ENABLE_OPENVDB:BOOL=OFF \
-    -DPARAVIEW_ENABLE_LAS:BOOL=OFF \
-    -DPARAVIEW_ENABLE_PDAL:BOOL=OFF \
-    -DPARAVIEW_ENABLE_MOTIONFX:BOOL=OFF \
-    -DPARAVIEW_USE_VISKORES:BOOL=OFF \
-    -DPARAVIEW_ENABLE_WEB:BOOL=OFF \
-    -DPARAVIEW_ENABLE_MATPLOTLIB:BOOL=OFF \
-    -DVTK_GROUP_ENABLE_Web:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_WebCore:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_WebGLExporter:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_WebPython:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_RenderingMatplotlib:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_RenderingParallel:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_RenderingVolumeAMR:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOParallelExodus:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOParallelLSDyna:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOVPIC:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOAvmesh:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOH5part:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOH5Rage:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOOMF:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOGDAL:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=NO \
-    -DVTK_MODULE_ENABLE_VTK_cli11:STRING=NO \
-    \
-    -DBUILD_EXAMPLES:BOOL=OFF \
-    -DBUILD_TESTING:BOOL=OFF \
-    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
-
+%cmake_build -t ParaViewDoxygenDoc
 %cmake_build
+export LANG=en_US.UTF-8
+# Built-in Python modules were not found, set pythonpath as workaround
+export PYTHONPATH=$PWD/%{_lib}/paraview/python%{python3_version}/site-packages:%{python3_sitelib}:%{python3_sitearch}
+
+for mpi in %{mpi_list}
+do
+  module load mpi/$mpi-%{_arch}
+  %cmake_build
+  module purge
+done
+
 
 %install
+# Fix permissions
+find . \( -name \*.txt -o -name \*.xml -o -name '*.[ch]' -o -name '*.[ch][px][px]' \) -print0 | xargs -0 chmod -x
+
+# Create some needed directories
+install -d %{buildroot}%{_datadir}/applications
+install -d %{buildroot}%{_datadir}/mime/packages
+install -m644 %SOURCE1 %{buildroot}%{_datadir}/mime/packages
+
+for mpi in %{mpi_list}
+do
+  module load mpi/$mpi-%{_arch}
+  %cmake_install
+
+  # Remove mpi copy of doc and man pages and  data
+  rm -rf %{buildroot}%{_libdir}/${mpi}/share/{metainfo,applications,doc,icons,man,mimeinfo,paraview,vtkm-*}
+
+  # Set rpaths of every library
+  for i in `find %{buildroot}$MPI_LIB -name "*.so*" -type f -print`; do
+      patchelf --print-rpath --set-rpath $MPI_LIB $i
+  done
+  module purge
+done
+# unset mpi to reset _vpath_builddir
+unset mpi
+
+#Install the normal version
 %cmake_install
 
-# Install MIME type definition
-install -d %{buildroot}%{_datadir}/mime/packages
-install -m644 %{SOURCE1} %{buildroot}%{_datadir}/mime/packages/paraview.xml
-
-# Validate desktop and appdata files
 desktop-file-validate %{buildroot}%{_datadir}/applications/org.paraview.ParaView.desktop
-appstream-util validate-relax --nonet %{buildroot}%{_datadir}/metainfo/org.paraview.ParaView.appdata.xml
+appstream-util validate-relax --nonet %{buildroot}/%{_datadir}/metainfo/org.paraview.ParaView.appdata.xml
 
-# Remove VTK wrapper binaries that conflict with vtk-devel
-rm -f %{buildroot}%{_bindir}/vtk{ParseJava,ProbeOpenGLVersion,Wrap{Hierarchy,Java,Python,SerDes}}* 2>/dev/null || true
+# Build autodocs and move documentation-files to proper location
+mkdir -p %{buildroot}%{_pkgdocdir}
+install -pm 0644 %SOURCE2 %{buildroot}%{_pkgdocdir}/GettingStarted.pdf
+install -pm 0644 README.md %{buildroot}%{_pkgdocdir}
+%if %{with VisitBridge}
+install -pm 0644 Utilities/VisItBridge/README-VisItBridge.md %{buildroot}%{_pkgdocdir}
+%endif
+find %{buildroot}%{_pkgdocdir} -name '.*' -print0 | xargs -0 rm -frv
+find %{buildroot}%{_pkgdocdir} -name '*.map' -or -name '*.md5' -print -delete
+hardlink -cfv %{buildroot}%{_pkgdocdir}
+# Cleanup docs and link to where paraview will find it
+ln -s ../doc/paraview %{buildroot}/%{_datadir}/paraview/doc
 
-# Fix permissions on source-like files
-find %{buildroot} \( -name \*.txt -o -name \*.xml -o -name '*.[ch]' -o -name '*.[ch][px][px]' \) -print0 | xargs -0 chmod -x 2>/dev/null || true
 
-# Create doc symlink for ParaView internal lookups
-if [ -d %{buildroot}%{_datadir}/paraview ]; then
-    ln -sf ../doc/paraview %{buildroot}%{_datadir}/paraview/doc
+%pre
+#Handle changing from directory to file
+if [ -d %{_libdir}/paraview/paraview ]; then
+  rm -r %{_libdir}/paraview/paraview
 fi
 
+
 %files
-%{_bindir}/paraview
-%{_bindir}/paraview.conf
+%{_bindir}/%{name}
+%{_bindir}/%{name}.conf
 %{_bindir}/pvbatch
+# Currently disabled upstream
+#{_bindir}/pvblot
 %{_bindir}/pvdataserver
 %{_bindir}/pvpython
 %{_bindir}/pvrenderserver
 %{_bindir}/pvserver
 %{_bindir}/smTestDriver
-%{_libdir}/paraview/
-%exclude %{_libdir}/paraview/*.a
+%{_libdir}/%{name}/
+%exclude %{_libdir}/%{name}/*.a
 
 %files data
 %license Copyright.txt
+%dir %{_pkgdocdir}
+%{_pkgdocdir}/GettingStarted.pdf
+%{_pkgdocdir}/README.md
+%if %{with VisitBridge}
+%{_pkgdocdir}/README-VisItBridge.md
+%endif
 %{_datadir}/metainfo/org.paraview.ParaView.appdata.xml
 %{_datadir}/applications/org.paraview.ParaView.desktop
 %{_datadir}/icons/hicolor/*/apps/paraview.png
-%{_datadir}/licenses/ParaView/
+%license %{_datadir}/licenses/ParaView/
 %{_datadir}/mime/packages/paraview.xml
-%{_datadir}/paraview/
+%{_datadir}/%{name}/
 
 %files devel
 %{_bindir}/paraview-config
 %{_bindir}/vtkWrapClientServer
 %{_bindir}/vtkProcessXML
-%{_includedir}/paraview/
-%{_libdir}/cmake/paraview/
-%{_libdir}/paraview/*.a
+%{_includedir}/%{name}/
+%{_libdir}/cmake/
+%{_libdir}/%{name}/*.a
 
-%files -n python3-%{name}
-# Python modules are installed inside the paraview lib directory.
-# The main paraview package owns the paraview libdir tree.
+%files doc
+%{_pkgdocdir}/
+
+%if %{with openmpi}
+%files openmpi
+%{_libdir}/openmpi/bin/[ps]*
+%{_libdir}/openmpi/lib/%{name}/
+%exclude %{_libdir}/openmpi/lib/%{name}/*.a
+%license %{_libdir}/openmpi/share/licenses/
+
+%files openmpi-devel
+%{_includedir}/openmpi-%{_arch}/%{name}/
+%{_libdir}/openmpi/bin/vtk*
+%{_libdir}/openmpi/lib/cmake/
+%{_libdir}/openmpi/lib/%{name}/*.a
+%endif
+
+
+%if %{with mpich}
+%files mpich
+%{_libdir}/mpich/bin/[ps]*
+%{_libdir}/mpich/lib/%{name}/
+%exclude %{_libdir}/mpich/lib/%{name}/*.a
+%license %{_libdir}/mpich/share/licenses/
+
+%files mpich-devel
+%{_includedir}/mpich-%{_arch}/%{name}/
+%{_libdir}/mpich/bin/vtk*
+%{_libdir}/mpich/lib/cmake/
+%{_libdir}/mpich/lib/%{name}/*.a
+%endif
+
 
 %changelog
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.0-1
-- Update to ParaView 6.1.0 (upstream release)
-- Bump vtk-devel requirement to >= 9.6.2 (needs VTK::IOPIO module, enabled in
-  COPR vtk-9.6.2-4 via -DVTK_MODULE_ENABLE_VTK_IOPIO=WANT)
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.1-2
-- Disable 22 VTK modules not in COPR VTK build: Web, Parallel, Viskores,
-  GDAL, Matplotlib, various IO modules. Get basic build working first.
-
-* Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.1-1
-- Initial COPR package of ParaView 6.0.1 for Fedora 43
-- Built against external VTK 9.5.2 (PARAVIEW_USE_EXTERNAL_VTK=ON)
-- Python 3 and Qt6 GUI enabled; GDAL support enabled
-- MPI, Catalyst, raytracing, VisitBridge, XDMF3, ADIOS2 disabled
-- Qt 6.10.1 compatibility patches from Fedora rawhide
-- GCC 15 / Fedora 43 compatibility flags
+- Adopt Fedora dist-git ParaView spec (maintainer: Orion Poplawski)
+  for neurofedora COPR; rebased on upstream 6.1.0 release.
+- Requires COPR vtk-9.6.2-4 with -DVTK_MODULE_ENABLE_VTK_IOPIO=WANT
