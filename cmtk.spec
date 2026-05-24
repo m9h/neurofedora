@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -16,9 +16,8 @@ Source0:        https://github.com/jefferis/cmtk/archive/%{commit}/%{name}-%{ver
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  fftw-devel
-# numdiff: when found by FIND_PROGRAM in core/Utilities/CMakeLists.txt, cmtk's
-# bundled numdiff-5.2.1 subdir is skipped (its C99 sources FTBFS on GCC 16).
-BuildRequires:  numdiff
+# (former BR `numdiff` removed — that package isn't in Fedora.
+# Instead we sed-disable the bundled numdiff-5.2.1 subdir in %prep below.)
 BuildRequires:  mxml-devel
 # dcmtk-devel causes API compatibility issues with current CMTK 3.4.0
 # BuildRequires:  dcmtk-devel
@@ -63,10 +62,14 @@ sed -i '/CMTKLibraryDepends.cmake/d' core/CMakeLists.txt
 sed -i '/cmake_policy(SET CMP0005 OLD)/d' core/Utilities/numdiff-5.2.1/CMakeLists.txt
 
 # Disable bundled numdiff entirely — its C sources (errors.c, new.c) FTBFS
-# on GCC 16 (stricter ISO C parser, macro expansion errors). numdiff is a
-# test utility CMTK itself doesn't link against, so dropping the subdir is safe.
-sed -i '/ADD_SUBDIRECTORY[[:space:]]*(numdiff/Id; /add_subdirectory[[:space:]]*(numdiff/Id' \
-    core/Utilities/CMakeLists.txt 2>/dev/null || true
+# on GCC 16. numdiff is a test utility CMTK itself doesn't link against.
+# Force FIND_PROGRAM to "find" something so the ELSE branch (add_subdirectory)
+# is skipped; also strip any direct add_subdirectory references.
+sed -i 's|FIND_PROGRAM(NUMDIFF_EXECUTABLE_SYSTEM[^)]*)|SET(NUMDIFF_EXECUTABLE_SYSTEM "/usr/bin/true")|I' \
+    core/Utilities/CMakeLists.txt
+sed -i '/^[[:space:]]*ADD_SUBDIRECTORY[[:space:]]*(numdiff/Id; /^[[:space:]]*add_subdirectory[[:space:]]*(numdiff/Id' \
+    core/Utilities/CMakeLists.txt core/CMakeLists.txt 2>/dev/null || true
+rm -rf core/Utilities/numdiff-5.2.1
 
 %build
 cd core
