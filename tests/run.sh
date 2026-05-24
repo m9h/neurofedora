@@ -35,6 +35,20 @@ fi
 echo "==> regenerate smoke.bats from packages.tsv"
 "${HERE}/generate-tests.sh"
 
+echo "==> regenerate pipelines.bats from pipelines.tsv"
+"${HERE}/generate-pipelines.sh"
+
+# Generate the pipeline fixture corpus up front rather than relying on the
+# bats setup_file() hook, which fails silently when Python deps are missing
+# and produces an opaque wall of "fixtures missing" SKIPs. If generation
+# fails here the pipelines tests SKIP rather than fail — same outcome,
+# but the reason shows in the run.sh log instead of being invisible.
+if [[ ! -f "${HERE}/fixtures/t1.nii.gz" ]]; then
+    echo "==> generate pipeline fixtures (one-time, ~1 MB)"
+    "${HERE}/fixtures/generate-fixtures.sh" || \
+        echo "[run] fixture generation failed — pipelines.bats tests will SKIP"
+fi
+
 echo "==> bats (jobs=$JOBS)"
 EXTRA=""
 if [[ -n "$JUNIT_DIR" ]]; then
