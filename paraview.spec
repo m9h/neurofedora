@@ -8,13 +8,13 @@
 %global _smp_mflags -j4
 
 %global pv_maj 6
-%global pv_min 0
-%global pv_patch 1
+%global pv_min 1
+%global pv_patch 0
 %global pv_majmin %{pv_maj}.%{pv_min}
 
 Name:           paraview
 Version:        %{pv_maj}.%{pv_min}.%{pv_patch}
-Release:        2%{?dist}
+Release:        1%{?dist}
 Summary:        Parallel visualization application using VTK
 
 License:        BSD-3-Clause
@@ -42,8 +42,9 @@ BuildRequires:  patchelf
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
-# ---- External VTK 9.5.2 from mhough/neurofedora COPR ----
-BuildRequires:  vtk-devel >= 9.5.2
+# ---- External VTK 9.6.2 from mhough/neurofedora COPR ----
+# Requires VTK_MODULE_ENABLE_VTK_IOPIO=WANT in VTK (added in COPR vtk-9.6.2-4)
+BuildRequires:  vtk-devel >= 9.6.2
 
 # ---- VTK transitive cmake deps ----
 # VTK-vtk-module-find-packages.cmake runs find_package() for all unbundled
@@ -310,6 +311,11 @@ fi
 # The main paraview package owns the paraview libdir tree.
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.0-1
+- Update to ParaView 6.1.0 (upstream release)
+- Bump vtk-devel requirement to >= 9.6.2 (needs VTK::IOPIO module, enabled in
+  COPR vtk-9.6.2-4 via -DVTK_MODULE_ENABLE_VTK_IOPIO=WANT)
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.1-2
 - Disable 22 VTK modules not in COPR VTK build: Web, Parallel, Viskores,
   GDAL, Matplotlib, various IO modules. Get basic build working first.
