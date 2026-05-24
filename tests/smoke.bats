@@ -246,81 +246,81 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-simpleitk (python): python3 -c 'import SimpleITK; print(SimpleITK.Version_String())'" {
+@test "python3-simpleitk (python): /usr/bin/python3 -c 'import SimpleITK; print(SimpleITK.Version_String())'" {
     _require_installed "python3-simpleitk"
-    run --separate-stderr bash -c "python3 -c 'import SimpleITK; print(SimpleITK.Version_String())'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import SimpleITK; print(SimpleITK.Version_String())'"
     grep -qE "SimpleITK" <<<"$output\n$stderr" || { echo "expected /SimpleITK/ in output, got: $output $stderr"; false; }
 }
 
-@test "python3-nilearn (python): python3 -c 'import nilearn; print(nilearn.__version__)'" {
+@test "python3-nilearn (python): /usr/bin/python3 -c 'import nilearn; print(nilearn.__version__)'" {
     _require_installed "python3-nilearn"
-    run --separate-stderr bash -c "python3 -c 'import nilearn; print(nilearn.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import nilearn; print(nilearn.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-hdf5plugin (python): python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'" {
+@test "python3-hdf5plugin (python): /usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'" {
     _require_installed "python3-hdf5plugin"
-    run --separate-stderr bash -c "python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-babelviscofdtd (python): python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'" {
+@test "python3-babelviscofdtd (python): /usr/bin/python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'" {
     _require_installed "python3-babelviscofdtd"
-    run --separate-stderr bash -c "python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-vmtk (python): python3 -c 'import vmtk'" {
+@test "python3-vmtk (python): /usr/bin/python3 -c 'import vmtk'" {
     _require_installed "python3-vmtk"
-    run --separate-stderr bash -c "python3 -c 'import vmtk'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import vmtk'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-fmm3dpy (python): python3 -c 'import fmm3dpy'" {
+@test "python3-fmm3dpy (python): /usr/bin/python3 -c 'import fmm3dpy'" {
     _require_installed "python3-fmm3dpy"
-    run --separate-stderr bash -c "python3 -c 'import fmm3dpy'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import fmm3dpy'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-pygpc (python): python3 -c 'import pygpc; print(pygpc.__version__)'" {
+@test "python3-pygpc (python): /usr/bin/python3 -c 'import pygpc; print(pygpc.__version__)'" {
     _require_installed "python3-pygpc"
-    run --separate-stderr bash -c "python3 -c 'import pygpc; print(pygpc.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import pygpc; print(pygpc.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-surfa (python): python3 -c 'import surfa; print(surfa.__version__)'" {
+@test "python3-surfa (python): /usr/bin/python3 -c 'import surfa; print(surfa.__version__)'" {
     _require_installed "python3-surfa"
-    run --separate-stderr bash -c "python3 -c 'import surfa; print(surfa.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import surfa; print(surfa.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-charm_gems (python): python3 -c 'import charm_gems'" {
+@test "python3-charm_gems (python): /usr/bin/python3 -c 'import charm_gems'" {
     _require_installed "python3-charm_gems"
-    run --separate-stderr bash -c "python3 -c 'import charm_gems'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import charm_gems'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-fslpy (python): python3 -c 'import fsl'" {
+@test "python3-fslpy (python): /usr/bin/python3 -c 'import fsl'" {
     _require_installed "python3-fslpy"
-    run --separate-stderr bash -c "python3 -c 'import fsl'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import fsl'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-fsleyes (python): python3 -c 'import fsleyes'" {
+@test "python3-fsleyes (python): /usr/bin/python3 -c 'import fsleyes'" {
     _require_installed "python3-fsleyes"
-    run --separate-stderr bash -c "python3 -c 'import fsleyes'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import fsleyes'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-fsleyes-props (python): python3 -c 'import fsleyes_props'" {
+@test "python3-fsleyes-props (python): /usr/bin/python3 -c 'import fsleyes_props'" {
     _require_installed "python3-fsleyes-props"
-    run --separate-stderr bash -c "python3 -c 'import fsleyes_props'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import fsleyes_props'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-fsleyes-widgets (python): python3 -c 'import fsleyes_widgets'" {
+@test "python3-fsleyes-widgets (python): /usr/bin/python3 -c 'import fsleyes_widgets'" {
     _require_installed "python3-fsleyes-widgets"
-    run --separate-stderr bash -c "python3 -c 'import fsleyes_widgets'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import fsleyes_widgets'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -330,9 +330,9 @@ _require_installed() {
     grep -qE "FSLeyes" <<<"$output\n$stderr" || { echo "expected /FSLeyes/ in output, got: $output $stderr"; false; }
 }
 
-@test "python3-marshmallow (python): python3 -c 'import marshmallow; print(marshmallow.__version__)'" {
+@test "python3-marshmallow (python): /usr/bin/python3 -c 'import marshmallow; print(marshmallow.__version__)'" {
     _require_installed "python3-marshmallow"
-    run --separate-stderr bash -c "python3 -c 'import marshmallow; print(marshmallow.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import marshmallow; print(marshmallow.__version__)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 

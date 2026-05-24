@@ -146,11 +146,11 @@ PIPECMD
     fi
 }
 
-@test "[007] python3-simpleitk: python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$FIX\"'/t1.…" {
+@test "[007] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
     _require_fixtures
     _require_installed "python3-simpleitk"
     run --separate-stderr bash <<PIPECMD
-python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); print("shape=",img.GetSize())'
+/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); print("shape=",img.GetSize())'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -166,11 +166,11 @@ PIPECMD
     fi
 }
 
-@test "[008] python3-simpleitk: python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$FIX\"'/t1.…" {
+@test "[008] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
     _require_fixtures
     _require_installed "python3-simpleitk"
     run --separate-stderr bash <<PIPECMD
-python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); sm=sitk.SmoothingRecursiveGaussian(img,2.0); sitk.WriteImage(sm,"'"$TMP"'/smooth.nii.gz"); print("OK")'
+/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); sm=sitk.SmoothingRecursiveGaussian(img,2.0); sitk.WriteImage(sm,"'"$TMP"'/smooth.nii.gz"); print("OK")'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -186,11 +186,11 @@ PIPECMD
     fi
 }
 
-@test "[009] python3-fslpy: python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FIX\"'/t1.ni…" {
+@test "[009] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FI…" {
     _require_fixtures
     _require_installed "python3-fslpy"
     run --separate-stderr bash <<PIPECMD
-python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/t1.nii.gz"); print("shape=", im.shape)'
+/usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/t1.nii.gz"); print("shape=", im.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -400,11 +400,11 @@ PIPECMD
     fi
 }
 
-@test "[020] python3-vmtk: python3 -c 'import vmtk; from vmtk import vmtkscripts; r=vmtkscripts.v…" {
+@test "[020] python3-vmtk: /usr/bin/python3 -c 'import vmtk; from vmtk import vmtkscripts; r=vmtk…" {
     _require_fixtures
     _require_installed "python3-vmtk"
     run --separate-stderr bash <<PIPECMD
-python3 -c 'import vmtk; from vmtk import vmtkscripts; r=vmtkscripts.vmtkSurfaceReader(); r.InputFileName="'"$FIX"'/mesh.vtp"; r.Execute(); print("npts=", r.Surface.GetNumberOfPoints())'
+/usr/bin/python3 -c 'import vmtk; from vmtk import vmtkscripts; r=vmtkscripts.vmtkSurfaceReader(); r.InputFileName="'"$FIX"'/mesh.vtp"; r.Execute(); print("npts=", r.Surface.GetNumberOfPoints())'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"

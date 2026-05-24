@@ -61,6 +61,12 @@ awk -F'\t' '
         cmd = $2
         expect = (NF >= 3 ? $3 : "")
 
+        # Same conda-safety rewrite as generate-tests.sh: force `python3 ` to
+        # the system interpreter so the tests always see the RPMs in
+        # /usr/lib/python3.X/site-packages, never whatever a conda/venv has
+        # in PATH. Needs gawk (Fedora default) — uses gensub for backref support.
+        cmd = gensub(/(^|[ \t])python3 /, "\\1/usr/bin/python3 ", "g", cmd)
+
         # Strip surrounding whitespace and trailing CRs that creep in from
         # editors.
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", pkg)

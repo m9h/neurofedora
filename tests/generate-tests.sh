@@ -47,6 +47,12 @@ awk -F'\t' '
     NF < 3            { next }
     {
         pkg = $1; cat = $2; cmd = $3; expect = $4
+        # Rewrite bare `python3 ` to `/usr/bin/python3 ` so the tests use
+        # the SYSTEM Python (where the RPMs live), not whatever a conda /
+        # venv / direnv has put earlier in PATH. The RPMs install to
+        # /usr/lib/python3.X/site-packages which a venv won'\''t see.
+        # Needs gawk (Fedora default) — uses gensub for backref support.
+        cmd = gensub(/(^|[ \t])python3 /, "\\1/usr/bin/python3 ", "g", cmd)
         # escape double quotes and backslashes for the heredoc body
         gsub(/\\/, "\\\\", cmd);  gsub(/"/, "\\\"", cmd)
         gsub(/\\/, "\\\\", expect); gsub(/"/, "\\\"", expect)

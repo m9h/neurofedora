@@ -63,6 +63,34 @@ if ! command -v xvfb-run >/dev/null 2>&1; then
         log "xvfb install failed — gui.bats xvfb tests will be skipped"
 fi
 
+# 3b. Python deps for pipelines.bats fixture generation. The fixtures are
+#     synthesized on first test run from numpy + nibabel + pydicom + SimpleITK.
+#     Without these, pipelines.bats SKIPs all 20 tests.
+FIXTURE_DEPS=(python3-numpy python3-nibabel python3-pydicom python3-SimpleITK)
+NEED_FIXTURE_DEPS=()
+for p in "${FIXTURE_DEPS[@]}"; do
+    rpm -q --quiet "$p" 2>/dev/null || NEED_FIXTURE_DEPS+=("$p")
+done
+if (( ${#NEED_FIXTURE_DEPS[@]} > 0 )); then
+    log "installing pipeline fixture deps: ${NEED_FIXTURE_DEPS[*]}"
+    sudo dnf install -y --skip-unavailable "${NEED_FIXTURE_DEPS[@]}" 2>&1 | tee -a "$LOG" || true
+fi
+
+# 3c. Preflight: remove Fedora packages that file-conflict with COPR packages.
+#     The COPR ships InsightToolkit 5.x; Fedora's stock InsightToolkit is 4.x
+#     and they fight over /usr/bin/itkTestDriver. Same situation for any other
+#     known offenders. We `dnf remove` them silently — they will be replaced
+#     by the COPR equivalent in the main install step.
+CONFLICT_REMOVALS=(InsightToolkit InsightToolkit-devel dtk-devel)
+REMOVE_NOW=()
+for p in "${CONFLICT_REMOVALS[@]}"; do
+    rpm -q --quiet "$p" 2>/dev/null && REMOVE_NOW+=("$p")
+done
+if (( ${#REMOVE_NOW[@]} > 0 )); then
+    log "removing Fedora packages that conflict with COPR equivalents: ${REMOVE_NOW[*]}"
+    sudo dnf remove -y "${REMOVE_NOW[@]}" 2>&1 | tee -a "$LOG" || true
+fi
+
 # 4. Collect the package list from the manifest (skip comments and WIP rows)
 mapfile -t PKGS < <(awk -F'\t' '
     /^[[:space:]]*$/ { next }
@@ -85,18 +113,42 @@ if (( ${#NEEDED[@]} == 0 )); then
     exit 0
 fi
 
-log "${#NEEDED[@]} packages need installation:"
-printf '  - %s\n' "${NEEDED[@]}" | tee -a "$LOG"
+# 5b. Filter out known-conflicting pairs: itksnap-0.7 bundles c3d+greedy at
+#     the same paths as the standalone packages. We can't install both. The
+#     standalone CLIs are higher value (used by every registration pipeline),
+#     so the manifest stays the manifest but install.sh holds back the
+#     conflicting itksnap until upstream-0.8 lands on COPR.
+HOLD_BACK=()
+if printf '%s\n' "${NEEDED[@]}" | grep -qx c3d && \
+   printf '%s\n' "${NEEDED[@]}" | grep -qx greedy && \
+   printf '%s\n' "${NEEDED[@]}" | grep -qx itksnap; then
+    log "holding back itksnap (its 0.7 release bundles c3d+greedy — re-enable when 0.8 lands)"
+    HOLD_BACK+=(itksnap)
+fi
+INSTALL_NOW=()
+for p in "${NEEDED[@]}"; do
+    skip=0
+    for h in "${HOLD_BACK[@]}"; do [[ "$p" == "$h" ]] && skip=1; done
+    (( skip == 0 )) && INSTALL_NOW+=("$p")
+done
+
+log "${#INSTALL_NOW[@]} packages will be installed (after ${#HOLD_BACK[@]} held back):"
+printf '  - %s\n' "${INSTALL_NOW[@]}" | tee -a "$LOG"
 
 # 6. Single dnf transaction, best-effort:
 #   --skip-unavailable : skip names dnf can't find at all (no metadata match)
 #   --skip-broken      : skip packages with depsolve conflicts (e.g. a package
 #                        in the COPR that requires python3-numba which F44
 #                        doesn't currently package)
+#   --allowerasing     : allow dnf to remove packages that have hard Conflicts:
+#                        with what we're installing (e.g. legacy dtk-devel
+#                        being replaced by dtk-qt6). DOES NOT cover unflagged
+#                        binary-vs-binary file collisions — those need step 5b.
 # We never want a partial-COPR or a transient broken dep to abort the whole
 # smoke run — we want to install as much as we can and report what landed.
-log "running: sudo dnf install --skip-unavailable --skip-broken -y ..."
-sudo dnf install --skip-unavailable --skip-broken -y "${NEEDED[@]}" 2>&1 | tee -a "$LOG" || true
+log "running: sudo dnf install --skip-unavailable --skip-broken --allowerasing -y ..."
+sudo dnf install --skip-unavailable --skip-broken --allowerasing -y \
+    "${INSTALL_NOW[@]}" 2>&1 | tee -a "$LOG" || true
 
 # 7. Final tally
 INSTALLED=0
