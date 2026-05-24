@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.1.00
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -373,6 +373,12 @@ if [[ -f %{buildroot}%{_libdir}/libafni_giftiio.so.0.0.0 ]]; then
     ln -sf libafni_giftiio.so.0.0.0 %{buildroot}%{_libdir}/libafni_giftiio.so.0
 fi
 
+# Drop the bare libafni_giftiio.so devel symlink: nothing outside AFNI ever
+# links against the renamed bundled lib, so the unversioned linker name is
+# dead weight. Without removing it %files (which only matches .so.* )
+# leaves it unpackaged and rpmbuild's check-files step fails the build.
+rm -f %{buildroot}%{_libdir}/libafni_giftiio.so
+
 # Patchelf every ELF that NEEDED libgiftiio.so.0 to point at libafni_giftiio.so.0
 # instead. Covers libmri.so.26, every 3d* binary in /usr/libexec/afni, and the
 # model/plugin libs still in /usr/lib64/afni/.
@@ -654,6 +660,11 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-4
+- Drop the bare libafni_giftiio.so devel symlink — nothing outside AFNI
+  links against the renamed bundled lib and check-files refused to ship
+  it unpackaged. (-3 failed at the same step; this is the trivial fix.)
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-3
 - Rename bundled gifticlib SONAME (libgiftiio → libafni_giftiio) and
   patchelf libmri.so.26 + every 3d* binary to consume the new name.
