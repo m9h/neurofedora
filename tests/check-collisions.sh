@@ -129,8 +129,12 @@ for ((i=0; i<${#PKGS[@]}; i++)); do
     for ((j=i+1; j<${#PKGS[@]}; j++)); do
         b="${PKGS[$j]}"
         [[ -s "$TMP/${b}.files" ]] || continue
-        # Get shared paths
-        shared=$(comm -12 "$TMP/${a}.files" "$TMP/${b}.files")
+        # Get shared paths — and drop empty/whitespace-only lines that can
+        # slip through when one of the file lists has a trailing blank.
+        # Otherwise we count a "conflict" but have nothing to print, which
+        # produced the misleading "Found 1 colliding pair(s). First 20: (blank)"
+        # message users hit before.
+        shared=$(comm -12 "$TMP/${a}.files" "$TMP/${b}.files" | grep -v '^[[:space:]]*$' || true)
         if [[ -n "$shared" ]]; then
             CONFLICTS=$((CONFLICTS + 1))
             # Print up to 5 representative paths; full list often noisy

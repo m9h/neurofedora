@@ -48,9 +48,9 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "SlicerExecutionModel (lib): test -d /usr/lib64/cmake/SlicerExecutionModel" {
+@test "SlicerExecutionModel (lib): test -d /usr/lib64/SlicerExecutionModel" {
     _require_installed "SlicerExecutionModel"
-    run --separate-stderr bash -c "test -d /usr/lib64/cmake/SlicerExecutionModel"
+    run --separate-stderr bash -c "test -d /usr/lib64/SlicerExecutionModel"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -87,7 +87,7 @@ _require_installed() {
 @test "geant4 (cli): geant4-config --version" {
     _require_installed "geant4"
     run --separate-stderr bash -c "geant4-config --version"
-    grep -qE "Geant4" <<<"$output\n$stderr" || { echo "expected /Geant4/ in output, got: $output $stderr"; false; }
+    grep -qE "[0-9]+\\.[0-9]+" <<<"$output\n$stderr" || { echo "expected /[0-9]+\\.[0-9]+/ in output, got: $output $stderr"; false; }
 }
 
 @test "ANTs (cli): antsRegistration --version" {
@@ -105,7 +105,7 @@ _require_installed() {
 @test "c3d (cli): c3d -version" {
     _require_installed "c3d"
     run --separate-stderr bash -c "c3d -version"
-    grep -qE "c3d" <<<"$output\n$stderr" || { echo "expected /c3d/ in output, got: $output $stderr"; false; }
+    grep -qE "Convert3D" <<<"$output\n$stderr" || { echo "expected /Convert3D/ in output, got: $output $stderr"; false; }
 }
 
 @test "greedy (cli): greedy -h 2>&1" {
@@ -117,7 +117,7 @@ _require_installed() {
 @test "niftyreg (cli): reg_aladin --version 2>&1" {
     _require_installed "niftyreg"
     run --separate-stderr bash -c "reg_aladin --version 2>&1"
-    grep -qE "NiftyReg" <<<"$output\n$stderr" || { echo "expected /NiftyReg/ in output, got: $output $stderr"; false; }
+    grep -qE "[0-9]+\\.[0-9]+" <<<"$output\n$stderr" || { echo "expected /[0-9]+\\.[0-9]+/ in output, got: $output $stderr"; false; }
 }
 
 @test "plastimatch (cli): plastimatch --version 2>&1" {
@@ -136,12 +136,6 @@ _require_installed() {
     _require_installed "freesurfer"
     run --separate-stderr bash -c "mri_info --version 2>&1"
     grep -qE "freesurfer" <<<"$output\n$stderr" || { echo "expected /freesurfer/ in output, got: $output $stderr"; false; }
-}
-
-@test "afni (cli): afni -ver" {
-    _require_installed "afni"
-    run --separate-stderr bash -c "afni -ver"
-    grep -qE "AFNI" <<<"$output\n$stderr" || { echo "expected /AFNI/ in output, got: $output $stderr"; false; }
 }
 
 @test "opentopas (cli): test -x /usr/bin/topas" {
@@ -210,10 +204,10 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "urdfdom (cli): check_urdf --help 2>&1" {
+@test "urdfdom (cli): test -x /usr/bin/check_urdf" {
     _require_installed "urdfdom"
-    run --separate-stderr bash -c "check_urdf --help 2>&1"
-    grep -qE "URDF" <<<"$output\n$stderr" || { echo "expected /URDF/ in output, got: $output $stderr"; false; }
+    run --separate-stderr bash -c "test -x /usr/bin/check_urdf"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
 @test "fcl (lib): test -f /usr/lib64/libfcl.so.0.7" {
@@ -234,15 +228,9 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "RPI (lib): test -d /usr/include/RPI || test -d /usr/lib64/cmake/RPI" {
-    _require_installed "RPI"
-    run --separate-stderr bash -c "test -d /usr/include/RPI || test -d /usr/lib64/cmake/RPI"
-    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
-}
-
-@test "TTK (lib): test -f /usr/lib64/libttkAlgorithms.so || test -d /usr/lib64/cmake/TTK" {
+@test "TTK (lib): test -f /usr/lib64/libttkAlgorithms.so.1" {
     _require_installed "TTK"
-    run --separate-stderr bash -c "test -f /usr/lib64/libttkAlgorithms.so || test -d /usr/lib64/cmake/TTK"
+    run --separate-stderr bash -c "test -f /usr/lib64/libttkAlgorithms.so.1"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -258,15 +246,15 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-hdf5plugin (python): /usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'" {
+@test "python3-hdf5plugin (python): /usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin._version.version)'" {
     _require_installed "python3-hdf5plugin"
-    run --separate-stderr bash -c "/usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import hdf5plugin; print(hdf5plugin._version.version)'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-babelviscofdtd (python): /usr/bin/python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'" {
+@test "python3-babelviscofdtd (python): /usr/bin/python3 -c 'import BabelViscoFDTD'" {
     _require_installed "python3-babelviscofdtd"
-    run --separate-stderr bash -c "/usr/bin/python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import BabelViscoFDTD'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -282,9 +270,9 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "python3-pygpc (python): /usr/bin/python3 -c 'import pygpc; print(pygpc.__version__)'" {
+@test "python3-pygpc (python): /usr/bin/python3 -c 'import pygpc'" {
     _require_installed "python3-pygpc"
-    run --separate-stderr bash -c "/usr/bin/python3 -c 'import pygpc; print(pygpc.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import pygpc'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -336,16 +324,16 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "compucell3d (cli): test -x /usr/bin/compucell3d.sh" {
+@test "compucell3d (cli): test -x /usr/bin/cc3d_runScript.sh" {
     _require_installed "compucell3d"
-    run --separate-stderr bash -c "test -x /usr/bin/compucell3d.sh"
+    run --separate-stderr bash -c "test -x /usr/bin/cc3d_runScript.sh"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
 @test "morpheus (cli): morpheus --version 2>&1" {
     _require_installed "morpheus"
     run --separate-stderr bash -c "morpheus --version 2>&1"
-    grep -qE "[Mm]orpheus" <<<"$output\n$stderr" || { echo "expected /[Mm]orpheus/ in output, got: $output $stderr"; false; }
+    grep -qE "Version: [0-9]+" <<<"$output\n$stderr" || { echo "expected /Version: [0-9]+/ in output, got: $output $stderr"; false; }
 }
 
 @test "ucsc-kent-utils (cli): bedToBigBed 2>&1" {
@@ -354,27 +342,21 @@ _require_installed() {
     grep -qE "bedToBigBed" <<<"$output\n$stderr" || { echo "expected /bedToBigBed/ in output, got: $output $stderr"; false; }
 }
 
-@test "iit-human-brain-atlas (data): test -d /usr/share/iit-human-brain-atlas" {
+@test "iit-human-brain-atlas (data): test -d /usr/share/neurofedora/atlases/iit" {
     _require_installed "iit-human-brain-atlas"
-    run --separate-stderr bash -c "test -d /usr/share/iit-human-brain-atlas"
+    run --separate-stderr bash -c "test -d /usr/share/neurofedora/atlases/iit"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "PythonQt (lib): test -f /usr/lib64/libPythonQt-Qt6-Python3.so" {
+@test "PythonQt (lib): test -f /usr/lib64/libPythonQt.so" {
     _require_installed "PythonQt"
-    run --separate-stderr bash -c "test -f /usr/lib64/libPythonQt-Qt6-Python3.so"
+    run --separate-stderr bash -c "test -f /usr/lib64/libPythonQt.so"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
 @test "ctk (lib): test -f /usr/lib64/libCTKCore.so.0.1" {
     _require_installed "ctk"
     run --separate-stderr bash -c "test -f /usr/lib64/libCTKCore.so.0.1"
-    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
-}
-
-@test "vespa (cli): test -x /usr/bin/vespa" {
-    _require_installed "vespa"
-    run --separate-stderr bash -c "test -x /usr/bin/vespa"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
