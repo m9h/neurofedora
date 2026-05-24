@@ -15,6 +15,7 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  python3-devel
+BuildRequires:  python3-pip
 BuildRequires:  python3-numpy
 BuildRequires:  python3-meson-python
 
