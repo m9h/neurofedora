@@ -1,0 +1,119 @@
+#!/bin/bash
+# freesurfer-license-install — drop a FreeSurfer license into the right
+# place with the right perms.
+#
+# Default: install system-wide at /etc/freesurfer/license.txt (needs root).
+# --user:  install per-user at $HOME/.freesurfer/license.txt (no root needed).
+# Reads the license from a path argument, from stdin, or from a heredoc.
+#
+# Validates the file looks like the 4-line FreeSurfer license format
+# (email / number / number / hex key) before installing — refuses to
+# overwrite with garbage.
+
+set -euo pipefail
+PROGNAME=$(basename "$0")
+
+usage() {
+    cat <<EOF
+$PROGNAME — install a FreeSurfer license file.
+
+Usage:
+    sudo $PROGNAME <path-to-license.txt>     # system-wide → /etc/freesurfer/
+    $PROGNAME --user <path-to-license.txt>   # per-user   → ~/.freesurfer/
+    cat license.txt | sudo $PROGNAME -        # read body from stdin
+
+Options:
+    --user      Install for the calling user only (no root needed).
+    --force     Skip the 4-line FS-license-format check.
+    -h, --help  Show this.
+
+The system-wide install is symlinked from every installed FreeSurfer's
+\$FREESURFER_HOME/license.txt, so all parallel-installed versions see it.
+EOF
+}
+
+die()  { echo "$PROGNAME: error: $*" >&2; exit 1; }
+info() { echo "$PROGNAME: $*"; }
+
+# Parse args
+USER_INSTALL=0
+FORCE=0
+SRC=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --user)     USER_INSTALL=1; shift ;;
+        --force)    FORCE=1; shift ;;
+        -h|--help)  usage; exit 0 ;;
+        -)          SRC="-"; shift ;;
+        --)         shift; break ;;
+        -*)         die "unknown option: $1 (try --help)" ;;
+        *)          [ -z "$SRC" ] && SRC="$1" || die "extra argument: $1"; shift ;;
+    esac
+done
+
+# No path and no stdin redirected → show usage
+if [ -z "$SRC" ]; then
+    if [ -t 0 ]; then usage; exit 1; fi
+    SRC="-"
+fi
+
+# Pick destination
+if [ "$USER_INSTALL" = 1 ]; then
+    DEST_DIR="$HOME/.freesurfer"
+    DEST="$DEST_DIR/license.txt"
+else
+    DEST_DIR=/etc/freesurfer
+    DEST="$DEST_DIR/license.txt"
+    if [ "$(id -u)" -ne 0 ]; then
+        die "system-wide install needs root (try sudo, or pass --user)"
+    fi
+fi
+
+# Slurp the body
+if [ "$SRC" = "-" ]; then
+    BODY=$(cat)
+else
+    [ -r "$SRC" ] || die "cannot read $SRC"
+    BODY=$(cat "$SRC")
+fi
+[ -n "$BODY" ] || die "empty license"
+
+# Validate format unless --force. FreeSurfer's license file is four lines:
+#   1: email address
+#   2: numeric ID
+#   3: numeric ID
+#   4: hex/alpha-numeric key
+if [ "$FORCE" = 0 ]; then
+    nlines=$(printf '%s\n' "$BODY" | sed -e '/^$/d' | wc -l)
+    if [ "$nlines" -lt 4 ]; then
+        die "license must be at least 4 non-empty lines (got $nlines).
+       Re-run with --force to skip this check, or get a real license at
+       https://surfer.nmr.mgh.harvard.edu/registration.html"
+    fi
+    if ! printf '%s\n' "$BODY" | head -1 | grep -qE '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'; then
+        die "first line does not look like an email; re-run with --force if you're sure"
+    fi
+fi
+
+# Install
+mkdir -p "$DEST_DIR"
+umask 0022
+printf '%s\n' "$BODY" > "$DEST"
+chmod 0644 "$DEST"
+info "installed $DEST"
+
+# For system-wide install, sym-link from every parallel-installed FS tree
+if [ "$USER_INSTALL" = 0 ]; then
+    found_any=0
+    for d in /usr/lib/freesurfer-*/; do
+        [ -d "$d" ] || continue
+        ln -sf "$DEST" "$d/license.txt"
+        info "  linked from ${d}license.txt"
+        found_any=1
+    done
+    if [ "$found_any" = 0 ]; then
+        info "  (no /usr/lib/freesurfer-* installs found yet; the symlink"
+        info "   will be created when a freesurfer{N} package is installed)"
+    fi
+fi
