@@ -1,0 +1,21 @@
+# FreeSurfer synth-tools Python env — AMD ROCm 6.0 profile.
+# torch wheel picked from --extra-index-url https://download.pytorch.org/whl/rocm6.0
+# Note: TensorFlow does NOT ship a ROCm GPU wheel; we install tensorflow-cpu
+# so SynthSeg/SynthSR still work on AMD systems (CPU inference). Only SynthStrip
+# (PyTorch-based) benefits from ROCm acceleration here.
+
+tensorflow-cpu>=2.15,<2.20
+torch>=2.2,<2.6
+
+surfa>=0.5
+nibabel>=5.1
+numpy>=1.24,<3
+scipy>=1.10
+h5py>=3.10
+scikit-image>=0.21
+scikit-learn>=1.3
+SimpleITK>=2.3
+
+pyyaml
+tqdm
+matplotlib

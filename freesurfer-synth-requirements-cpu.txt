@@ -1,0 +1,27 @@
+# FreeSurfer synth-tools Python env — CPU profile.
+#
+# Versions track upstream freesurfer/python/requirements-build-py38.txt
+# (relaxed to >= where exact pinning isn't justified). Updated when a Synth
+# tool fails on a newer wheel.
+
+# --- ML runtimes (CPU wheels) -----------------------------------------------
+# tensorflow-cpu has lighter deps than tensorflow[and-cuda]; same code path
+# for SynthSeg / SynthSR / SynthMorph inference.
+tensorflow-cpu>=2.15,<2.20
+# torch CPU wheel is selected by the pytorch.org cpu index in setup tool.
+torch>=2.2,<2.6
+
+# --- FreeSurfer-adjacent neuroimaging stack --------------------------------
+surfa>=0.5
+nibabel>=5.1
+numpy>=1.24,<3
+scipy>=1.10
+h5py>=3.10
+scikit-image>=0.21
+scikit-learn>=1.3
+SimpleITK>=2.3
+
+# --- Synth-tool helpers (small, pure-python) -------------------------------
+pyyaml
+tqdm
+matplotlib

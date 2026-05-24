@@ -1,0 +1,5 @@
+# FreeSurfer synth-tools Python env — CPU with AVX2.
+# Same as the plain CPU profile; tensorflow-cpu wheels on PyPI are already
+# built for AVX2 on x86_64. Maintained as a distinct file so we can pin to
+# intel-optimised wheels later without touching the plain CPU profile.
+-r freesurfer-synth-requirements-cpu.txt

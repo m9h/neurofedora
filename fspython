@@ -1,0 +1,50 @@
+#!/bin/bash
+# fspython — runtime entry point for FreeSurfer Python tools.
+#
+# Resolves to the FreeSurfer Python environment built by
+# freesurfer-synth-setup. Adds FreeSurfer's bundled python/packages tree
+# to PYTHONPATH so scripts like mri_synthseg can `import freesurfer`,
+# `import fsdeeplearn`, etc.
+#
+# Override the venv location with FREESURFER_SYNTH_VENV (e.g., per-user
+# install at $HOME/.local/share/freesurfer/synth-venv).
+#
+set -e
+
+VENV=${FREESURFER_SYNTH_VENV:-/var/lib/freesurfer/synth-venv}
+
+if [ ! -f "$VENV/.synth-setup-stamp" ]; then
+    cat >&2 <<EOF
+error: FreeSurfer synth-tools Python environment is not initialised.
+
+Run once as root for a system-wide install:
+    sudo freesurfer-synth-setup
+
+Or as a normal user for a per-user install:
+    FREESURFER_SYNTH_VENV=\$HOME/.local/share/freesurfer/synth-venv \\
+        freesurfer-synth-setup
+
+Then re-run the command you just tried. See freesurfer-synth-setup --help
+for accelerator and pin options.
+EOF
+    exit 1
+fi
+
+# FreeSurfer scripts expect FREESURFER_HOME set. Default to the version-
+# specific tree if a single FS install is present; otherwise leave alone.
+if [ -z "$FREESURFER_HOME" ]; then
+    for candidate in /usr/lib/freesurfer-8.2.0 /usr/lib/freesurfer-7.4.1 /usr/lib/freesurfer; do
+        if [ -d "$candidate" ]; then
+            export FREESURFER_HOME="$candidate"
+            break
+        fi
+    done
+fi
+
+# Stack the bundled fs python/packages tree on PYTHONPATH so wrappers find
+# freesurfer/, fsbindings/, fsdeeplearn/ alongside the venv site-packages.
+if [ -n "$FREESURFER_HOME" ] && [ -d "$FREESURFER_HOME/python/packages" ]; then
+    export PYTHONPATH="$FREESURFER_HOME/python/packages${PYTHONPATH:+:$PYTHONPATH}"
+fi
+
+exec "$VENV/bin/python" "$@"
