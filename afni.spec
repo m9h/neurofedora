@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.1.00
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -405,24 +405,45 @@ rm -f  %{buildroot}%{_bindir}/gifti_test
 # Core shared libs go to %%{_libdir} so the dynamic linker can find them
 # without an RPATH or LD_LIBRARY_PATH dance.
 #
-# The first group (mri 3DEdge eispack coxplot track_tools) have proper
-# versioned SONAMEs (libfoo.so.26). The second group (mrix SUMA XmHTML
-# f2c segtools) have UNVERSIONED SONAMEs (just libfoo.so) but are still
-# directly NEEDED by /usr/libexec/afni/afni and dozens of 3d* binaries
-# — readelf -d confirmed at packaging time. They were silently
-# orphaned in /usr/lib64/afni/ where ldconfig doesn't see them, so
-# `afni` and friends would fail with "libmrix.so: cannot open shared
-# object file" the moment a user ran them. The harness caught this.
+# Group A (mri 3DEdge eispack coxplot track_tools) have proper versioned
+# SONAMEs (libfoo.so.26) — collision-safe, move as-is.
+#
+# Group B (mrix SUMA XmHTML segtools) have UNVERSIONED SONAMEs but are
+# uniquely-named — no other Fedora package ships them. Move as-is.
 #
 # Only model_/plugin_ libs (true AFNI plugins loaded via dlopen with
 # AFNI_PLUGINPATH/AFNI_MODELPATH) stay in /usr/lib64/afni/.
 mkdir -p %{buildroot}%{_libdir}
 for lib in mri 3DEdge eispack coxplot track_tools \
-           mrix SUMA XmHTML f2c segtools; do
+           mrix SUMA XmHTML segtools; do
   if ls %{buildroot}%{_prefix}/%{_lib}/afni/lib${lib}.so* 2>/dev/null; then
     mv %{buildroot}%{_prefix}/%{_lib}/afni/lib${lib}.so* %{buildroot}%{_libdir}/
   fi
 done
+
+# Group C (f2c): unversioned SONAME AND Fedora ships a system package with
+# the same name + path (f2c-20210928 owns /usr/lib64/libf2c.so). We can't
+# just move AFNI's libf2c.so to /usr/lib64/ — it file-conflicts on any box
+# that has the Fedora f2c installed (which happens transitively quite often).
+# Same fix as the bundled gifticlib: rename SONAME to libafni_f2c.so and
+# patchelf every consumer to NEEDED libafni_f2c.so. No collision possible,
+# no preflight package-removal needed in install.sh.
+if [[ -e %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so ]]; then
+    patchelf --set-soname libafni_f2c.so %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so
+    mv %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so %{buildroot}%{_libdir}/libafni_f2c.so
+fi
+_patch_f2c_consumers() {
+    local target="$1"
+    [[ -f "$target" && ! -L "$target" ]] || return
+    file "$target" 2>/dev/null | grep -q ELF || return
+    if readelf -d "$target" 2>/dev/null | grep -q "libf2c.so"; then
+        patchelf --replace-needed libf2c.so libafni_f2c.so "$target" 2>/dev/null || :
+    fi
+}
+export -f _patch_f2c_consumers
+find %{buildroot}%{_libexecdir}/afni -type f -executable -exec bash -c '_patch_f2c_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}        -name "*.so*"  -type f -exec bash -c '_patch_f2c_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}/afni   -name "*.so*"  -type f -exec bash -c '_patch_f2c_consumers "$0"' {} \;
 
 # -- Symlinks for key commands in /usr/bin --
 mkdir -p %{buildroot}%{_bindir}
@@ -563,8 +584,11 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_libdir}/libmrix.so
 %{_libdir}/libSUMA.so
 %{_libdir}/libXmHTML.so
-%{_libdir}/libf2c.so
 %{_libdir}/libsegtools.so
+# Bundled f2c renamed (libf2c → libafni_f2c) — Fedora's f2c-20210928 owns
+# /usr/lib64/libf2c.so, so we must namespace AFNI's copy to avoid an
+# install-time file conflict. See the corresponding %%install section.
+%{_libdir}/libafni_f2c.so
 %dir %{_libdir}/afni
 %{_libdir}/afni/*.so*
 %config(noreplace) %{_sysconfdir}/profile.d/afni.sh
@@ -660,6 +684,14 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-5
+- Rename bundled libf2c.so → libafni_f2c.so (SONAME + patchelf consumers)
+  to avoid file conflict with Fedora's f2c-20210928 package, which ships
+  /usr/lib64/libf2c.so. The conflict was latent — the AMD test box didn't
+  have f2c installed, so -2/-3/-4 looked clean; the iMac install run
+  surfaced it by rolling back the entire dnf transaction. Same SONAME
+  namespacing approach as the bundled gifticlib in -3.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-4
 - Drop the bare libafni_giftiio.so devel symlink — nothing outside AFNI
   links against the renamed bundled lib and check-files refused to ship

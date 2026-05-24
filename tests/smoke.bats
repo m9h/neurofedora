@@ -36,15 +36,15 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "vtk (lib): test -d /usr/lib64/cmake/vtk" {
+@test "vtk (lib): test -d /usr/lib64/cmake/vtk || test -d /usr/lib/cmake/vtk" {
     _require_installed "vtk"
-    run --separate-stderr bash -c "test -d /usr/lib64/cmake/vtk"
+    run --separate-stderr bash -c "test -d /usr/lib64/cmake/vtk || test -d /usr/lib/cmake/vtk"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "vtk-devel (lib): test -f /usr/lib64/cmake/vtk/vtk-config.cmake" {
+@test "vtk-devel (lib): test -f /usr/lib64/cmake/vtk/vtk-config.cmake || test -f /usr/lib/cmake/vtk/vtk-config.cmake" {
     _require_installed "vtk-devel"
-    run --separate-stderr bash -c "test -f /usr/lib64/cmake/vtk/vtk-config.cmake"
+    run --separate-stderr bash -c "test -f /usr/lib64/cmake/vtk/vtk-config.cmake || test -f /usr/lib/cmake/vtk/vtk-config.cmake"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
