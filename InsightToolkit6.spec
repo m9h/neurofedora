@@ -8,12 +8,12 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        4%{?dist}
+Release:        2%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
 URL:            https://itk.org/
-Source0:        https://github.com/InsightSoftwareConsortium/ITK/archive/v%{itk_ver}.tar.gz#/ITK-%{itk_ver}.tar.gz
+Source0:        ITK-%{itk_ver}.tar.gz
 # Remote modules (pre-populated for offline mock/COPR builds)
 # GenericLabelInterpolator: required by ANTs
 %global glinterp_commit ebf2436469ccf82c08fab54b7446f699ad0eae01
@@ -191,11 +191,6 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-3
-- Source0: full URL instead of bare filename so COPR's SCM/rpkg path can
-  spectool-fetch it. The bare filename failed SRPM build instantly on rawhide
-  (build 10506557 — 4-second fail, no logs because no SRPM was produced).
-
 * Wed May 06 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-2
 - Bundle GDCM and MINC to fix ITK 6.0 beta target errors
 - Clean up spec file and use versioned install paths

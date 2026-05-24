@@ -2,7 +2,7 @@
 
 Name:           simnibs
 Version:        4.6.0
-Release:        3%{?dist}
+Release:        1%{?dist}
 Summary:        Simulation of Non-Invasive Brain Stimulation
 
 License:        GPL-3.0-only
@@ -122,16 +122,6 @@ sed -i 's/boost::get<Point>(\&(inter->first))/std::get_if<Point>(\&(inter->first
 sed -i 's/boost::get<Segment>(\&(inter->first))/std::get_if<Segment>(\&(inter->first))/g' \
     simnibs/mesh_tools/cgal/_cgal_intersect.cpp
 
-# ---- CGAL 6: create_labeled_image_mesh_domain takes named parameters ----
-# Old form (CGAL 5): ::create_labeled_image_mesh_domain(image, relative_error_bound)
-# New form (CGAL 6): ::create_labeled_image_mesh_domain(
-#                       CGAL::parameters::image(image)
-#                       .relative_error_bound(relative_error_bound))
-# Both _cgal_intersect.cpp (already patched above) and _mesh_volumes.cpp
-# use this; rawhide build 10505996 failed on the latter.
-sed -i 's|::create_labeled_image_mesh_domain(image, *1e-10)|::create_labeled_image_mesh_domain(CGAL::parameters::image(image).relative_error_bound(1e-10))|g' \
-    simnibs/mesh_tools/cgal/_mesh_volumes.cpp
-
 # ---- Fix CGAL 6 const-correctness bug ----
 # CGAL 6.0.3 Add_features_in_domain<false>::operator() takes Image_3& (non-const)
 # but Labeled_mesh_domain_3 passes const Image_3 weights_. Create local patched copy.
@@ -148,9 +138,6 @@ export CFLAGS="%{optflags} -Wno-error=implicit-function-declaration -Wno-error=i
 
 %install
 %pyproject_install
-# Upstream wheel installs a top-level `tools/` package at site-packages root
-# (collides with Python global namespace; not part of `simnibs`). Drop it.
-rm -rf %{buildroot}%{python3_sitearch}/tools
 %pyproject_save_files simnibs
 
 %check
@@ -215,16 +202,7 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 %{_bindir}/simnibs_gui
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-3
-- CGAL 6 (rawhide/F45): port _mesh_volumes.cpp create_labeled_image_mesh_domain
-  to the named-parameter form (matches existing _cgal_intersect.cpp patches)
-
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-2
-- Drop upstream-installed top-level tools/ package (Python 3.14 site-packages
-  bleed; was triggering "Installed (but unpackaged) file(s) found" on F44)
-- Fix bogus changelog weekday: Apr 23 2026 is Thursday, not Wednesday
-
-* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-1
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-1
 - Update to 4.6.0
 - Remove cat_c_utils patches (files removed upstream)
 - Relax fmm3dpy version pin (was ==1.0.4, now >=1.0.0)
@@ -250,5 +228,5 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 - Remove tools subpackage (extensions are in python3-simnibs)
 - Remove mkl/tbb conda-only deps from pyproject.toml
 
-* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.5.0-1
+* Tue Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.5.0-1
 - Initial package for SimNIBS 4.5.0

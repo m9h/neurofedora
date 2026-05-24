@@ -5,7 +5,7 @@
 
 Name:           freesurfer
 Version:        8.2.0
-Release:        8%{?dist}
+Release:        7%{?dist}
 Summary:        Neuroimaging analysis and visualization suite
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -251,7 +251,6 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DMINIMAL=OFF \
     -DBUILD_GUIS=ON \
     -DFREEVIEW_LINEPROF=OFF \

@@ -11,7 +11,6 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools
 BuildRequires:  python3-wheel
-BuildRequires:  python3-scikit-build-core
 BuildRequires:  python3-numpy
 BuildRequires:  python3-scipy
 BuildRequires:  python3-h5py
@@ -57,10 +56,5 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 %{python3_sitearch}/babelviscofdtd-%{version}.dist-info
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.3-2
-- Add python3-scikit-build-core BR — upstream switched to scikit_build_core
-  PEP-517 backend; rawhide build 10506558 failed with
-  "BackendUnavailable: Cannot import 'scikit_build_core.build'"
-
 * Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.6-1
 - Initial package

@@ -10,7 +10,7 @@
 
 Name:           itksnap
 Version:        4.4.0~beta2
-Release:        0.6%{?dist}
+Release:        0.8%{?dist}
 Summary:        Medical image segmentation tool for 3D/4D biomedical images
 
 License:        GPL-3.0-or-later
@@ -106,6 +106,16 @@ sed -i 's|get_git_commit_date.*SNAP_VERSION_GIT_TIMESTAMP.*|set(SNAP_VERSION_GIT
 # seen in ITK-internal headers on Fedora 43+.
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint"
 
+# ITK-SNAP bundles jsoncpp 0.10.6 (Common/JSon/jsoncpp.cpp), compiled into the
+# static libitksnaplogic.a. Linking that archive into the ITK-SNAP executable
+# re-exports jsoncpp's ~567 symbols into the exe's dynamic symbol table, where
+# they interpose the system libjsoncpp.so.26 (1.9.6) that VTK pulls in. When
+# libjsoncpp.so.26 runs its static initializer it then calls into the bundled
+# 0.10.6 code with mismatched ABI, segfaulting before main(). --exclude-libs
+# keeps static-archive symbols out of .dynsym, so each jsoncpp copy stays
+# self-contained. (Unbundling to system jsoncpp is the longer-term fix.)
+export LDFLAGS="%{build_ldflags} -Wl,--exclude-libs,ALL"
+
 %cmake -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     \
@@ -128,6 +138,20 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint"
 # system-installed Qt application where plugins are found via standard paths.
 rm -f %{buildroot}%{_bindir}/qt.conf
 
+# Drop the bundled Convert3D / Greedy CLIs. They are file-path identical to
+# Fedora's standalone c3d and greedy packages and rpm refuses to install
+# both. The bundled copies are the same upstream as the standalone packages
+# (same pinned commits in the itksnap submodules), so ship them via the
+# standalone packages and let itksnap be GUI + itksnap-wt only.
+rm %{buildroot}%{_bindir}/c2d
+rm %{buildroot}%{_bindir}/c3d
+rm %{buildroot}%{_bindir}/c3d_affine_tool
+rm %{buildroot}%{_bindir}/c4d
+rm %{buildroot}%{_bindir}/greedy
+rm %{buildroot}%{_bindir}/greedy_propagation
+rm %{buildroot}%{_bindir}/greedy_template_average
+rm %{buildroot}%{_bindir}/multi_chunk_greedy
+
 
 %files
 %license COPYING
@@ -141,20 +165,34 @@ rm -f %{buildroot}%{_bindir}/qt.conf
 # Workspace tool (CLI for managing ITK-SNAP workspaces)
 %{_bindir}/itksnap-wt
 
-# Convert3D CLI tools (from c3d submodule)
-%{_bindir}/c2d
-%{_bindir}/c3d
-%{_bindir}/c3d_affine_tool
-%{_bindir}/c4d
-
-# Greedy registration tools (from greedy submodule)
-%{_bindir}/greedy
-%{_bindir}/greedy_propagation
-%{_bindir}/greedy_template_average
-%{_bindir}/multi_chunk_greedy
+# NOTE: bundled Convert3D (c2d/c3d/c3d_affine_tool/c4d) and Greedy
+# (greedy/greedy_propagation/greedy_template_average/multi_chunk_greedy)
+# CLI binaries are dropped in %%install to allow co-installation with the
+# standalone c3d and greedy packages. Users wanting those CLIs should
+# `dnf install c3d greedy` — same upstream commits as itksnap submodules.
 
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.8
+- Drop bundled Convert3D and Greedy CLI binaries (c2d/c3d/c3d_affine_tool/
+  c4d and greedy/greedy_propagation/greedy_template_average/multi_chunk_greedy)
+  so itksnap can be co-installed with Fedora's standalone c3d and greedy
+  packages. Without this, an `dnf install itksnap c3d greedy` transaction
+  fails with file conflicts on /usr/bin/{c3d,greedy,...}. The bundled
+  copies are the same upstream commits as the standalone packages
+  (pinned via the itksnap-public submodule SHAs), so nothing is lost.
+- Matches the existing drop in itksnap-alpha.spec.
+
+* Thu May 21 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.7
+- Fix the startup SIGSEGV in libjsoncpp.so.26's static initializer. Real
+  cause (the -0.6 ITK-5.4.6 rebuild did not address it): ITK-SNAP bundles
+  jsoncpp 0.10.6 in static libitksnaplogic.a, which re-exports jsoncpp
+  symbols from the ITK-SNAP executable and interposes the system
+  libjsoncpp.so.26 (1.9.6) pulled in by VTK. Link with
+  -Wl,--exclude-libs,ALL so static-archive symbols stay out of the
+  executable's dynamic symbol table and the two jsoncpp copies no longer
+  collide.
+
 * Wed May 20 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.6
 - Rebuild against InsightToolkit5 5.4.6 (the -0.5 RPM was built against
   5.4.5 on 2026-05-02 and segfaults at startup against a system with

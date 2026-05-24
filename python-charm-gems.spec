@@ -5,7 +5,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.3.3
-Release:        3%{?dist}
+Release:        2%{?dist}
 Summary:        Python bindings for the GEMS segmentation package
 
 License:        GPL-3.0-only
@@ -25,9 +25,7 @@ BuildRequires:  pybind11-devel
 BuildRequires:  InsightToolkit5-devel >= 5.4.5
 BuildRequires:  zlib-devel
 # ITK 5.4.5 VtkGlue cmake config transitively requires VTK at find_package time
-# (was pinned to <9.3 for the retired system Qt5 VTK 9.2.6; F44 no longer ships
-# that, so use COPR VTK 9.5/9.6 — charm-gems doesn't use VTK directly)
-BuildRequires:  vtk-devel
+BuildRequires:  vtk-devel < 9.3
 BuildRequires:  java-devel
 BuildRequires:  libtheora-devel
 
@@ -126,10 +124,6 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}
 %license LICENSE
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.3-3
-- Drop vtk-devel <9.3 pin (system VTK 9.2.6 Qt5 retired on F44+); charm-gems
-  pulls vtk transitively via ITK VtkGlue, doesn't use it directly
-
 * Wed Mar 11 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.3-2
 - Fix SmartPointer nullptr conversion: use whitelist instead of blanket regex
 

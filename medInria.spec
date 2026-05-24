@@ -2,7 +2,7 @@
 
 Name:           medInria
 Version:        5.0.1~beta
-Release:        0.4%{?dist}
+Release:        0.5%{?dist}
 Summary:        Medical image navigation and research tool
 
 License:        BSD-3-Clause
@@ -13,21 +13,21 @@ BuildRequires:  cmake >= 3.19
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 
-# Qt5
-BuildRequires:  qt5-qtbase-devel
-BuildRequires:  qt5-qtdeclarative-devel
-BuildRequires:  qt5-qtsvg-devel
-BuildRequires:  qt5-qttools-devel
-BuildRequires:  qt5-qtxmlpatterns-devel
+# Qt6 — F44 has no Qt5 VTK; medInria moves to the dtk-qt6 / VTK 9.5.2 stack
+# (no Qt6 qtxmlpatterns: it was removed; medInria source doesn't use it).
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qtdeclarative-devel
+BuildRequires:  qt6-qtsvg-devel
+BuildRequires:  qt6-qttools-devel
 
-# Core dependencies
-BuildRequires:  dtk-devel >= 1.7.1
+# Core dependencies — dtk-qt6 replaces dtk (mutually exclusive; same cmake
+# config path %%{_libdir}/cmake/dtk/), VTK 9.5.2 from the COPR
+BuildRequires:  dtk-qt6-devel >= 1.7.1
 BuildRequires:  InsightToolkit5-devel >= 5.4.5-12
 BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.5-12
-# Pin to system VTK 9.2.6 (Qt5 GUISupportQt); avoid COPR VTK 9.5.2 (Qt6)
-BuildRequires:  vtk-devel < 9.3
-BuildRequires:  vtk-qt < 9.3
-# java-devel needed because VTK 9.2.6 cmake targets reference JVM include paths
+BuildRequires:  vtk-devel
+# vtk-devel Requires vtk-qt + cmake(Qt6Widgets/OpenGL/OpenGLWidgets); no need
+# to BR them explicitly. Keep java-devel for VTK cmake-config JVM references.
 BuildRequires:  java-devel
 BuildRequires:  dcmtk-devel
 BuildRequires:  TTK-devel >= 4.0.1
@@ -40,10 +40,10 @@ BuildRequires:  gdcm-devel
 BuildRequires:  openssl-devel
 BuildRequires:  sqlite-devel
 
-Requires:       qt5-qtbase
-Requires:       qt5-qtsvg
-Requires:       qt5-qtdeclarative
-Requires:       dtk >= 1.7.1
+Requires:       qt6-qtbase
+Requires:       qt6-qtsvg
+Requires:       qt6-qtdeclarative
+Requires:       dtk-qt6 >= 1.7.1
 
 %description
 medInria is a free medical image viewer and processing tool developed at
@@ -68,6 +68,12 @@ Headers and cmake config files for medInria development.
 # Strip Windows carriage returns (source has CRLF line endings that break sed $ anchors)
 find src/ -name '*.cmake' -o -name '*.cmake.in' | xargs sed -i 's/\r$//'
 sed -i 's/\r$//' src/CMakeLists.txt
+
+# Override the upstream Qt5 pin (CMakeLists.txt:16 and src/CMakeLists.txt:18
+# both contain `set(QT_VERSION_MAJOR 5)`; src/CMakeLists.txt then does
+# find_package(Qt${QT_VERSION_MAJOR} ...)). Force Qt6.
+sed -i 's|set(QT_VERSION_MAJOR 5)|set(QT_VERSION_MAJOR 6)|' \
+    CMakeLists.txt src/CMakeLists.txt
 
 # Fix hardcoded lib/ install destinations to respect CMAKE_INSTALL_LIBDIR
 # Libraries -> CMAKE_INSTALL_LIBDIR (lib64 on x86_64)
@@ -197,6 +203,15 @@ fi
 %{_libdir}/cmake/med*/
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.5
+- Port to Qt6 / VTK 9.5.2 / dtk-qt6 stack. F44 has no Qt5 VTK 9.2.6, so the
+  prior pin (vtk-devel<9.3, vtk-qt<9.3) is unsatisfiable; F43 chroots were
+  removed 2026-05-22. Switch BRs and runtime Requires from qt5-* to qt6-*,
+  swap dtk-devel for dtk-qt6-devel (mutually exclusive — same cmake config
+  path), drop the vtk version pins, and sed `set(QT_VERSION_MAJOR 5)` to 6
+  in both CMakeLists.txt files. (Drops qt5-qtxmlpatterns-devel: Qt6 has no
+  replacement and medInria source does not reference QXmlQuery / QtXmlPatterns.)
+
 * Mon Mar 09 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.4
 - Fix segfault on file open: patch plugin search paths from bin-relative
   (bin/plugins, bin/plugins_legacy) to FHS lib64 paths so plugins load

@@ -8,7 +8,7 @@
 
 Name:           ANTs
 Version:        2.6.5
-Release:        10%{?dist}
+Release:        9%{?dist}
 Summary:        Advanced Normalization Tools for medical imaging
 
 License:        Apache-2.0
@@ -68,43 +68,16 @@ find %{buildroot}%{_libdir} -name '*.a' -delete
 # These are internal implementation libraries, not a public development API.
 find %{buildroot}%{_libdir} -maxdepth 1 -name '*.so' -type l -delete
 
-# Install ALL upstream Scripts/ — ANTS.cmake only ships ~21 curated wrappers
-# to /usr/bin/. The remaining ~43 utility/example scripts (buildtemplateparallel.sh,
-# multi_template_script.sh, antsJointLabelFusion2.sh, sygnccavg.sh, the cbf_*.R
-# batch scripts, register/warp/weightedaverage .pl helpers, etc.) ship to
-# %{_datadir}/ANTs/scripts/ so users can find and use them.
-mkdir -p %{buildroot}%{_datadir}/ANTs/scripts
-cp -p Scripts/* %{buildroot}%{_datadir}/ANTs/scripts/
-# Drop duplicates of what %cmake_install already put in /usr/bin/
-for f in %{buildroot}%{_bindir}/*; do
-    rm -f %{buildroot}%{_datadir}/ANTs/scripts/"$(basename "$f")"
-done
-# Permissions: .sh / .pl / no-extension utility scripts are executable; .R aren't
-chmod 0755 %{buildroot}%{_datadir}/ANTs/scripts/*.sh \
-           %{buildroot}%{_datadir}/ANTs/scripts/*.pl 2>/dev/null || true
-chmod 0644 %{buildroot}%{_datadir}/ANTs/scripts/*.R 2>/dev/null || true
-
 %ldconfig_scriptlets
 
 %files
 %license COPYING.txt
-%doc README.md CONTRIBUTING.md code_of_conduct.md Documentation/
+%doc README.md
 %{_bindir}/*
 %{_libdir}/libantsUtilities.so.*
 %{_libdir}/libl_*.so.*
-%dir %{_datadir}/ANTs
-%{_datadir}/ANTs/scripts/
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-10
-- Install ALL upstream Scripts/ — ANTS.cmake only ships 21 of 64 scripts to
-  /usr/bin (the curated set). The remaining ~43 utility/example wrappers
-  (buildtemplateparallel.sh, antsJointLabelFusion2.sh, antsLongitudinalJointLabelFusion.sh,
-  multi_template_script.sh, shapeupdatetotemplate.sh, the cbf_*.R batch scripts,
-  the register/warp/weightedaverage .pl helpers, etc.) now ship to
-  /usr/share/ANTs/scripts/ for users that need them.
-- Include Documentation/, CONTRIBUTING.md, and code_of_conduct.md as %doc
-
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-9
 - Rebuild against InsightToolkit5 5.4.6 (GDCM CVE-2026-3650, F44 target)
 - Bump BuildRequires: InsightToolkit5-devel >= 5.4.6

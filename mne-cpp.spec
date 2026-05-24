@@ -8,7 +8,7 @@
 
 Name:           mne-cpp
 Version:        0.1.9^%{snapdate}git%{shortcommit}
-Release:        4%{?dist}
+Release:        3%{?dist}
 Summary:        Cross-platform C++ framework for MEG/EEG data analysis
 
 License:        BSD-3-Clause
@@ -51,8 +51,7 @@ Requires:       eigen3-devel
 Header files and cmake config for developing against the MNE-CPP libraries.
 
 %prep
-# GitHub archives extract to <repo>-<full-commit>/, not <repo>-<version>/
-%autosetup -n mne-cpp-%{commit}
+%autosetup -n mne-cpp-%{version}
 
 # Remove bundled Eigen install (uses system eigen3-devel at build time,
 # but Eigen headers would be installed to /usr/include/Eigen/ conflicting with system)

@@ -3,7 +3,7 @@
 
 Name:           python-simpleitk
 Version:        2.5.5
-Release:        4%{?dist}
+Release:        3%{?dist}
 Summary:        Simplified interface to the Insight Toolkit (ITK) for image analysis
 
 License:        Apache-2.0
@@ -133,13 +133,6 @@ SimpleITK. After install, browse %{_docdir}/simpleitk-doc/html/index.html.
 %prep
 %autosetup -n SimpleITK-%{version}
 
-# Rawhide ships Lua 5.5; SimpleITK's CMake/FindLuaInterp.cmake hardcodes
-# the version range as "5.3...<5.5" which rejects 5.5 with
-# "Could NOT find LuaInterp: Found unsuitable version "5.5.0"".
-# Widen to accept any 5.x (Lua's only used for codegen, not runtime).
-sed -i 's|5\.3[[:space:]]*\.\.\.[[:space:]]*<[[:space:]]*5\.5|5.3...<6.0|g' \
-    CMake/FindLuaInterp.cmake
-
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 
@@ -266,11 +259,6 @@ print('SmoothingRecursiveGaussian ok')
 %{_docdir}/simpleitk-doc/html/
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-4
-- Widen FindLuaInterp.cmake version range from "5.3...<5.5" to "5.3...<6.0"
-  so SimpleITK accepts rawhide's Lua 5.5.0 (Lua is only used for filter
-  source code generation, not at runtime — version is not critical)
-
 * Wed May 20 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-3
 - Six Fedora-review-prep fixes:
   1. Drop `%%define debug_package %%{nil}` so the standard Fedora

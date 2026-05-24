@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -81,7 +81,10 @@ BuildRequires:  eigen3-devel
 BuildRequires:  cli11-devel
 BuildRequires:  boost-devel
 BuildRequires:  gdal-devel
-BuildRequires:  postgresql-server-devel
+# VTK's PostgreSQL IO module wants the PostgreSQL CLIENT library, not the
+# server-side build tools. Using postgresql-server-devel triggered a F44
+# depsolve conflict (postgresql-private-devel-18.3-2 vs libpq-devel-18.0-4).
+BuildRequires:  libpq-devel
 
 # X11 / GL
 BuildRequires:  libX11-devel
@@ -168,6 +171,10 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
     -DUSE_SYSTEM_VTK:BOOL=ON \
     -DUSE_SYSTEM_ITK:BOOL=ON \
     -DVTK_VMTK_WRAP_PYTHON:BOOL=ON \
+    `# VTK 9.5 cmake config sets VTK_WRAP_JAVA=ON; vmtk's wrap defaults ON and` \
+    `# its own CMakeOptions.cmake then FATAL_ERRORs ("Java wrapping ... not ` \
+    `# supported with VTK 9"). Disable vmtk's Java wrap explicitly.` \
+    -DVTK_VMTK_WRAP_JAVA:BOOL=OFF \
     -DVMTK_USE_VTK9:BOOL=ON \
     -DVMTK_USE_ITK5:BOOL=ON \
     -DBUILD_SHARED_LIBS:BOOL=ON \
@@ -238,6 +245,19 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.5.20250820git311f4792
+- Fix configure-time FATAL_ERROR against VTK 9.5: pass
+  -DVTK_VMTK_WRAP_JAVA=OFF. VTK 9.5's cmake config sets VTK_WRAP_JAVA=ON,
+  which enables vmtk's default-ON Java wrap, which then hard-errors
+  ("Java wrapping of classes is not supported with VTK 9").
+
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.4.20250820git311f4792
+- Fix F44 FTBFS: replace postgresql-server-devel BR with libpq-devel.
+  VTK's PostgreSQL IO module needs only the client library (libpq).
+  postgresql-server-devel-18.3-2 on F44 conflicts with libpq-devel-18.0-4
+  via postgresql-private-devel, breaking depsolve for any consumer that
+  also needs libpq-devel — including vtk-devel itself.
+
 * Mon Apr 21 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.2.20250820git311f4792
 - Fix VMTK_PYTHON_VERSION detection (upstream uses wrong cmake variable names)
 - Fix cmake config install paths to standard libdir/cmake/vmtk/

@@ -15,7 +15,6 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  python3-devel
-BuildRequires:  python3-pip
 BuildRequires:  python3-numpy
 BuildRequires:  python3-meson-python
 
@@ -52,11 +51,7 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib}
 %license LICENSE
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-2
-- Add python3-pip BR — rawhide build 10506559 failed with
-  "No module named pip" (Fedora's python3 split pip out from defaults)
-
-* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-1
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-1
 - Update to 2.1.0 (major version bump, now uses meson-python build system)
 - Switch source from GitHub FMM3D repo to PyPI sdist
 - Remove manual f2py build process (upstream now handles via meson.build)

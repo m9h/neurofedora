@@ -1,6 +1,6 @@
 Name:           cmtk
 Version:        3.4.0
-Release:        6%{?dist}
+Release:        1%{?dist}
 Summary:        Computational Morphometry Toolkit
 
 # The core is GPLv3+, but it bundles/links against other licensed code
@@ -16,8 +16,6 @@ Source0:        https://github.com/jefferis/cmtk/archive/%{commit}/%{name}-%{ver
 BuildRequires:  cmake
 BuildRequires:  gcc-c++
 BuildRequires:  fftw-devel
-# (former BR `numdiff` removed — that package isn't in Fedora.
-# Instead we sed-disable the bundled numdiff-5.2.1 subdir in %prep below.)
 BuildRequires:  mxml-devel
 # dcmtk-devel causes API compatibility issues with current CMTK 3.4.0
 # BuildRequires:  dcmtk-devel
@@ -53,28 +51,9 @@ developing applications that use %{name}.
 # Rename CMTK's 'byte' to 'cmtk_byte'
 grep -rle "\bbyte\b" core | xargs sed -i 's/\bbyte\b/cmtk_byte/g'
 
-# cmake 4.x removed EXPORT_LIBRARY_DEPENDENCIES (deprecated in 3.0, gone in 4.0)
-sed -i '/EXPORT_LIBRARY_DEPENDENCIES/d' core/CMakeLists.txt
-# Also remove the install of the now-non-existent CMTKLibraryDepends.cmake
-sed -i '/CMTKLibraryDepends.cmake/d' core/CMakeLists.txt
-
-# cmake 4.x removed CMP0005; bundled numdiff sets it to OLD which now errors
-sed -i '/cmake_policy(SET CMP0005 OLD)/d' core/Utilities/numdiff-5.2.1/CMakeLists.txt
-
-# Disable bundled numdiff entirely — its C sources (errors.c, new.c) FTBFS
-# on GCC 16. numdiff is a test utility CMTK itself doesn't link against.
-# Force FIND_PROGRAM to "find" something so the ELSE branch (add_subdirectory)
-# is skipped; also strip any direct add_subdirectory references.
-sed -i 's|FIND_PROGRAM(NUMDIFF_EXECUTABLE_SYSTEM[^)]*)|SET(NUMDIFF_EXECUTABLE_SYSTEM "/usr/bin/true")|I' \
-    core/Utilities/CMakeLists.txt
-sed -i '/^[[:space:]]*ADD_SUBDIRECTORY[[:space:]]*(numdiff/Id; /^[[:space:]]*add_subdirectory[[:space:]]*(numdiff/Id' \
-    core/Utilities/CMakeLists.txt core/CMakeLists.txt 2>/dev/null || true
-rm -rf core/Utilities/numdiff-5.2.1
-
 %build
 cd core
 %cmake \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_SKIP_RPATH=ON \
     -DCMTK_INSTALL_BIN_DIR=bin \
@@ -133,19 +112,6 @@ export LD_LIBRARY_PATH=%{buildroot}%{_libdir}/cmtk
 %{_libdir}/cmtk/*.cmake
 
 %changelog
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-4
-- Disable bundled numdiff subdir: errors.c and new.c FTBFS on GCC 16
-  (stricter ISO C parsing rejects the macro expansions). numdiff is a
-  test utility CMTK doesn't link against, so the subdir can go.
-
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-3
-- Remove cmake 4.x dead commands (policy floor isn't enough):
-  - EXPORT_LIBRARY_DEPENDENCIES + CMTKLibraryDepends install in core/CMakeLists.txt:698
-  - cmake_policy(SET CMP0005 OLD) in bundled numdiff (CMP0005 was removed)
-
-* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-2
-- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x compatibility (F44+)
-
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4.0-1
 - Initial CMTK package
 - Updated licenses and installation paths

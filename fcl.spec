@@ -3,7 +3,7 @@
 
 Name:           fcl
 Version:        0.7.0
-Release:        10%{?dist}
+Release:        13%{?dist}
 Summary:        Flexible Collision Library
 
 
@@ -11,6 +11,12 @@ Summary:        Flexible Collision Library
 License:        LicenseRef-Callaway-BSD
 URL:            https://github.com/flexible-collision-library/fcl
 Source0:        https://github.com/flexible-collision-library/%{name}/archive/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+
+# Add missing <cassert> includes to 16 fcl headers that call assert()
+# without including it. GCC 15 / Fedora 44 no longer provide <cassert>
+# transitively, breaking both fcl's own build and downstream consumers
+# of fcl-devel (e.g. DART).
+Patch0:         fcl-0.7.0-cassert-includes.patch
 
 BuildRequires:  boost-devel
 BuildRequires:  cmake
@@ -85,6 +91,17 @@ sed -i 's/-std=c++11 //g' CMakeModules/CompilerSettings.cmake
 %{_libdir}/*.so
 
 %changelog
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.0-13
+- Patch all 16 fcl headers that call assert() without including <cassert>
+  (fcl-0.7.0-cassert-includes.patch). The earlier -include cassert CXXFLAGS
+  workaround fixed only fcl's own build while still shipping broken headers;
+  patching the headers fixes fcl and every downstream consumer (DART).
+
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.0-11
+- Fix FTBFS on GCC 15: add -include cassert to CXXFLAGS so the assert()
+  calls in convex-inl.h have a visible declaration (-Wtemplate-body is now
+  a hard error for non-dependent assert in templates).
+
 * Wed May 20 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.0-10
 - Revive from Fedora orphan state (was dropped after F42, August 2025).
 - Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for F44 cmake 4.x compat.

@@ -1,6 +1,6 @@
 Name:           jemris
 Version:        2.9.2
-Release:        4%{?dist}
+Release:        3%{?dist}
 Summary:        Juelich Extensible MRI Simulator
 
 License:        GPL-2.0-or-later
@@ -56,7 +56,6 @@ sed -i '1i #include <cstdint>\n#include <stdexcept>\n#include <algorithm>' src/N
 %build
 # Standard serial build
 %cmake \
-    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DSKIP_CONDA=ON \
     -DJEMRIS_ENABLE_MPI=OFF
 %cmake_build

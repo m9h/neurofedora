@@ -8,17 +8,17 @@
 %global _smp_mflags -j8
 
 Name:           vtk
-Version:        9.5.2
-Release:        11%{?dist}
+Version:        9.6.2
+Release:        4%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
 URL:            https://vtk.org/
-Source0:        https://www.vtk.org/files/release/9.5/VTK-%{version}.tar.gz
+Source0:        https://www.vtk.org/files/release/9.6/VTK-%{version}.tar.gz
 # Patch required libharu version check (system libharu >= 2.3.0 is sufficient)
 Patch0:         vtk-libharu.patch
-# Tk 9.0 compatibility fix
-Patch1:         vtk-tk9.patch
+# (former Patch1 vtk-tk9.patch dropped: VTK 9.6.x has native Tk 9 support;
+# the 9.5-era patch's 24 hunks all reject against the 9.6 tree.)
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
@@ -72,6 +72,8 @@ BuildRequires:  chrpath
 # Bundled libraries (not yet separately packaged or carrying local modifications)
 Provides:       bundled(eigen3)
 Provides:       bundled(fast_float)
+Provides:       bundled(hdf5) = 1.14.6
+Provides:       bundled(freetype)
 Provides:       bundled(kwsys)
 Provides:       bundled(diy2)
 Provides:       bundled(exodusII) = 2.0.0
@@ -96,8 +98,8 @@ advanced algorithms (e.g., surface reconstruction, implicit modeling,
 decimation) and rendering techniques (e.g., hardware-accelerated
 volume rendering, LOD control).
 
-This COPR package provides VTK 9.5 for applications requiring
-a newer VTK than the Fedora system package (9.2.6).
+This COPR package provides VTK 9.6 for applications requiring
+a newer VTK than the Fedora system package.
 
 %package devel
 Summary:        Development files for %{name}
@@ -158,21 +160,21 @@ Requires:       python3-devel
 
 %description devel
 This provides the VTK header files and cmake config required to compile
-C++ programs that use VTK 9.5.
+C++ programs that use VTK 9.6.
 
 %package -n python3-%{name}
 Summary:        Python 3 bindings for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 %description -n python3-%{name}
-Python 3 bindings for VTK 9.5.
+Python 3 bindings for VTK 9.6.
 
 %package qt
 Summary:        Qt6 widgets and rendering for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 
 %description qt
-Qt6 rendering and widget libraries for VTK 9.5.
+Qt6 rendering and widget libraries for VTK 9.6.
 
 %prep
 %autosetup -p1 -n VTK-%{version}
@@ -181,13 +183,18 @@ Qt6 rendering and widget libraries for VTK 9.5.
 # fast_float and eigen3 are intentionally NOT removed — system versions have
 # incompatible major versions vs what VTK expects (SameMajorVersion compat).
 for x in vtkcli11 vtkdoubleconversion vtkexpat \
-          vtkfmt vtkfreetype vtkhdf5 vtkjpeg vtkjsoncpp vtklibharu \
+          vtkfmt vtkjpeg vtkjsoncpp vtklibharu \
           vtklibproj vtklibxml2 vtklz4 vtklzma vtknetcdf vtknlohmannjson \
           vtkogg vtkpegtl vtkpng vtkpugixml vtksqlite vtktheora vtktiff \
           vtkutf8 vtkzlib
 do
   rm -rf ThirdParty/*/${x}
 done
+# vtkhdf5 + vtkfreetype kept bundled:
+#  - vtkhdf5: Fedora rawhide ships HDF5 2.x which dropped the HDF5_IS_PARALLEL
+#    cmake variable VTK's external-HDF5 path requires.
+#  - vtkfreetype: Fedora rawhide's freetype cmake config can no longer be
+#    found by VTK 9.6 (`Could NOT find freetype (missing: freetype_DIR)`).
 
 %build
 export CFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
@@ -213,6 +220,11 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_ENABLE_OSPRAY:BOOL=OFF \
     -DVTK_MODULE_ENABLE_VTK_RenderingExternal:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_RenderingAnari:STRING=NO \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_hdf5:BOOL=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_vtkhdf5:BOOL=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_freetype:BOOL=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_vtkfreetype:BOOL=OFF \
+    -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=WANT \
     -DVTK_MODULE_ENABLE_VTK_fides:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_IOADIOS2:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_IOOpenVDB:STRING=NO \
@@ -316,6 +328,32 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-4
+- Set BOTH cmake cache-var forms for the bundling flag (CamelCase user-facing
+  + lowercase library-form). -3 set only the lowercase; rawhide still used
+  external HDF5 → HDF5_IS_PARALLEL missing → FTBFS.
+- Add -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=WANT so ParaView (which requires
+  the VTK::IOPIO module) builds against this VTK.
+
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-3
+- VTK module name fix: cache var is VTK_MODULE_USE_EXTERNAL_vtkhdf5 (lowercase
+  `vtkhdf5`), not `VTK_hdf5`. -2 spec set the wrong name → flag silently
+  ignored → external HDF5 still tried → HDF5_IS_PARALLEL missing → FTBFS
+- Also bundle vtkfreetype: rawhide's freetype cmake config can't be found
+  by VTK 9.6 (`Could NOT find freetype (missing: freetype_DIR)`)
+- Provides: bundled(hdf5) 1.14.6, bundled(freetype)
+
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-2
+- Drop vtk-tk9.patch (was for 9.5; VTK 9.6 has native Tk 9 support — all 24
+  hunks rejected against the 9.6 tree, failing %prep — build 10505998)
+
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-1
+- Update to VTK 9.6.2
+- Bundle vtkhdf5 (don't unbundle): system HDF5 2.x on rawhide/F45 dropped
+  the HDF5_IS_PARALLEL cmake variable that VTK's external-HDF5 module
+  requires (FTBFS on rawhide build 10504829)
+- Add -DVTK_MODULE_USE_EXTERNAL_VTK_hdf5:BOOL=OFF
+
 * Tue Mar 24 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-11
 - Enable VTK::ImagingOpenGL2 module (provides libvtkImagingOpenGL2.so.1):
   module is not in the Imaging group so VTK_GROUP_ENABLE_Imaging=YES did not
@@ -366,7 +404,7 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
   causing SameMajorVersion cmake compat failures identical to ITK/Eigen3 issue
 
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 9.5.2-1
-- Initial COPR package of VTK 9.5.2 for Fedora 43/44
+- Initial COPR package of VTK 9.6.2 for Fedora 43/44
 - Simplified spec: no MPI, no Java, no testing/examples/doc packages
 - Targets neuroimaging apps requiring VTK >= 9.3 (ITK-SNAP, medInria)
 - Based on Fedora rawhide vtk.spec with GDAL, OpenCASCADE, Anari disabled

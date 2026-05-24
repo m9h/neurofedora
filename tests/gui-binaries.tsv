@@ -1,0 +1,33 @@
+# GUI startup-smoke manifest — one row per launchable app.
+#
+# Format (TAB separated, # = comment):
+#   <pkg>	<binary>	<backend>	<timeout-sec>	<args>
+#
+# backend:
+#   offscreen   set QT_QPA_PLATFORM=offscreen (Qt apps only, no X needed)
+#   xvfb        wrap with xvfb-run -a (any GUI; needs xorg-x11-server-Xvfb)
+#   wayland     set QT_QPA_PLATFORM=wayland (rare; for wayland-only apps)
+#
+# timeout: seconds to keep the process alive before SIGTERM.
+#   We assert that the process is STILL RUNNING when the timer fires —
+#   i.e. it didn't crash in the first <timeout> seconds. A clean early exit
+#   is also accepted (some apps print --version-style banners and quit).
+#
+# args: optional extra args (rarely needed).
+#
+# Mark in-progress / known-failing rows with `# WIP:` to disable.
+
+# ─── Qt apps — cheapest, no X server needed ────────────────────────────────────
+itksnap	/usr/bin/itksnap	offscreen	5
+sigviewer	/usr/bin/sigviewer	offscreen	5
+labrecorder	/usr/bin/LabRecorder	offscreen	5
+fsleyes	/usr/bin/fsleyes	offscreen	8
+# WIP-F44: itksnap-alpha	/usr/bin/itksnap-alpha	offscreen	5
+# WIP: medInria	/usr/bin/medInria	offscreen	8   # Qt6 port in progress
+# WIP: vespa	/usr/bin/vespa	offscreen	8
+
+# ─── Non-Qt (FLTK / GTK / X11 native) — need a real X server via xvfb ──────────
+mricron	/usr/bin/mricron	xvfb	5
+# WIP-F44: mricrogl	/usr/bin/MRIcroGL	xvfb	5
+# WIP-F44: babelbrain	/usr/bin/BabelBrain	xvfb	5
+# WIP: open-ephys-gui	/usr/bin/open-ephys	xvfb	5

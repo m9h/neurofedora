@@ -2,7 +2,7 @@
 
 Name:           dart
 Version:        6.16.7
-Release:        1%{?dist}
+Release:        5%{?dist}
 Summary:        Dynamic Animation and Robotics Toolkit
 
 # Source is BSD-2-Clause. Bundled imgui (in dart/external/imgui/) is MIT;
@@ -48,12 +48,15 @@ BuildRequires:  tinyxml-devel
 BuildRequires:  tinyxml2-devel
 BuildRequires:  console-bridge-devel
 
-# Optimization solvers (optional but useful)
+# Optimization solvers (optional) — each produces a libdart-optimizer-*.so
 BuildRequires:  NLopt-devel
 BuildRequires:  coin-or-Ipopt-devel
+BuildRequires:  pagmo2-devel
 
-# GUI viewer (OSG-based; DART_BUILD_GUI_OSG=ON default)
+# OpenSceneGraph viewer (dart-gui-osg)
 BuildRequires:  OpenSceneGraph-devel
+
+# OpenGL/GLUT viewer (dart-gui)
 BuildRequires:  freeglut-devel
 BuildRequires:  libXi-devel
 BuildRequires:  libXmu-devel
@@ -79,7 +82,8 @@ computer animation. DART is distinguished by:
   * an OpenSceneGraph-based 3D viewer for visualizing simulations.
 
 This metapackage is empty; install dart-libs for the runtime libraries,
-dart-devel for headers, and dart-gui-osg for the visual viewer.
+dart-devel for headers, dart-gui for the OpenGL/GLUT viewer, and
+dart-gui-osg for the OpenSceneGraph viewer.
 
 %package libs
 Summary:        Runtime libraries for DART
@@ -90,9 +94,10 @@ Requires:       urdfdom
 Requires:       console-bridge
 
 %description libs
-Runtime shared libraries (libdart-*.so) for DART. Contains the core
-simulation engine, dynamics solver, collision detection, IO modules
-(URDF/SDF), and optimization layers.
+Runtime shared libraries for DART: the core engine (libdart.so), the
+Bullet and ODE collision backends, the URDF/SDF/MJCF parsers, the
+NLopt/Ipopt/pagmo optimizer backends, and the bundled external helper
+libraries.
 
 %package devel
 Summary:        Development files for DART
@@ -108,6 +113,25 @@ Requires:       spdlog-devel
 %description devel
 Headers and cmake configuration files for developing C++ applications
 that use DART.
+
+%package gui
+Summary:        OpenGL/GLUT-based 3D viewer for DART simulations
+Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
+Requires:       freeglut
+
+%description gui
+libdart-gui — DART's lightweight OpenGL/GLUT viewer (SimWindow,
+Win3D, Trackball) for visualizing simulations without OpenSceneGraph.
+
+%package gui-devel
+Summary:        Development files for the DART OpenGL/GLUT viewer
+Requires:       %{name}-gui%{?_isa} = %{version}-%{release}
+Requires:       %{name}-devel%{?_isa} = %{version}-%{release}
+Requires:       freeglut-devel
+
+%description gui-devel
+Headers and cmake config for building applications using DART's
+OpenGL/GLUT viewer (libdart-gui).
 
 %package gui-osg
 Summary:        OpenSceneGraph-based 3D viewer for DART simulations
@@ -150,10 +174,18 @@ export CXXFLAGS="%{optflags} -std=c++17"
     -DDART_USE_SYSTEM_BULLET=ON \
     `# imgui is bundled (not packaged in Fedora); keep at OFF` \
     -DDART_USE_SYSTEM_IMGUI=OFF \
-    `# Skip tests and tutorials in the COPR build` \
-    -DDART_BUILD_TESTS=OFF \
-    -DDART_BUILD_TUTORIALS=OFF \
-    -DDART_BUILD_EXAMPLES=OFF
+    `# Do not treat warnings as errors. DART defaults this ON, but its` \
+    `# code triggers -Wdeprecated-declarations against Fedora 44's Eigen` \
+    `# 5.x (the JacobiSVD runtime-Options API is deprecated in Eigen 5).` \
+    `# Upstream's own setup.py / packaging scripts pass this OFF too.` \
+    -DDART_TREAT_WARNINGS_AS_ERRORS=OFF \
+    `# DART has no DART_BUILD_TESTS option — tests are gated by the` \
+    `# standard CTest BUILD_TESTING variable. Left ON, tests/CMakeLists.txt` \
+    `# runs FetchContent_MakeAvailable(googletest), which git-clones from` \
+    `# GitHub at configure time and fails under mock/COPR network isolation.` \
+    `# examples/ and tutorials/ are add_subdirectory(... EXCLUDE_FROM_ALL),` \
+    `# so they configure cleanly and never build — no separate flag needed.` \
+    -DBUILD_TESTING=OFF
 
 %cmake_build
 
@@ -161,40 +193,44 @@ export CXXFLAGS="%{optflags} -std=c++17"
 %cmake_install
 
 %ldconfig_scriptlets libs
+%ldconfig_scriptlets gui
 %ldconfig_scriptlets gui-osg
 
+# DART 6.x consolidates the kinematics/dynamics/math/constraint/simulation/
+# integration/lcpsolver/collision-core code into a single libdart.so. Only
+# the optional backends (collision-bullet/ode, optimizer-nlopt/ipopt/pagmo),
+# the parsers (utils, utils-urdf), the GUIs (gui, gui-osg) and the bundled
+# external helpers (imgui, lodepng, odelcpsolver) are separate libraries.
 %files libs
 %license LICENSE
 %doc README.md
 %{_libdir}/libdart.so.*
 %{_libdir}/libdart-collision-*.so.*
-%{_libdir}/libdart-constraint-*.so.*
-%{_libdir}/libdart-dynamics-*.so.*
 %{_libdir}/libdart-external-*.so.*
-%{_libdir}/libdart-integration-*.so.*
-%{_libdir}/libdart-io-*.so.*
-%{_libdir}/libdart-lcpsolver-*.so.*
-%{_libdir}/libdart-math-*.so.*
-%{_libdir}/libdart-optimization-*.so.*
-%{_libdir}/libdart-simulation-*.so.*
-%{_libdir}/libdart-utils-*.so.*
+%{_libdir}/libdart-optimizer-*.so.*
+%{_libdir}/libdart-utils*.so.*
+# Upstream installs the data/ resource tree (loaded at runtime via
+# DartResourceRetriever / DART_DATA_PATH) plus example and tutorial
+# sources here under %%{_docdir}/dart/.
+%{_docdir}/%{name}/
 
 %files devel
 %{_includedir}/dart/
 %{_libdir}/libdart.so
 %{_libdir}/libdart-collision-*.so
-%{_libdir}/libdart-constraint-*.so
-%{_libdir}/libdart-dynamics-*.so
 %{_libdir}/libdart-external-*.so
-%{_libdir}/libdart-integration-*.so
-%{_libdir}/libdart-io-*.so
-%{_libdir}/libdart-lcpsolver-*.so
-%{_libdir}/libdart-math-*.so
-%{_libdir}/libdart-optimization-*.so
-%{_libdir}/libdart-simulation-*.so
-%{_libdir}/libdart-utils-*.so
-%{_libdir}/cmake/dart/
+%{_libdir}/libdart-optimizer-*.so
+%{_libdir}/libdart-utils*.so
+# cmake package config and the ROS/colcon package.xml manifest both
+# install under %%{_datadir}/dart/ (CONFIG_INSTALL_DIR), not %%{_libdir}.
+%{_datadir}/%{name}/
 %{_libdir}/pkgconfig/dart*.pc
+
+%files gui
+%{_libdir}/libdart-gui.so.*
+
+%files gui-devel
+%{_libdir}/libdart-gui.so
 
 %files gui-osg
 %{_libdir}/libdart-gui-osg.so.*
@@ -203,6 +239,36 @@ export CXXFLAGS="%{optflags} -std=c++17"
 %{_libdir}/libdart-gui-osg.so
 
 %changelog
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-5
+- Fix %%files paths revealed once the compile finally completed: DART
+  installs its cmake config and package.xml to %%{_datadir}/dart/ (not
+  %%{_libdir}/cmake/dart), and installs the data/ resource tree plus
+  example/tutorial sources under %%{_docdir}/dart/. Own both locations.
+
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-4
+- Build the pagmo optimizer backend: add pagmo2-devel BuildRequires, which
+  enables the dart-optimizer-pagmo module (libdart-optimizer-pagmo.so).
+- New dart-gui / dart-gui-devel subpackages for the OpenGL/GLUT viewer
+  (libdart-gui.so). It was compiled before but never packaged.
+- Rewrite %files with the real DART 6.x library names. DART consolidates
+  constraint/dynamics/math/simulation/integration/lcpsolver/collision-core
+  into a single libdart.so; the previous %files listed per-module libraries
+  (libdart-constraint-*, libdart-math-*, libdart-optimization-* ...) that
+  DART does not produce, and omitted libdart-optimizer-* and libdart-gui.
+
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-3
+- Fix FTBFS against Eigen 5.x: pass -DDART_TREAT_WARNINGS_AS_ERRORS=OFF.
+  Fedora 44 ships Eigen 5.0.1, which deprecates the JacobiSVD runtime
+  Options API that DART 6.16.7 still uses; DART defaults -Werror ON, so
+  the deprecation warning was fatal. Upstream setup.py disables it too.
+
+* Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-2
+- Fix FTBFS in mock/COPR: pass -DBUILD_TESTING=OFF. DART has no
+  DART_BUILD_TESTS option (the -DDART_BUILD_TESTS/TUTORIALS/EXAMPLES flags
+  were silent no-ops); tests are gated by CTest's BUILD_TESTING, and with
+  it left ON tests/CMakeLists.txt git-clones googletest via FetchContent
+  at configure time, which fails under network isolation.
+
 * Wed May 20 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-1
 - Initial package for DART (Dynamic Animation and Robotics Toolkit) 6.16.7.
 - BSD-2-Clause source; declares bundled() for imgui (MIT), lodepng (zlib),

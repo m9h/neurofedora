@@ -1,0 +1,140 @@
+# WIP-F44: marked rows are skipped — package is missing from COPR F44
+# metadata, has unsatisfiable deps (e.g. python3-numba), or has a tracked
+# F44 FTBFS (see MEMORY.md / build-logs/ for diagnostics).
+
+# neurofedora package smoke-test manifest
+#
+# Format (TAB separated, # = comment):
+#   <binary RPM name>	<category>	<test command>	<expected pattern>
+#
+# Categories:
+#   cli     command-line tool — runs <test command> and matches output
+#   python  Python package    — `python3 -c 'import X; print(X.__version__)'`
+#   lib     library-only      — checks rpm install + representative file present
+#   gui     GUI app           — minimal smoke (binary exists + --version if it has one)
+#   data    data-only package — checks rpm install + representative file
+#
+# An empty <expected pattern> means: just require exit code 0.
+# A non-empty pattern is a POSIX regex matched against the COMBINED stdout+stderr.
+# Mark in-progress / known-failing rows with `# WIP:` to disable.
+
+# ─── Core toolkits (libraries) ─────────────────────────────────────────────────
+InsightToolkit5	lib	test -f /usr/lib64/libITKCommon-5.4.so.1
+InsightToolkit5-devel	lib	test -f /usr/lib/cmake/ITK-5.4/ITKConfig.cmake
+# WIP-F44: InsightToolkit6	lib	test -d /usr/lib64/cmake/ITK-6.0 || test -d /usr/lib64/cmake/ITK-5.4
+vtk	lib	test -d /usr/lib64/cmake/vtk
+vtk-devel	lib	test -f /usr/lib64/cmake/vtk/vtk-config.cmake
+# WIP-F44: vtkAddon	lib	test -d /usr/share/cmake/vtkAddon || test -d /usr/lib64/cmake/vtkAddon
+SlicerExecutionModel	lib	test -d /usr/lib64/cmake/SlicerExecutionModel
+dcmtk	cli	dcmdump --version	dcmdump v[0-9]
+gdcm	lib	test -f /usr/lib64/libgdcmDICT.so.3.0
+ismrmrd	cli	ismrmrd_info
+teem	cli	unu --version	Teem
+# WIP-F44: bicpl	lib	test -d /usr/lib64/cmake/bicpl || test -f /usr/lib64/libbicpl.so
+gifticlib-cmake-devel	lib	test -d /usr/share/cmake/gifticlib
+geant4	cli	geant4-config --version	Geant4
+
+# ─── Registration / segmentation CLI ────────────────────────────────────────────
+ANTs	cli	antsRegistration --version	ANTs
+elastix	cli	elastix --version	elastix version
+c3d	cli	c3d -version	c3d
+greedy	cli	greedy -h 2>&1	greedy
+niftyreg	cli	reg_aladin --version 2>&1	NiftyReg
+plastimatch	cli	plastimatch --version 2>&1	plastimatch
+
+# ─── Diffusion / surface / multimodal ──────────────────────────────────────────
+mrtrix3	cli	mrconvert --version	MRtrix
+# WIP-F44: dsi-studio	cli	dsi_studio --action=ana 2>&1	DSI Studio
+# WIP-F44: connectome-workbench	cli	wb_command -version 2>&1	Connectome Workbench
+# WIP-F44: minc-tools	cli	mincinfo -version 2>&1	mincinfo
+freesurfer	cli	mri_info --version 2>&1	freesurfer
+afni	cli	afni -ver	AFNI
+
+# ─── Quantitative MRI / simulation ─────────────────────────────────────────────
+# WIP-F44: bart	cli	bart version 2>&1	v
+# WIP-F44: quit	cli	qi --help 2>&1	qi
+# WIP-F44: jemris	cli	jemris -h 2>&1	jemris
+# WIP-F44: cmdstan	cli	test -d /usr/share/cmdstan/
+opentopas	cli	test -x /usr/bin/topas
+
+# ─── GUI imaging viewers ───────────────────────────────────────────────────────
+itksnap	gui	test -x /usr/bin/itksnap
+# WIP-F44: itksnap-alpha	gui	test -x /usr/bin/itksnap-alpha
+# WIP-F44: mricrogl	gui	test -x /usr/bin/MRIcroGL || test -x /usr/lib64/MRIcroGL/MRIcroGL
+mricron	gui	test -x /usr/bin/mricron
+sigviewer	gui	test -x /usr/bin/sigviewer
+labrecorder	gui	test -x /usr/bin/LabRecorder
+# WIP-F44: babelbrain	gui	test -x /usr/bin/BabelBrain
+# WIP: medInria	gui	test -x /usr/bin/medInria	  # Qt6 port in progress
+# WIP: mitk	lib	test -f /usr/lib64/libMitkCore.so	  # install rules pending (Patch1 in -7)
+
+# ─── BCI / signal acquisition ──────────────────────────────────────────────────
+liblsl	lib	test -f /usr/lib64/liblsl.so
+libxdf	lib	test -f /usr/lib64/libxdf.so
+brainflow	lib	test -d /usr/lib64/cmake/brainflow || test -f /usr/lib64/libBoardController.so
+# WIP-F44: openvibe	gui	test -x /usr/bin/openvibe-acquisition-server || test -x /usr/bin/openvibe-designer
+# WIP: open-ephys-gui	gui	test -x /usr/bin/open-ephys
+
+# ─── Robotics / physics (DART chain) ───────────────────────────────────────────
+dart-libs	lib	test -f /usr/lib64/libdart.so.6.16
+dart-gui	lib	test -f /usr/lib64/libdart-gui.so.6.16
+dart-gui-osg	lib	test -f /usr/lib64/libdart-gui-osg.so.6.16
+urdfdom	cli	check_urdf --help 2>&1	URDF
+fcl	lib	test -f /usr/lib64/libfcl.so.0.7
+flann	lib	test -f /usr/lib64/libflann.so.1.9
+
+# ─── INRIA medInria chain (libs) ───────────────────────────────────────────────
+dtk-qt6	lib	test -f /usr/lib64/libdtkCore.so
+RPI	lib	test -d /usr/include/RPI || test -d /usr/lib64/cmake/RPI
+TTK	lib	test -f /usr/lib64/libttkAlgorithms.so || test -d /usr/lib64/cmake/TTK
+
+# ─── Python — neuroimaging stack ───────────────────────────────────────────────
+python3-simpleitk	python	python3 -c 'import SimpleITK; print(SimpleITK.Version_String())'	SimpleITK
+python3-nilearn	python	python3 -c 'import nilearn; print(nilearn.__version__)'
+# WIP-F44: python3-fury	python	python3 -c 'import fury; print(fury.__version__)'
+# WIP-F44: python3-brainflow	python	python3 -c 'import brainflow; print(brainflow.__version__)'
+python3-hdf5plugin	python	python3 -c 'import hdf5plugin; print(hdf5plugin.__version__)'
+python3-babelviscofdtd	python	python3 -c 'import BabelViscoFDTD; print(BabelViscoFDTD.__version__)'
+python3-vmtk	python	python3 -c 'import vmtk'
+
+# ─── Python — SimNIBS chain ────────────────────────────────────────────────────
+# WIP-F44: python3-stanio	python	python3 -c 'import stanio; print(stanio.__version__)'
+python3-fmm3dpy	python	python3 -c 'import fmm3dpy'
+python3-pygpc	python	python3 -c 'import pygpc; print(pygpc.__version__)'
+python3-surfa	python	python3 -c 'import surfa; print(surfa.__version__)'
+python3-charm_gems	python	python3 -c 'import charm_gems'
+# WIP-F44: python3-samseg	python	python3 -c 'import samseg'
+# WIP-F44: python3-simnibs	python	python3 -c 'import simnibs; print(simnibs.__version__)'
+# WIP-F44: simnibs-gui	gui	test -x /usr/bin/simnibs_gui || test -x /usr/bin/simnibs
+
+# ─── Python — FSLeyes ecosystem ────────────────────────────────────────────────
+python3-fslpy	python	python3 -c 'import fsl'
+python3-fsleyes	python	python3 -c 'import fsleyes'
+python3-fsleyes-props	python	python3 -c 'import fsleyes_props'
+python3-fsleyes-widgets	python	python3 -c 'import fsleyes_widgets'
+fsleyes	gui	fsleyes --version 2>&1	FSLeyes
+
+# ─── Python — supporting deps the COPR builds ──────────────────────────────────
+python3-marshmallow	python	python3 -c 'import marshmallow; print(marshmallow.__version__)'
+# WIP-F44: python3-dataclasses-json	python	python3 -c 'import dataclasses_json'
+# WIP-F44: python3-pygltflib	python	python3 -c 'import pygltflib'
+
+# ─── Cellular / morphogenesis ──────────────────────────────────────────────────
+compucell3d	cli	test -x /usr/bin/compucell3d.sh
+morpheus	cli	morpheus --version 2>&1	[Mm]orpheus
+
+# ─── Genomics tooling ──────────────────────────────────────────────────────────
+ucsc-kent-utils	cli	bedToBigBed 2>&1	bedToBigBed
+
+# ─── Atlases / data ────────────────────────────────────────────────────────────
+iit-human-brain-atlas	data	test -d /usr/share/iit-human-brain-atlas
+
+# ─── BCI middleware / misc ─────────────────────────────────────────────────────
+PythonQt	lib	test -f /usr/lib64/libPythonQt-Qt6-Python3.so
+ctk	lib	test -f /usr/lib64/libCTKCore.so.0.1
+
+# ─── Spectroscopy ──────────────────────────────────────────────────────────────
+vespa	cli	test -x /usr/bin/vespa
+
+# ─── Layer-specific neuroimaging ──────────────────────────────────────────────
+laynii	cli	LN2_LAYERS 2>&1	equi-distant

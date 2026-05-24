@@ -1,0 +1,32 @@
+# Per-test ephemeral output
+/tmp/
+*.log
+*.tap
+*.junit.xml
+results/
+
+# install.sh writes timestamped logs locally — don't commit them
+install-*.log
+
+# Generated fixture binaries (kept reproducible via generate-fixtures.sh)
+fixtures/*.nii.gz
+fixtures/*.nrrd
+fixtures/*.vtp
+fixtures/dwi/
+fixtures/dicom/
+fixtures/MANIFEST
+
+# Editor cruft
+*~
+.*.swp
+.vscode/
+.idea/
+
+# We DO commit:
+#   - The generated .bats files (so contributors can read tests without
+#     running the generators on first clone).
+#   - fixtures/MANIFEST so the contents of fixtures/ are auditable at
+#     a glance.
+#   - The .tsv manifests (source of truth).
+#
+# We do NOT commit local install state.

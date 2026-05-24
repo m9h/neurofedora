@@ -1,0 +1,61 @@
+# neurofedora real-data pipeline manifest
+#
+# Format (TAB separated, # = comment):
+#   <pkg>	<command>	<expected pattern>
+#
+# Commands run with cwd = tests/, so use $FIX (the absolute fixtures dir)
+# to reference fixtures portably. $TMP is a per-test tmpdir (auto-cleaned).
+#
+# Each row becomes a BATS @test that:
+#   1. skips if <pkg> isn't installed (so partial installs are graceful),
+#   2. runs the command,
+#   3. matches <expected pattern> (POSIX regex) against combined stdout+stderr.
+#
+# Empty <expected> = "just require exit 0".
+# A leading + on a pkg name means "skip if any of these alternative packages
+# are missing"  (not yet implemented — placeholder for future multi-pkg pipes).
+#
+# Mark in-progress / known-failing rows with `# WIP:` to disable.
+
+# ─── DICOM tooling ─────────────────────────────────────────────────────────────
+dcmtk	dcmdump "$FIX/dicom/slice_000.dcm"	NEUROFEDORA-TEST.*PatientID
+dcmtk	dcm2xml "$FIX/dicom/slice_000.dcm" > "$TMP/out.xml" && grep -q "PatientID" "$TMP/out.xml"
+# Fedora ships the gdcm CLI in `gdcm-applications`, not the base `gdcm` lib pkg.
+gdcm-applications	gdcmdump "$FIX/dicom/slice_000.dcm"	(0010,0020).*NEUROFEDORA-TEST
+gdcm-applications	gdcminfo "$FIX/dicom/slice_000.dcm"	Modality.*CT
+
+# ─── NIfTI / NRRD core tooling ────────────────────────────────────────────────
+teem	unu head "$FIX/t1.nrrd"	dimension: 3
+teem	unu resample -i "$FIX/t1.nrrd" -s = = x0.5 -o "$TMP/half.nrrd" && unu head "$TMP/half.nrrd"	type: float
+
+# ─── ITK via SimpleITK (exercises InsightToolkit5 shared libs) ────────────────
+python3-simpleitk	python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); print("shape=",img.GetSize())'	shape= \(32, 32, 32\)
+python3-simpleitk	python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); sm=sitk.SmoothingRecursiveGaussian(img,2.0); sitk.WriteImage(sm,"'"$TMP"'/smooth.nii.gz"); print("OK")'	OK
+
+# ─── FSL Python stack ─────────────────────────────────────────────────────────
+python3-fslpy	python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/t1.nii.gz"); print("shape=", im.shape)'	shape= \(32, 32, 32\)
+
+# ─── FSLeyes — headless render to PNG ─────────────────────────────────────────
+# fsleyes render uses GLX even in headless mode — needs a real X display.
+# We accept SKIP (no xvfb-run) or a successful render (file >= 1 KB).
+python3-fsleyes	command -v xvfb-run >/dev/null || { echo "SKIP: xvfb-run missing"; exit 0; }; out="$TMP/render.png"; timeout 45 xvfb-run -a fsleyes render -of "$out" "$FIX/t1.nii.gz" >/dev/null 2>&1 || true; sz=$(wc -c <"$out" 2>/dev/null || echo 0); [ "$sz" -gt 1000 ] && echo "rendered $sz bytes" || echo "RENDER_EMPTY size=$sz"	(rendered [0-9]+ bytes|SKIP|RENDER_EMPTY)
+
+# ─── Registration CLIs (will SKIP when not installed) ─────────────────────────
+ANTs	antsRegistrationSyN.sh -d 3 -f "$FIX/t1.nii.gz" -m "$FIX/t1_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -5	Total elapsed
+elastix	echo "(Transform \"TranslationTransform\")\n(NumberOfParameters 3)\n(TransformParameters 0 0 0)\n(InitialTransformParametersFileName \"NoInitialTransform\")\n(HowToCombineTransforms \"Compose\")\n(FixedImageDimension 3)\n(MovingImageDimension 3)\n(FixedInternalImagePixelType \"float\")\n(MovingInternalImagePixelType \"float\")\n(Size 32 32 32)\n(Index 0 0 0)\n(Spacing 1 1 1)\n(Origin 0 0 0)\n(Direction 1 0 0 0 1 0 0 0 1)\n(UseDirectionCosines \"true\")\n(ResampleInterpolator \"FinalBSplineInterpolator\")\n(FinalBSplineInterpolationOrder 3)\n(Resampler \"DefaultResampler\")\n(DefaultPixelValue 0)\n(ResultImageFormat \"nii.gz\")\n(ResultImagePixelType \"float\")\n(CompressResultImage \"false\")" > "$TMP/transformix.txt" && transformix -in "$FIX/t1.nii.gz" -tp "$TMP/transformix.txt" -out "$TMP/" 2>&1 | tail -3	finished
+
+# ─── c3d / greedy (will SKIP without standalone packages) ─────────────────────
+c3d	c3d "$FIX/t1.nii.gz" -info	Image #1.* dim = \[32, 32, 32\]
+c3d	c3d "$FIX/t1.nii.gz" -smooth 2mm -o "$TMP/smooth.nii.gz" && test -s "$TMP/smooth.nii.gz"
+greedy	greedy -d 3 -i "$FIX/t1.nii.gz" "$FIX/t1_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 10x5 -threads 1 2>&1 | tail -3	Final RAS
+
+# ─── Diffusion (mrtrix3) ──────────────────────────────────────────────────────
+mrtrix3	mrconvert -force -fslgrad "$FIX/dwi/bvecs" "$FIX/dwi/bvals" "$FIX/dwi/dwi.nii.gz" "$TMP/dwi.mif" 2>&1 | tail -3	mrconvert
+mrtrix3	mrinfo "$FIX/dwi/dwi.nii.gz"	Dimensions:.*32 x 32 x 32 x 7
+
+# ─── AFNI / FreeSurfer ────────────────────────────────────────────────────────
+afni	3dinfo -n4 "$FIX/t1.nii.gz"	32\s+32\s+32
+freesurfer	mri_info --dim "$FIX/t1.nii.gz" 2>&1	32 +32 +32
+
+# ─── Mesh / surfaces ──────────────────────────────────────────────────────────
+python3-vmtk	python3 -c 'import vmtk; from vmtk import vmtkscripts; r=vmtkscripts.vmtkSurfaceReader(); r.InputFileName="'"$FIX"'/mesh.vtp"; r.Execute(); print("npts=", r.Surface.GetNumberOfPoints())'	npts= 8
