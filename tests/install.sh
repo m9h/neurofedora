@@ -66,7 +66,10 @@ fi
 # 3b. Python deps for pipelines.bats fixture generation. The fixtures are
 #     synthesized on first test run from numpy + nibabel + pydicom + SimpleITK.
 #     Without these, pipelines.bats SKIPs all 20 tests.
-FIXTURE_DEPS=(python3-numpy python3-nibabel python3-pydicom python3-SimpleITK)
+# NB: Fedora packages SimpleITK as python3-simpleitk (lowercase), not
+# python3-SimpleITK — the Python module is `SimpleITK` (CapWords) but the
+# RPM name follows Fedora's lowercase convention.
+FIXTURE_DEPS=(python3-numpy python3-nibabel python3-pydicom python3-simpleitk)
 NEED_FIXTURE_DEPS=()
 for p in "${FIXTURE_DEPS[@]}"; do
     rpm -q --quiet "$p" 2>/dev/null || NEED_FIXTURE_DEPS+=("$p")
@@ -116,13 +119,18 @@ fi
 # 5b. Filter out known-conflicting pairs: itksnap-0.7 bundles c3d+greedy at
 #     the same paths as the standalone packages. We can't install both. The
 #     standalone CLIs are higher value (used by every registration pipeline),
-#     so the manifest stays the manifest but install.sh holds back the
-#     conflicting itksnap until upstream-0.8 lands on COPR.
+#     so install.sh holds back itksnap whenever c3d OR greedy is either
+#     already on the system OR queued for install.
+#
+# Earlier wording required all three to be in NEEDED, which missed the
+# common case where c3d/greedy were already installed from a previous run
+# — itksnap then went through, the dnf transaction file-conflicted, and
+# the WHOLE transaction rolled back (taking innocent packages like
+# RPI-devel down with it).
 HOLD_BACK=()
-if printf '%s\n' "${NEEDED[@]}" | grep -qx c3d && \
-   printf '%s\n' "${NEEDED[@]}" | grep -qx greedy && \
-   printf '%s\n' "${NEEDED[@]}" | grep -qx itksnap; then
-    log "holding back itksnap (its 0.7 release bundles c3d+greedy — re-enable when 0.8 lands)"
+_have() { rpm -q --quiet "$1" 2>/dev/null || printf '%s\n' "${NEEDED[@]}" | grep -qx "$1"; }
+if _have c3d && _have greedy && printf '%s\n' "${NEEDED[@]}" | grep -qx itksnap; then
+    log "holding back itksnap (its 0.7 release bundles c3d+greedy at conflicting paths — re-enable when 0.8 lands)"
     HOLD_BACK+=(itksnap)
 fi
 INSTALL_NOW=()

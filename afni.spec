@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.1.00
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -327,23 +327,73 @@ cd src/python_scripts
 %pyproject_save_files afnipy
 cd ../..
 
-# -- Remove bundled nifti/gifti install artifacts --
-# These are built privately for AFNI's use but should not be packaged
-# (they'd conflict with system nifticlib/gifticlib and install to /usr/lib
-# instead of %%{_libdir} due to the bundled cmake not using GNUInstallDirs).
+# -- Remove bundled nifti install artifacts --
+# System nifticlib 3.0.1 (libnifti2.so.2) is sufficient — symbols match
+# what AFNI needs. Remove the bundled copy so it doesn't ship twice.
 rm -rf %{buildroot}%{_prefix}/lib/libznz.so*
 rm -rf %{buildroot}%{_prefix}/lib/libniftiio.so*
 rm -rf %{buildroot}%{_prefix}/lib/libnifticdf.so*
 rm -rf %{buildroot}%{_prefix}/lib/libnifti2.so*
-rm -rf %{buildroot}%{_prefix}/lib/libgiftiio.so*
 rm -rf %{buildroot}%{_includedir}/nifti
-rm -rf %{buildroot}%{_includedir}/gifti
 rm -f  %{buildroot}%{_bindir}/nifti1_tool
 rm -f  %{buildroot}%{_bindir}/nifti_stats
 rm -f  %{buildroot}%{_bindir}/nifti_tool
+rm -rf %{buildroot}%{_datadir}/cmake/NIFTI
+
+# -- Bundled gifticlib: rename SONAME to avoid system collision --
+# System gifticlib 1.0.9 lacks gifti_rotate_DAs_to_front (and other
+# AFNI-only additions) but has the same SONAME (libgiftiio.so.0) as
+# the bundled copy. If we install both at /usr/lib64/libgiftiio.so.0
+# they collide; if we just delete the bundled copy, libmri.so.26's
+# NEEDED libgiftiio.so.0 resolves to the too-old system lib and dies
+# at runtime with "undefined symbol: gifti_rotate_DAs_to_front".
+#
+# Fix: rename the bundled lib (libgiftiio → libafni_giftiio) on disk
+# and in its SONAME, then patchelf every consumer's NEEDED entry to
+# point at the new name. The bundled lib then lives at the standard
+# /usr/lib64/ path and ldconfig finds it normally — no RPATH needed,
+# no /etc/ld.so.conf.d entry, no collision with the Fedora gifticlib.
+mkdir -p %{buildroot}%{_libdir}
+for src in %{buildroot}%{_prefix}/lib/libgiftiio.so*; do
+    [[ -e "$src" ]] || continue
+    base=$(basename "$src")
+    new_base="${base/libgiftiio/libafni_giftiio}"
+    if [[ ! -L "$src" ]]; then
+        patchelf --set-soname libafni_giftiio.so.0 "$src"
+    fi
+    mv "$src" %{buildroot}%{_libdir}/"$new_base"
+done
+# Recreate the libafni_giftiio.so.0 → libafni_giftiio.so.0.0.0 symlink
+# (the original mv loses link targets; the .0 symlink may now point at a
+# nonexistent /usr/lib/libgiftiio.so.0.0.0). Force-rebuild it.
+if [[ -L %{buildroot}%{_libdir}/libafni_giftiio.so.0 ]]; then
+    rm -f %{buildroot}%{_libdir}/libafni_giftiio.so.0
+fi
+if [[ -f %{buildroot}%{_libdir}/libafni_giftiio.so.0.0.0 ]]; then
+    ln -sf libafni_giftiio.so.0.0.0 %{buildroot}%{_libdir}/libafni_giftiio.so.0
+fi
+
+# Patchelf every ELF that NEEDED libgiftiio.so.0 to point at libafni_giftiio.so.0
+# instead. Covers libmri.so.26, every 3d* binary in /usr/libexec/afni, and the
+# model/plugin libs still in /usr/lib64/afni/.
+_patch_gifti_consumers() {
+    local target="$1"
+    [[ -f "$target" && ! -L "$target" ]] || return
+    file "$target" 2>/dev/null | grep -q ELF || return
+    if readelf -d "$target" 2>/dev/null | grep -q "libgiftiio.so"; then
+        patchelf --replace-needed libgiftiio.so.0 libafni_giftiio.so.0 "$target" 2>/dev/null || :
+    fi
+}
+export -f _patch_gifti_consumers
+find %{buildroot}%{_libexecdir}/afni -type f -executable -exec bash -c '_patch_gifti_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}        -name "*.so*"  -type f -exec bash -c '_patch_gifti_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}/afni   -name "*.so*"  -type f -exec bash -c '_patch_gifti_consumers "$0"' {} \;
+
+# Drop the bundled gifti headers + the gifti_tool/gifti_test CLIs (system
+# gifticlib package owns the same paths)
+rm -rf %{buildroot}%{_includedir}/gifti
 rm -f  %{buildroot}%{_bindir}/gifti_tool
 rm -f  %{buildroot}%{_bindir}/gifti_test
-rm -rf %{buildroot}%{_datadir}/cmake/NIFTI
 
 # -- Move shared libraries from private dir to system libdir --
 # Core shared libs go to %%{_libdir} so the dynamic linker can find them
@@ -496,6 +546,10 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_libdir}/libeispack.so.*
 %{_libdir}/libcoxplot.so.*
 %{_libdir}/libtrack_tools.so.*
+# Bundled gifticlib renamed (libgiftiio → libafni_giftiio) to avoid SONAME
+# collision with Fedora's gifticlib RPM. See the corresponding %%install
+# section for the full rationale.
+%{_libdir}/libafni_giftiio.so.*
 # Unversioned-SONAME libs: NEEDED directly by /usr/libexec/afni/afni and
 # many 3d* binaries. Live in %%{_libdir} (not %%{_libdir}/afni) so
 # ldconfig finds them at runtime. No -devel symlink ships for these
@@ -600,6 +654,16 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-3
+- Rename bundled gifticlib SONAME (libgiftiio → libafni_giftiio) and
+  patchelf libmri.so.26 + every 3d* binary to consume the new name.
+  System gifticlib 1.0.9 lacks gifti_rotate_DAs_to_front (and other
+  AFNI-only additions) but has identical SONAME; the previous spec
+  deleted the bundled copy and let dyld fall through to the system
+  version, which then crashed at runtime with "undefined symbol".
+  Surfaced by the neurofedora test harness on the same run that
+  validated the -2 libmrix.so fix.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-2
 - Move libmrix, libSUMA, libXmHTML, libf2c, libsegtools out of the private
   /usr/lib64/afni/ subdir to /usr/lib64/ so ldconfig finds them at runtime.
