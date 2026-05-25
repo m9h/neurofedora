@@ -1,6 +1,6 @@
 Name:           jemris
 Version:        2.9.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Juelich Extensible MRI Simulator
 
 License:        GPL-2.0-or-later
@@ -56,6 +56,7 @@ sed -i '1i #include <cstdint>\n#include <stdexcept>\n#include <algorithm>' src/N
 %build
 # Standard serial build
 %cmake \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DSKIP_CONDA=ON \
     -DJEMRIS_ENABLE_MPI=OFF
 %cmake_build
@@ -70,6 +71,9 @@ sed -i '1i #include <cstdint>\n#include <stdexcept>\n#include <algorithm>' src/N
 %{_datadir}/jemris/
 
 %changelog
+
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-4
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to %%cmake for cmake 4.x compat.
 * Mon Mar 16 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-2
 - Fix cmake parse error: rewrite docker block removal to preserve if/endif nesting
 - Conda block left intact (guarded by -DSKIP_CONDA=ON)

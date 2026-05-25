@@ -2,7 +2,7 @@
 
 Name:           plastimatch
 Version:        1.10.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Medical image registration and segmentation for radiation therapy
 
 License:        BSD-3-Clause
@@ -37,6 +37,7 @@ dose computation, and DICOM-RT structure processing. The single
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 export CFLAGS="%{optflags} -std=gnu17 -Wno-error=implicit-function-declaration -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
 %cmake \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DCMAKE_CXX_STANDARD:STRING=17 \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DPLM_SYSTEM_ITK:STRING=YES \
@@ -75,6 +76,9 @@ rm -f %{buildroot}%{_libdir}/*.a
 %{_datadir}/doc/plastimatch/
 
 %changelog
+
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-7
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to %%cmake for cmake 4.x compat.
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.10.0-4
 - Switch to shared libs (upstream has proper SOVERSION)
 - Enable PLM_CONFIG_INSTALL_LIBRARIES (required for cmake export set)
