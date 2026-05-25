@@ -10,7 +10,7 @@
 
 Name:           itksnap
 Version:        4.4.0~beta2
-Release:        0.9%{?dist}
+Release:        0.10%{?dist}
 Summary:        Medical image segmentation tool for 3D/4D biomedical images
 
 License:        GPL-3.0-or-later
@@ -113,7 +113,7 @@ sed -i '1i #include <iostream>\nusing std::cout;' GUI/Model/SynchronizationModel
 %build
 # C++17 is required; -include cstdint guards against GCC 15 missing-header errors
 # seen in ITK-internal headers on Fedora 43+.
-export CXXFLAGS="%{optflags} -std=c++17 -include cstdint"
+export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -include iostream"
 
 # ITK-SNAP bundles jsoncpp 0.10.6 (Common/JSon/jsoncpp.cpp), compiled into the
 # static libitksnaplogic.a. Linking that archive into the ITK-SNAP executable
@@ -182,6 +182,10 @@ rm %{buildroot}%{_bindir}/multi_chunk_greedy
 
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.4.0~beta2-0.10
+- Add -include iostream to CXXFLAGS — GUI/Model/SynchronizationModel.cxx uses
+  bare cout. GCC 16 no longer pulls iostream in implicitly.
 * Sun May 24 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.9
 - Back-port the GCC 15 `cout` qualification fix from upstream master:
   add `using std::cout;` (and explicit `<iostream>`) to
