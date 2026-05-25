@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -99,6 +99,13 @@ applications with ITK 6. Use as starting points for new projects.
 # Fix missing include for GCC 14+ (cstdint)
 sed -i 's/#include "itkMacro.h"/#include "itkMacro.h"\n#include <cstdint>/' \
     Modules/Core/Common/include/itkFloatingPointExceptions.h 2>/dev/null || true
+
+# Strip the invalid `typename std::is_nothrow_move_*<T>::value` from the bundled
+# Eigen's Quaternion.h. `::value` is a non-type member, so the typename keyword
+# is illegal; GCC 16 now enforces this. Mirror of the same fix in InsightToolkit5.spec
+# so ITK6 consumers don't need per-package shadow-patches.
+sed -i 's/typename std::is_nothrow_move_/std::is_nothrow_move_/g' \
+    Modules/ThirdParty/Eigen3/src/itkeigen/Eigen/src/Geometry/Quaternion.h 2>/dev/null || true
 
 # Prepare Remote Modules
 mkdir -p Modules/Remote/GenericLabelInterpolator
@@ -191,6 +198,11 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-3
+- Mirror of the InsightToolkit5-5.4.6-2 bundled-Eigen Quaternion.h fix:
+  strip the invalid `typename std::is_nothrow_move_*<T>::value` keyword
+  for GCC 16. Every ITK6 consumer inherits the fix automatically.
+
 * Wed May 06 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-2
 - Bundle GDCM and MINC to fix ITK 6.0 beta target errors
 - Clean up spec file and use versioned install paths

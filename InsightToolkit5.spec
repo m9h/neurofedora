@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -159,6 +159,15 @@ applications with ITK 5. Useful as starting points for new projects.
 # Fix missing include for uint8_t in itkFloatingPointExceptions.h (required for GCC 14+)
 sed -i 's/#include "itkMacro.h"/#include "itkMacro.h"\n#include <cstdint>/' Modules/Core/Common/include/itkFloatingPointExceptions.h
 
+# GCC 16 enforces what was always invalid C++: `typename std::is_nothrow_move_*<T>::value`
+# is not a type (`::value` is a non-type member). ITK 5.4.5 ships an older bundled
+# Eigen 3.3.x with this in itkeigen/Eigen/src/Geometry/Quaternion.h. Strip the
+# stray `typename` so every ITK consumer (medInria, plastimatch, simpleitk,
+# quit, mitk, ...) inherits the fix from the installed header instead of having
+# to shadow-patch it per-consumer.
+sed -i 's/typename std::is_nothrow_move_/std::is_nothrow_move_/g' \
+    Modules/ThirdParty/Eigen3/src/itkeigen/Eigen/src/Geometry/Quaternion.h
+
 # Unpack the GenericLabelInterpolator remote module into the expected location.
 # ITK's Module_GenericLabelInterpolator=ON normally fetches this at cmake time; we
 # pre-populate the source directory so the build works offline (mock/COPR policy).
@@ -297,6 +306,13 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-2
+- Strip the invalid `typename std::is_nothrow_move_*<T>::value` keyword from
+  bundled itkeigen/Eigen/src/Geometry/Quaternion.h (GCC 16 now enforces what
+  was always-invalid C++: typename only applies to types). Fixes downstream
+  FTBFS in every ITK consumer that touches Eigen Quaternion code (quit,
+  medInria, plastimatch, simpleitk, ...). Companion fix in InsightToolkit6.spec.
+
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-1
 - Update to ITK 5.4.6 (upstream release 2026-05-01)
 - Backport of GDCM CVE-2026-3650 fix and a GDCM upstream sync
