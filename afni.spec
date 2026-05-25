@@ -14,7 +14,7 @@
 
 Name:           afni
 Version:        26.1.00
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -327,79 +327,103 @@ cd src/python_scripts
 %pyproject_save_files afnipy
 cd ../..
 
-# -- Remove bundled nifti install artifacts --
-# System nifticlib 3.0.1 (libnifti2.so.2) is sufficient — symbols match
-# what AFNI needs. Remove the bundled copy so it doesn't ship twice.
-rm -rf %{buildroot}%{_prefix}/lib/libznz.so*
-rm -rf %{buildroot}%{_prefix}/lib/libniftiio.so*
-rm -rf %{buildroot}%{_prefix}/lib/libnifticdf.so*
-rm -rf %{buildroot}%{_prefix}/lib/libnifti2.so*
+# -- Drop bundled headers and CLI tools that would collide with system pkgs --
+# These collide on path with nifticlib/gifticlib RPMs and aren't part of AFNI's
+# runtime ABI, so just remove them.
 rm -rf %{buildroot}%{_includedir}/nifti
+rm -rf %{buildroot}%{_includedir}/gifti
 rm -f  %{buildroot}%{_bindir}/nifti1_tool
 rm -f  %{buildroot}%{_bindir}/nifti_stats
 rm -f  %{buildroot}%{_bindir}/nifti_tool
+rm -f  %{buildroot}%{_bindir}/gifti_tool
+rm -f  %{buildroot}%{_bindir}/gifti_test
 rm -rf %{buildroot}%{_datadir}/cmake/NIFTI
 
-# -- Bundled gifticlib: rename SONAME to avoid system collision --
-# System gifticlib 1.0.9 lacks gifti_rotate_DAs_to_front (and other
-# AFNI-only additions) but has the same SONAME (libgiftiio.so.0) as
-# the bundled copy. If we install both at /usr/lib64/libgiftiio.so.0
-# they collide; if we just delete the bundled copy, libmri.so.26's
-# NEEDED libgiftiio.so.0 resolves to the too-old system lib and dies
-# at runtime with "undefined symbol: gifti_rotate_DAs_to_front".
+# -- Rename bundled libs that share SONAMEs with Fedora system packages --
 #
-# Fix: rename the bundled lib (libgiftiio → libafni_giftiio) on disk
-# and in its SONAME, then patchelf every consumer's NEEDED entry to
-# point at the new name. The bundled lib then lives at the standard
-# /usr/lib64/ path and ldconfig finds it normally — no RPATH needed,
-# no /etc/ld.so.conf.d entry, no collision with the Fedora gifticlib.
+# AFNI bundles patched versions of gifticlib, nifticlib, and (transitively) f2c.
+# Each bundle has AFNI-specific symbols that the Fedora system versions don't
+# carry (gifti_rotate_DAs_to_front, nifti_image_write_bricks_status, etc.).
+# The bundled libs and system libs share the same SONAMEs (libgiftiio.so.0,
+# libnifti2.so.2, libniftiio.so.2, libnifticdf.so.2, libznz.so.3, libf2c.so).
+#
+# Three failure modes the harness has surfaced as we iterated this:
+#   - ship both → file conflict at install time (f2c)
+#   - delete bundled, rely on system → "undefined symbol" at runtime
+#   - move bundled to /usr/lib64/afni → ldconfig doesn't find them
+#
+# Working approach: rename SONAME of the bundled lib to libafni_<name>.so.<v>,
+# patchelf every AFNI ELF that NEEDED the old name to point at the new one,
+# ship the renamed lib at /usr/lib64/. The bundled and system libs then live
+# side-by-side, ldconfig finds both, AFNI loads its bundled flavor through
+# the renamed NEEDED chain, every other package keeps using system.
+#
+# The block below is repeated per-lib (rather than functioned out) because
+# rpmbuild's %install runs under a single sh -c invocation and bash function
+# definitions are visible to find -exec only via `export -f` which couples
+# state in a way that's harder to debug than the redundancy.
 mkdir -p %{buildroot}%{_libdir}
-for src in %{buildroot}%{_prefix}/lib/libgiftiio.so*; do
-    [[ -e "$src" ]] || continue
-    base=$(basename "$src")
-    new_base="${base/libgiftiio/libafni_giftiio}"
-    if [[ ! -L "$src" ]]; then
-        patchelf --set-soname libafni_giftiio.so.0 "$src"
-    fi
-    mv "$src" %{buildroot}%{_libdir}/"$new_base"
-done
-# Recreate the libafni_giftiio.so.0 → libafni_giftiio.so.0.0.0 symlink
-# (the original mv loses link targets; the .0 symlink may now point at a
-# nonexistent /usr/lib/libgiftiio.so.0.0.0). Force-rebuild it.
-if [[ -L %{buildroot}%{_libdir}/libafni_giftiio.so.0 ]]; then
-    rm -f %{buildroot}%{_libdir}/libafni_giftiio.so.0
-fi
-if [[ -f %{buildroot}%{_libdir}/libafni_giftiio.so.0.0.0 ]]; then
-    ln -sf libafni_giftiio.so.0.0.0 %{buildroot}%{_libdir}/libafni_giftiio.so.0
-fi
 
-# Drop the bare libafni_giftiio.so devel symlink: nothing outside AFNI ever
-# links against the renamed bundled lib, so the unversioned linker name is
-# dead weight. Without removing it %files (which only matches .so.* )
-# leaves it unpackaged and rpmbuild's check-files step fails the build.
-rm -f %{buildroot}%{_libdir}/libafni_giftiio.so
+# Rename + move one versioned bundled lib (called per-lib below).
+# Args: <bundled-name> <new-prefix-name> <SONAME-version> <full-versioned-suffix>
+#   e.g. _afni_rename_lib  libgiftiio  libafni_giftiio  0  0.0.0
+_afni_rename_lib() {
+    local bundled="$1" newpfx="$2" sov="$3" fullv="$4"
+    local src_dir=%{buildroot}%{_prefix}/lib
+    local dst_dir=%{buildroot}%{_libdir}
 
-# Patchelf every ELF that NEEDED libgiftiio.so.0 to point at libafni_giftiio.so.0
-# instead. Covers libmri.so.26, every 3d* binary in /usr/libexec/afni, and the
-# model/plugin libs still in /usr/lib64/afni/.
-_patch_gifti_consumers() {
+    for src in "$src_dir"/"$bundled".so*; do
+        [[ -e "$src" ]] || continue
+        local base new_base
+        base=$(basename "$src")
+        new_base="${base/$bundled/$newpfx}"
+        if [[ ! -L "$src" ]]; then
+            patchelf --set-soname "${newpfx}.so.${sov}" "$src"
+        fi
+        mv "$src" "$dst_dir/$new_base"
+    done
+
+    # Recreate SONAME symlink (mv breaks the original link target chain)
+    rm -f "$dst_dir/${newpfx}.so.${sov}"
+    [[ -f "$dst_dir/${newpfx}.so.${fullv}" ]] && \
+        ln -sf "${newpfx}.so.${fullv}" "$dst_dir/${newpfx}.so.${sov}"
+
+    # Drop the bare devel symlink (nothing outside AFNI ever links to the
+    # renamed bundle — and rpmbuild's check-files step rejects it as
+    # unpackaged if %files's .so.* glob doesn't catch it).
+    rm -f "$dst_dir/${newpfx}.so"
+}
+export -f _afni_rename_lib
+
+# Rename: gifticlib, nifticlib (4 libs), f2c
+# Format: bundled-name        new-prefix-name      SONAME-version  full-versioned-suffix
+_afni_rename_lib libgiftiio    libafni_giftiio       0   0.0.0
+_afni_rename_lib libnifti2     libafni_nifti2        2   2.1.0
+_afni_rename_lib libniftiio    libafni_niftiio       2   2.1.0
+_afni_rename_lib libnifticdf   libafni_nifticdf      2   2.1.0
+_afni_rename_lib libznz        libafni_znz           3   3.0.0
+
+# Patchelf every AFNI ELF that NEEDED any of the renamed libs to point at
+# the libafni_* equivalent. Covers libmri.so.26, every 3d* binary in
+# /usr/libexec/afni, and the model/plugin libs still in /usr/lib64/afni/.
+# A single pass handles all five renames; consumers that don't reference a
+# given lib are left alone by the inner conditional.
+_patch_afni_consumers() {
     local target="$1"
     [[ -f "$target" && ! -L "$target" ]] || return
     file "$target" 2>/dev/null | grep -q ELF || return
-    if readelf -d "$target" 2>/dev/null | grep -q "libgiftiio.so"; then
-        patchelf --replace-needed libgiftiio.so.0 libafni_giftiio.so.0 "$target" 2>/dev/null || :
-    fi
+    local entries
+    entries=$(readelf -d "$target" 2>/dev/null) || return
+    grep -q "libgiftiio.so"  <<<"$entries" && patchelf --replace-needed libgiftiio.so.0  libafni_giftiio.so.0  "$target" 2>/dev/null || :
+    grep -q "libnifti2.so"   <<<"$entries" && patchelf --replace-needed libnifti2.so.2   libafni_nifti2.so.2   "$target" 2>/dev/null || :
+    grep -q "libniftiio.so"  <<<"$entries" && patchelf --replace-needed libniftiio.so.2  libafni_niftiio.so.2  "$target" 2>/dev/null || :
+    grep -q "libnifticdf.so" <<<"$entries" && patchelf --replace-needed libnifticdf.so.2 libafni_nifticdf.so.2 "$target" 2>/dev/null || :
+    grep -q "libznz.so"      <<<"$entries" && patchelf --replace-needed libznz.so.3      libafni_znz.so.3      "$target" 2>/dev/null || :
 }
-export -f _patch_gifti_consumers
-find %{buildroot}%{_libexecdir}/afni -type f -executable -exec bash -c '_patch_gifti_consumers "$0"' {} \;
-find %{buildroot}%{_libdir}        -name "*.so*"  -type f -exec bash -c '_patch_gifti_consumers "$0"' {} \;
-find %{buildroot}%{_libdir}/afni   -name "*.so*"  -type f -exec bash -c '_patch_gifti_consumers "$0"' {} \;
-
-# Drop the bundled gifti headers + the gifti_tool/gifti_test CLIs (system
-# gifticlib package owns the same paths)
-rm -rf %{buildroot}%{_includedir}/gifti
-rm -f  %{buildroot}%{_bindir}/gifti_tool
-rm -f  %{buildroot}%{_bindir}/gifti_test
+export -f _patch_afni_consumers
+find %{buildroot}%{_libexecdir}/afni -type f -executable -exec bash -c '_patch_afni_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}        -name "*.so*"  -type f -exec bash -c '_patch_afni_consumers "$0"' {} \;
+find %{buildroot}%{_libdir}/afni   -name "*.so*"  -type f -exec bash -c '_patch_afni_consumers "$0"' {} \;
 
 # -- Move shared libraries from private dir to system libdir --
 # Core shared libs go to %%{_libdir} so the dynamic linker can find them
@@ -421,17 +445,18 @@ for lib in mri 3DEdge eispack coxplot track_tools \
   fi
 done
 
-# Group C (f2c): unversioned SONAME AND Fedora ships a system package with
-# the same name + path (f2c-20210928 owns /usr/lib64/libf2c.so). We can't
-# just move AFNI's libf2c.so to /usr/lib64/ — it file-conflicts on any box
-# that has the Fedora f2c installed (which happens transitively quite often).
-# Same fix as the bundled gifticlib: rename SONAME to libafni_f2c.so and
-# patchelf every consumer to NEEDED libafni_f2c.so. No collision possible,
-# no preflight package-removal needed in install.sh.
+# f2c lives in /usr/lib64/afni/ (not /usr/lib/ like the bundled gifti/nifti),
+# so it doesn't fit the _afni_rename_lib path pattern. Handle it inline.
+# Same approach: rename SONAME, patchelf consumers via the unified
+# _patch_afni_consumers pass below.
 if [[ -e %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so ]]; then
     patchelf --set-soname libafni_f2c.so %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so
     mv %{buildroot}%{_prefix}/%{_lib}/afni/libf2c.so %{buildroot}%{_libdir}/libafni_f2c.so
 fi
+
+# Re-run the consumer-patchelf pass to catch f2c (the earlier pass above
+# only had the 5 NIFTI/GIFTI lib mappings; f2c was renamed after, so its
+# consumers still NEEDED the original libf2c.so name). Patch them too.
 _patch_f2c_consumers() {
     local target="$1"
     [[ -f "$target" && ! -L "$target" ]] || return
@@ -573,10 +598,15 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 %{_libdir}/libeispack.so.*
 %{_libdir}/libcoxplot.so.*
 %{_libdir}/libtrack_tools.so.*
-# Bundled gifticlib renamed (libgiftiio → libafni_giftiio) to avoid SONAME
-# collision with Fedora's gifticlib RPM. See the corresponding %%install
-# section for the full rationale.
+# Bundled libs with SONAMEs renamed to libafni_* to avoid collision with
+# Fedora's gifticlib/nifticlib RPMs that ship the same paths but lack
+# AFNI-only symbols (gifti_rotate_DAs_to_front, nifti_image_write_bricks_status,
+# etc.). See the corresponding %%install section for the full rationale.
 %{_libdir}/libafni_giftiio.so.*
+%{_libdir}/libafni_nifti2.so.*
+%{_libdir}/libafni_niftiio.so.*
+%{_libdir}/libafni_nifticdf.so.*
+%{_libdir}/libafni_znz.so.*
 # Unversioned-SONAME libs: NEEDED directly by /usr/libexec/afni/afni and
 # many 3d* binaries. Live in %%{_libdir} (not %%{_libdir}/afni) so
 # ldconfig finds them at runtime. No -devel symlink ships for these
@@ -684,6 +714,19 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-6
+- Extend the SONAME-rename treatment to the bundled NIFTI libs (nifti2,
+  niftiio, nifticdf, znz). The harness flipped the libmri.so.26 missing
+  symbol from gifti_rotate_DAs_to_front (-3 fix) to
+  nifti_image_write_bricks_status (still present in -5) — same class of
+  bug, different library. AFNI bundles patched copies of nifticlib with
+  *_status function variants the system nifticlib 3.0.1 doesn't carry;
+  we previously deleted the bundle expecting system to suffice, and the
+  dyld silently fell through to system libnifti2.so.2 → undefined symbol.
+- Refactor the three rename code paths (gifti, nifti, f2c) into a single
+  _afni_rename_lib helper + a single _patch_afni_consumers pass so future
+  collision-class bundles are a one-line addition.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-5
 - Rename bundled libf2c.so → libafni_f2c.so (SONAME + patchelf consumers)
   to avoid file conflict with Fedora's f2c-20210928 package, which ships
