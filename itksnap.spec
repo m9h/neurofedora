@@ -10,7 +10,7 @@
 
 Name:           itksnap
 Version:        4.4.0~beta2
-Release:        0.8%{?dist}
+Release:        0.9%{?dist}
 Summary:        Medical image segmentation tool for 3D/4D biomedical images
 
 License:        GPL-3.0-or-later
@@ -100,6 +100,15 @@ tar -xf %{SOURCE3} -C Submodules/digestible  --strip-components=1
 # is empty, making the call have only 1 argument instead of 2). Set timestamp directly.
 sed -i 's|get_git_commit_date.*SNAP_VERSION_GIT_TIMESTAMP.*|set(SNAP_VERSION_GIT_TIMESTAMP "")|' CMakeLists.txt
 
+# GCC 15 stopped re-exporting std::cout into the global namespace via the
+# usual cstdlib chain; SynchronizationModel.cxx uses bare `cout <<` in 14
+# places and hits "error: 'cout' was not declared in this scope". Upstream
+# fixed this in master (4.6.0-alpha adds `using std::cout;` near the top of
+# the file); back-port the same change here. Add an explicit <iostream>
+# include alongside in case the existing transitive chain stops providing
+# std::cout later — belt and suspenders.
+sed -i '1i #include <iostream>\nusing std::cout;' GUI/Model/SynchronizationModel.cxx
+
 
 %build
 # C++17 is required; -include cstdint guards against GCC 15 missing-header errors
@@ -173,6 +182,14 @@ rm %{buildroot}%{_bindir}/multi_chunk_greedy
 
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.9
+- Back-port the GCC 15 `cout` qualification fix from upstream master:
+  add `using std::cout;` (and explicit `<iostream>`) to
+  GUI/Model/SynchronizationModel.cxx. Without this, builds on F44
+  fail with 14 sites of "error: 'cout' was not declared in this scope"
+  — GCC 15 stopped re-exporting std::cout via the cstdlib chain.
+  COPR build 10506555 hit this on -0.8; -0.9 should clear it.
+
 * Sat May 23 2026 Morgan Hough <morgan@hough.dev> - 4.4.0~beta2-0.8
 - Drop bundled Convert3D and Greedy CLI binaries (c2d/c3d/c3d_affine_tool/
   c4d and greedy/greedy_propagation/greedy_template_average/multi_chunk_greedy)

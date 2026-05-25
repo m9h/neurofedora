@@ -2,7 +2,7 @@
 
 Name:           morpheus
 Version:        2.3.9
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -13,6 +13,17 @@ Source0:        morpheus-%{version}.tar.gz
 Source1:        xtl-0.7.5.tar.gz
 Source2:        xsimd-10.0.0.tar.gz
 Source3:        xtensor-0.24.6.tar.gz
+
+# Replace bundled xmlParser (Aladdin Free Public License — Fedora-rejected)
+# with a thin pugixml wrapper. Was developed against 2.3.7 in the local
+# morpheus fork (see memory/morpheus_xmlparser_replacement.md); applies
+# cleanly through at least 2.3.9. The .spec's -2.3.7-1 changelog claimed
+# this work shipped, but the wrapper files (xmlutils/xml_compat.{h,cpp})
+# were only ever in the local working tree — never committed, never
+# tarballed back as a patch — so the 2.3.9 bump regressed back to the
+# AFPL xmlParser code and shipped libxmlParser.so as a runtime dep that
+# nothing on F44 can satisfy (broken-dep skip on the harness install run).
+Patch0:         morpheus-2.3.7-xml_compat-pugixml.patch
 
 BuildRequires:  cmake >= 3.5
 BuildRequires:  gcc-c++
@@ -149,6 +160,13 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-2
+- Add Patch0: morpheus-2.3.7-xml_compat-pugixml.patch to actually deliver
+  the AFPL→MIT xmlParser→pugixml replacement that the 2.3.7-1 changelog
+  claimed shipped. The wrapper code lived only in the local working tree
+  until now; -2.3.9-1 silently regressed to bundled AFPL xmlParser,
+  shipping libxmlParser.so as a runtime dep with no F44 provider.
+
 * Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-1
 - Update to 2.3.9
 

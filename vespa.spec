@@ -8,11 +8,20 @@
 # adds /usr/lib64/paraview to LD_LIBRARY_PATH via its plugin loader — but
 # install-time resolution fails. Exclude the ParaView-private SONAMEs from
 # auto-Requires and rely on the explicit `Requires: paraview` instead.
-%global __requires_exclude ^libvtk.*\\.so\\.1\\(\\(64bit\\)\\)?$|^libvtk(Common|Filters|IO|Imaging|Interaction|Parallel|Remoting|Rendering|Views|sys).*\\.so
+#
+# Also exclude the meta-level vtk-libs / CGAL-libs package Requires that
+# rpmbuild auto-generates from the CMake exported targets. Fedora's VTK
+# and CGAL packages don't split into a -libs subpackage — VTK is just
+# `vtk` and CGAL is just `CGAL`. The exported targets mention `vtk-libs`
+# and `CGAL-libs` (other distros do split them out) and that confuses
+# rpmbuild's auto-Requires into asking for providers that don't exist.
+# Drop those; the explicit `Requires: vtk` and `Requires: CGAL` in the
+# subpackage stanzas below cover the real deps.
+%global __requires_exclude ^libvtk.*\\.so\\.1\\(\\(64bit\\)\\)?$|^libvtk(Common|Filters|IO|Imaging|Interaction|Parallel|Remoting|Rendering|Views|sys).*\\.so|^(vtk-libs|CGAL-libs)(\\(x86-64\\))?$
 
 Name:           vespa
 Version:        1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -230,6 +239,18 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-2
+- Extend %%__requires_exclude to also drop the auto-generated
+  vtk-libs(x86-64) and CGAL-libs(x86-64) package-level Requires.
+  Fedora's VTK and CGAL packages aren't split into -libs subpackages
+  (just `vtk` and `CGAL`), but the CMake exported targets reference
+  the -libs names, so rpmbuild auto-Requires invents providers that
+  don't exist. Without this, `dnf install vespa-libs` fails with
+  "nothing provides vtk-libs(x86-64)" / "nothing provides CGAL-libs(x86-64)".
+  The explicit `Requires: vtk` and `Requires: CGAL` in the subpackages
+  cover the real deps. Surfaced by the neurofedora test harness on
+  the fedora-imac fresh-install run.
+
 * Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-1
 - Initial package for VESPA 1.0 — Kitware's VTK+ParaView CGAL bridge
 - Built against F44 VTK 9.5.2, ParaView 6.0.1, CGAL 6.1.1, Eigen3 5.0.1

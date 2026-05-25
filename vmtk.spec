@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -198,9 +198,17 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
     -DVTK_VMTK_INSTALL_INCLUDE_DIR:PATH=include/vmtk \
     -DVTK_VMTK_MODULE_INSTALL_LIB_DIR:PATH=%{python3_sitearch}/vmtk \
     -DVMTK_SCRIPTS_INSTALL_BIN_DIR:PATH=bin \
-    -DVMTK_SCRIPTS_INSTALL_LIB_DIR:PATH=%{python3_sitelib}/vmtk \
+    `# All vmtk Python files must land in ONE directory or Python's import` \
+    `# system can't merge them. The previous split (C extensions in sitearch,` \
+    `# scripts in sitelib) made vmtk/__init__.py visible from sitelib while` \
+    `# vmtk/vtkvmtk.py was invisible — "ImportError: cannot import name` \
+    `# 'vtkvmtk' from 'vmtk'" the moment anything did "from vmtk import` \
+    `# vmtkscripts". Force everything into sitearch (correct anyway since` \
+    `# vmtk ships compiled C extension modules, making the whole package` \
+    `# arch-specific).` \
+    -DVMTK_SCRIPTS_INSTALL_LIB_DIR:PATH=%{python3_sitearch}/vmtk \
     -DPYPES_INSTALL_BIN_DIR:PATH=bin \
-    -DPYPES_MODULE_INSTALL_LIB_DIR:PATH=%{python3_sitelib}/vmtk
+    -DPYPES_MODULE_INSTALL_LIB_DIR:PATH=%{python3_sitearch}/vmtk
 
 %cmake_build
 
@@ -210,7 +218,7 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
 # Fix Python shebangs: upstream uses "#!/usr/bin/env python" which Fedora rejects
 find %{buildroot}%{_bindir} -type f -exec \
     sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} +
-find %{buildroot}%{python3_sitelib} -name '*.py' -exec \
+find %{buildroot}%{python3_sitearch} -name '*.py' -exec \
     sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} +
 
 # Remove stray __init__ script from bindir (cmake installs it alongside bin scripts)
@@ -237,14 +245,26 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_libdir}/libtet.a
 
 %files -n python3-%{name}
-# Python wrapper C extensions (arch-specific .so modules)
+# Entire vmtk package lives in sitearch (C extensions + Python wrappers
+# colocated so Python's import system sees them as one package). See the
+# -DVMTK_SCRIPTS_INSTALL_LIB_DIR / -DPYPES_MODULE_INSTALL_LIB_DIR comment
+# in %%build for the rationale.
 %{python3_sitearch}/vmtk/
-# Pure Python scripts and PypeS framework
-%{python3_sitelib}/vmtk/
 # CLI entry points (vmtk*, pype* scripts)
 %{_bindir}/*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.6.20250820git311f4792
+- Install entire vmtk Python package into %%{python3_sitearch}/vmtk/ instead
+  of splitting C extensions to sitearch and pure-Python scripts to sitelib.
+  Python's import system finds vmtk/__init__.py in sitelib first, stops
+  looking, and never sees vmtk/vtkvmtk.py in sitearch — so
+  `from vmtk import vmtkscripts` died with "ImportError: cannot import
+  name 'vtkvmtk' from 'vmtk'". Colocating everything in sitearch is
+  correct anyway because vmtk ships compiled C extensions, making the
+  whole package arch-specific. Surfaced by the neurofedora pipelines.bats
+  test on the AMD F44 box.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.5.20250820git311f4792
 - Fix configure-time FATAL_ERROR against VTK 9.5: pass
   -DVTK_VMTK_WRAP_JAVA=OFF. VTK 9.5's cmake config sets VTK_WRAP_JAVA=ON,
