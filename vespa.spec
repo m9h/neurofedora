@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -76,6 +76,10 @@ BuildRequires:  qt6-qtbase-devel
 # parsing layer (vtkscn module). Header-only library; provides
 # CLI11Config.cmake in cli11-devel.
 BuildRequires:  cli11-devel
+# VTK 9.6's vtkscn (string parsing) ALSO does find_package(FastFloat)
+# for IEEE-754 fast string-to-float conversion. Header-only; provides
+# FastFloatConfig.cmake in fast_float-devel.
+BuildRequires:  fast_float-devel
 # More ParaView 6.x transitive find_package deps — each appears at
 # configure time when paraview-config.cmake loads its module manifest.
 BuildRequires:  protobuf-devel
@@ -256,6 +260,11 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-6
+- Add `BuildRequires: fast_float-devel`. -5 cleared cli11-devel only
+  to hit FastFloat next at VTK-vtk-module-find-packages.cmake:1202.
+  vtkscn pulls in both for its string parsing.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-5
 - Add `BuildRequires: cli11-devel`. VTK 9.6's vtkscn cmake module does
   find_package(CLI11) at configure time. -4 cleared the Qt6 cascade

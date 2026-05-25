@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -161,18 +161,17 @@ sed -i 's|TYPE LIB|DESTINATION %{_lib}/cmake/vmtk|' CMakeLists.txt
 sed -i 's|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_BIN_DIR}|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_LIB_DIR}|' \
     vtkVmtk/Utilities/tetgen1.4.3/CMakeLists.txt
 
-# GCC 15 no longer re-exports std::cout via the cstdlib chain. Bare `cout`
-# uses scattered across the vtkVmtk/ source tree now fail with
-# "error: 'cout' was not declared in this scope". -0.7 patched one file
-# (vtkvmtkPolyDataDiscreteElasticaFilter.cxx) only to hit the next site
-# (vtkvmtkPolyDataSurfaceRemeshing.cxx) and beyond. Sweep ALL .cxx files
-# under vtkVmtk/ — prepend `#include <iostream>` + `using std::cout;` to
-# every file. Idempotent (skips files where the using-statement is
-# already present). Cheap insurance; no downside even for files that
-# don't use cout — the include and using-decl are harmless.
+# GCC 15 no longer re-exports std::cout/std::cerr/std::endl via the
+# cstdlib chain. Bare uses scattered across vtkVmtk/ source tree now fail
+# with "'<name>' was not declared in this scope". -0.7 patched one file
+# for cout; -0.8 swept all .cxx for cout but missed cerr (vtkvmtkXdaWriter.cxx);
+# -0.9 covers cout, cerr, AND endl in one shot. Idempotent — files that
+# already have the using-decls are skipped. Cheap insurance; no downside
+# even for files that don't use these names — the include + using-decls
+# are harmless.
 find vtkVmtk -name '*.cxx' -type f | while read -r f; do
     grep -qF 'using std::cout;' "$f" || \
-        sed -i '1i #include <iostream>\nusing std::cout;' "$f"
+        sed -i '1i #include <iostream>\nusing std::cout;\nusing std::cerr;\nusing std::endl;' "$f"
 done
 
 %build
@@ -269,6 +268,12 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.9.20250820git311f4792
+- Extend the GCC 15 stdlib using-decl sweep to cover std::cerr and
+  std::endl in addition to std::cout. -0.8 missed cerr — vtkvmtkXdaWriter.cxx
+  uses bare cerr at line 492 — and possibly endl elsewhere. Add all three
+  to the same find/sed loop so we catch the class once and for all.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.8.20250820git311f4792
 - Generalize the GCC 15 cout fix to ALL .cxx files under vtkVmtk/ via a
   find/sed loop. -0.7 patched one file only to hit the next site

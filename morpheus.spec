@@ -2,7 +2,7 @@
 
 Name:           morpheus
 Version:        2.3.9
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -74,7 +74,14 @@ GUI for creating, editing, running, and visualizing multicellular
 models.
 
 %prep
-%autosetup -n morpheus-v%{version}
+# -p1: required because the patch uses git-style `a/...` `b/...` prefixes.
+# Without explicit -p1, %autosetup invokes patch with no -p flag, and patch's
+# auto-detect sometimes can't unambiguously match the file path — observed
+# on build 10509158 even after stripping the `diff -ruN` headers, patch
+# still refused most hunks. Local reproduction with `-p1` showed clean
+# apply; without `-p1`, identical failures. Conclusion: %autosetup's
+# default strip level isn't `-p1` here despite what the docs imply.
+%autosetup -n morpheus-v%{version} -p1
 
 # Morpheus bundles muParser, gnuplot_i, tiny-process-lib, qtsingleapp.
 # Fedora 43 xtensor 0.27.0 restructured its include layout (xtensor/containers/
@@ -160,6 +167,14 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-3
+- Add explicit `-p1` to %autosetup. Builds 10509082 / 10509139 / 10509158
+  all failed at the patch step despite the patch applying cleanly with
+  `patch -p1 --fuzz=0` locally. Root cause: %autosetup's invocation of
+  patch did NOT pass `-p1`, and patch's auto-detect couldn't pick the
+  right strip level for git-style `a/`/`b/` prefixed paths. Reproduced
+  locally with the exact mock command line; with -p1, clean apply.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-2
 - Add Patch0: morpheus-2.3.7-xml_compat-pugixml.patch to actually deliver
   the AFPL→MIT xmlParser→pugixml replacement that the 2.3.7-1 changelog
