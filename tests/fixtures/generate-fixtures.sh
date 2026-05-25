@@ -10,6 +10,11 @@
 #
 # Requirements: python3 + numpy + nibabel + pydicom + SimpleITK
 # (installed by tests/install.sh as part of the test prerequisites).
+#
+# We hardcode /usr/bin/python3 (not bare `python3`) so the fixture
+# generator works when the caller is inside a conda env / venv. The RPMs
+# install to /usr/lib/python3.X/site-packages which a non-system Python
+# won't see — same conda-safety fix the generated bats tests use.
 
 set -euo pipefail
 
@@ -17,7 +22,7 @@ HERE="$(dirname "$(readlink -f "$0")")"
 cd "$HERE"
 
 # Bail loudly if Python deps are missing — install.sh should have grabbed them.
-python3 - <<'PY' || { echo "fixture generation skipped: missing Python deps" >&2; exit 0; }
+/usr/bin/python3 - <<'PY' || { echo "fixture generation skipped: missing Python deps" >&2; exit 0; }
 import sys
 missing = []
 for m in ("numpy", "nibabel", "pydicom", "SimpleITK"):
@@ -29,7 +34,7 @@ PY
 
 echo "[fixtures] generating in $HERE"
 
-python3 - "$HERE" <<'PY'
+/usr/bin/python3 - "$HERE" <<'PY'
 """Synthesize the neurofedora pipeline test corpus."""
 import os, sys, pathlib, datetime
 import numpy as np
