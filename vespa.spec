@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -58,11 +58,19 @@ BuildRequires:  python3-devel
 # BR or the find_package(ParaView) call fails before we get to compile.
 BuildRequires:  cmake(Qt6)
 BuildRequires:  cmake(Qt6Svg)
-# ParaView 6.x's find_package(Qt6 COMPONENTS Core5Compat) is required by
-# the ParaView Qt5 compat shim layer. Without qt6-qt5compat-devel, the
-# cmake configure dies at ParaView-vtk-module-find-packages.cmake:168
-# with "Failed to find required Qt component Core5Compat".
+# ParaView 6.x's find_package(Qt6 COMPONENTS ...) requires the full Qt6
+# component set used by its GUI client + Qt-based plugin infrastructure.
+# Each missing component dies one-at-a-time at ParaView-vtk-module-find-
+# packages.cmake:168 with "Failed to find required Qt component <X>".
+# Adding them all preemptively (vs whack-a-mole one resubmit per missing
+# Qt6 sub-component):
+#   Qt6Core5Compat  → qt6-qt5compat-devel    (XML, Concurrent, etc.)
+#   Qt6Help         → qt6-qttools-devel      (assistant/help system)
+#   Qt6Designer     → qt6-qttools-devel      (.ui designer)
+#   Qt6LinguistTools→ qt6-qttools-devel      (lupdate/lrelease)
+#   Qt6Tools        → qt6-qttools-devel      (umbrella)
 BuildRequires:  cmake(Qt6Core5Compat)
+BuildRequires:  qt6-qttools-devel
 BuildRequires:  qt6-qtbase-devel
 # More ParaView 6.x transitive find_package deps — each appears at
 # configure time when paraview-config.cmake loads its module manifest.
@@ -244,6 +252,12 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-4
+- Add `BuildRequires: qt6-qttools-devel` (provides Qt6Help, Qt6Designer,
+  Qt6LinguistTools). -3 cleared Qt6Core5Compat only to hit Qt6Help next
+  — ParaView's find_package wants the full Qt-tools-side suite. Adding
+  it as one package avoids one-at-a-time discovery.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-3
 - Add `BuildRequires: cmake(Qt6Core5Compat)`. ParaView 6.x's cmake
   config does `find_package(Qt6 COMPONENTS Core5Compat REQUIRED)` from
