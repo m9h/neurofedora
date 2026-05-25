@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -119,6 +119,20 @@ Note: Full TRACULA processing requires FSL (bedpostx, probtrackx2).
 
 %prep
 %autosetup -p0 -n freesurfer-%{version}
+
+# ITK 5.4 collision: FS 7.4.1 macros.h / image.h / histo.h define UCHAR and
+# UINT as preprocessor macros expanding to `unsigned char` / `unsigned int`.
+# ITK 5.4's itkCommonEnums.h declares `enum class IOComponentEnum { UCHAR,
+# UINT, ... }` — the preprocessor expands UCHAR inside the enum body and
+# blows up parsing. (FS 8.x dropped these defines entirely.)
+#
+# Convert the offending #defines to typedefs. Typedefs don't pollute the
+# preprocessor, so ITK's enum members remain valid; FS code using
+# `UCHAR var;` keeps working because the typedef name resolves the same way.
+for hdr in include/macros.h include/image.h include/histo.h; do
+    sed -i -E 's|^#define[[:space:]]+UCHAR[[:space:]]+unsigned char.*$|typedef unsigned char UCHAR; /* was #define for ITK enum compat */|' "$hdr"
+    sed -i -E 's|^#define[[:space:]]+UINT[[:space:]]+unsigned int.*$|typedef unsigned int UINT;  /* was #define for ITK enum compat */|' "$hdr"
+done
 
 # GCC 15: fix K&R-style empty parameter lists in bundled CTN DICOM
 sed -i 's/COND_ExtractConditions(CTNBOOLEAN(\*callback) ())/COND_ExtractConditions(CTNBOOLEAN(*callback) (CONDITION, const char*))/' \
@@ -372,6 +386,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-3
+- Patch include/macros.h, image.h, histo.h: convert #define UCHAR/UINT
+  to typedef so ITK 5.4 enum class IOComponentEnum::UCHAR no longer
+  collides with macro expansion.
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-2
 - Drop freesurfer-fedora-host-os.patch (was FS-8.2.0 tailored, all hunks
   reject against 7.4.1 source). Build now reaches %build stage.

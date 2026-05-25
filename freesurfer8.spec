@@ -10,7 +10,7 @@
 
 Name:           freesurfer8
 Version:        8.2.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 8.2.0)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -255,7 +255,7 @@ endfunction()' cmake/functions.cmake
 
 %build
 export CFLAGS="%{optflags} -Wno-error -std=gnu17"
-export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
+export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -include iostream -fpermissive"
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
@@ -370,6 +370,10 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-3
+- Add -include iostream to CXXFLAGS for freeview translation units
+  using bare cerr/cout (GCC 16 no longer pulls in <iostream> implicitly).
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-2
 - Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 (was in legacy freesurfer-8.2.0-8
   but lost when this spec was forked off freesurfer-8.2.0-7).
