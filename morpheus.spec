@@ -2,7 +2,7 @@
 
 Name:           morpheus
 Version:        2.3.9
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -74,14 +74,15 @@ GUI for creating, editing, running, and visualizing multicellular
 models.
 
 %prep
-# -p1: required because the patch uses git-style `a/...` `b/...` prefixes.
-# Without explicit -p1, %autosetup invokes patch with no -p flag, and patch's
-# auto-detect sometimes can't unambiguously match the file path — observed
-# on build 10509158 even after stripping the `diff -ruN` headers, patch
-# still refused most hunks. Local reproduction with `-p1` showed clean
-# apply; without `-p1`, identical failures. Conclusion: %autosetup's
-# default strip level isn't `-p1` here despite what the docs imply.
-%autosetup -n morpheus-v%{version} -p1
+# Split %%setup and %%patch instead of %%autosetup. The combined form
+# `%%autosetup -n X -p1` silently dropped the -n flag on build 10510718,
+# causing %%prep to cd to the default `morpheus-2.3.9` (Source0 basename)
+# instead of `morpheus-v2.3.9` (the tarball's actual top-level dir). The
+# split form below is unambiguous and works with any rpmbuild version.
+# (NB: macro names in comments need %% escaping or rpmbuild expands them
+# anyway — found out the hard way on the SRPM build for -3.)
+%setup -q -n morpheus-v%{version}
+%patch -P 0 -p1
 
 # Morpheus bundles muParser, gnuplot_i, tiny-process-lib, qtsingleapp.
 # Fedora 43 xtensor 0.27.0 restructured its include layout (xtensor/containers/
@@ -167,6 +168,13 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-4
+- Replace `%%autosetup -n morpheus-v%%{version} -p1` with split
+  `%%setup -q -n morpheus-v%%{version}` + `%%patch -P 0 -p1`. The
+  combined form silently dropped the `-n` flag on build 10510718,
+  making %prep cd to `morpheus-2.3.9` (Source0 default) instead of
+  `morpheus-v2.3.9`. The split form is unambiguous.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-3
 - Add explicit `-p1` to %autosetup. Builds 10509082 / 10509139 / 10509158
   all failed at the patch step despite the patch applying cleanly with

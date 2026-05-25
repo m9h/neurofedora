@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -205,7 +205,15 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_TESTING=OFF \
     -DVESPA_BUILD_PV_PLUGIN=ON \
-    -DBUILD_PYTHON_WRAPPERS=ON \
+    `# VTK 9.6 has a Python-wrapper code-generator bug: emits references` \
+    `# to PyVTKGetSet / PyVTKObject_GetProperty / PyVTKObject_SetProperty` \
+    `# in auto-generated *Python.cxx files, but those symbols are NOT` \
+    `# defined in VTK 9.6 itself. Every vtkCGAL* module fails to compile` \
+    `# with "PyVTKGetSet does not name a type". Disable wrapping until` \
+    `# VTK 9.6.x ships a fix or vespa upstream catches up — the C++` \
+    `# modules and ParaView plugin still build and are the primary` \
+    `# consumers. python3-vespa subpackage temporarily empty (see %%files).` \
+    -DBUILD_PYTHON_WRAPPERS=OFF \
     `# F44 Eigen3 5.0.1 + VTK 9.5.2 incompatibility: VTK ships its own` \
     `# FindEigen3.cmake module that greps for the legacy EIGEN_*_VERSION` \
     `# macros which Eigen 5.x removed. The module-mode lookup reports` \
@@ -244,12 +252,15 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %files paraview-plugin
 %{_libdir}/paraview/plugins/VESPAPlugin/
 
+# python3-vespa is currently empty: VTK 9.6 Python wrapper-generator bug
+# (PyVTKGetSet undefined) blocks the build. Subpackage stays declared so
+# downstream Requires don't break; re-enable BUILD_PYTHON_WRAPPERS and
+# restore these %%files lines when VTK 9.6.x emits matching symbols.
 %files -n python3-vespa
-%{python3_sitearch}/vespa/
-# Python-binding cmake config — consumers who want to extend vespa's
-# Python wrapping need this; the regular vespa-devel cmake config
-# under cmake/vespa/ doesn't include the Python wrapping bits.
-%{_libdir}/cmake/vespaPython/
+# (intentionally empty pending VTK 9.6 PyVTKGetSet fix)
+%doc README.md
+# %{python3_sitearch}/vespa/
+# %{_libdir}/cmake/vespaPython/
 
 %files devel
 %{_includedir}/vtkCGAL*.h
@@ -260,6 +271,15 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-7
+- Set -DBUILD_PYTHON_WRAPPERS=OFF: VTK 9.6's Python wrapper code
+  generator emits *Python.cxx files referencing PyVTKGetSet,
+  PyVTKObject_GetProperty, PyVTKObject_SetProperty — symbols not
+  defined in VTK 9.6 itself. Every vtkCGAL*Python.cxx fails to
+  compile. Upstream VTK 9.6 bug. Drops the python3-vespa subpackage
+  contents but unblocks vespa-libs + vespa-paraview-plugin (which
+  are the primary downstream consumers anyway).
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-6
 - Add `BuildRequires: fast_float-devel`. -5 cleared cli11-devel only
   to hit FastFloat next at VTK-vtk-module-find-packages.cmake:1202.

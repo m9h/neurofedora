@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -229,6 +229,18 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
 %install
 %cmake_install
 
+# Consolidate any stray Python files in sitelib into sitearch. Upstream
+# CMakeLists has MORE install-path variables than the three we set
+# (VTK_VMTK_MODULE_INSTALL_LIB_DIR, VMTK_SCRIPTS_INSTALL_LIB_DIR,
+# PYPES_MODULE_INSTALL_LIB_DIR). The contrib scripts and __init__.py keep
+# landing in %%{python3_sitelib} regardless. Move them all to sitearch so
+# the package is self-contained in one location.
+if [[ -d %{buildroot}%{python3_sitelib}/vmtk ]]; then
+    mkdir -p %{buildroot}%{python3_sitearch}/vmtk
+    cp -an %{buildroot}%{python3_sitelib}/vmtk/. %{buildroot}%{python3_sitearch}/vmtk/
+    rm -rf %{buildroot}%{python3_sitelib}/vmtk
+fi
+
 # Fix Python shebangs: upstream uses "#!/usr/bin/env python" which Fedora rejects
 find %{buildroot}%{_bindir} -type f -exec \
     sed -i '1s|^#!/usr/bin/env python$|#!/usr/bin/python3|' {} +
@@ -268,6 +280,13 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.10.20250820git311f4792
+- Post-install `mv` of any sitelib/vmtk/ contents into sitearch/vmtk/.
+  Setting the three known cmake install-dir variables to sitearch wasn't
+  enough — contrib scripts and __init__.py still landed in sitelib.
+  The post-install consolidation is bulletproof regardless of how many
+  install-dir variables upstream adds.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.9.20250820git311f4792
 - Extend the GCC 15 stdlib using-decl sweep to cover std::cerr and
   std::endl in addition to std::cout. -0.8 missed cerr — vtkvmtkXdaWriter.cxx
