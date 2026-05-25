@@ -32,7 +32,9 @@ SlicerExecutionModel	lib	test -d /usr/lib64/SlicerExecutionModel
 dcmtk	cli	dcmdump --version	dcmdump v[0-9]
 gdcm	lib	test -f /usr/lib64/libgdcmDICT.so.3.0
 ismrmrd	cli	ismrmrd_info
-teem	cli	unu --version	Teem
+# unu has no --version flag (rejects it); `unu about` prints the welcome
+# banner that includes "Teem version <N>".
+teem	cli	unu about 2>&1	Teem version
 # WIP-F44: bicpl	lib	test -d /usr/lib64/cmake/bicpl || test -f /usr/lib64/libbicpl.so
 gifticlib-cmake-devel	lib	test -d /usr/share/cmake/gifticlib
 geant4	cli	geant4-config --version	[0-9]+\.[0-9]+
@@ -51,8 +53,9 @@ mrtrix3	cli	mrconvert --version	MRtrix
 # WIP-F44: connectome-workbench	cli	wb_command -version 2>&1	Connectome Workbench
 # WIP-F44: minc-tools	cli	mincinfo -version 2>&1	mincinfo
 freesurfer	cli	mri_info --version 2>&1	freesurfer
-# Fixed in afni-26.1.00-2: libmrix/libSUMA/libXmHTML/libf2c/libsegtools moved to %_libdir
-afni	cli	afni -ver 2>&1	AFNI_version
+# Fixed across afni-26.1.00 -2/-3/-4/-5/-6: bundled lib SONAME renames.
+# `afni -ver` prints "Precompiled binary 1: <date> (Version AFNI_<NN.NN.NN> '<name>')".
+afni	cli	afni -ver 2>&1	AFNI_[0-9]+
 
 # ─── Quantitative MRI / simulation ─────────────────────────────────────────────
 # WIP-F44: bart	cli	bart version 2>&1	v

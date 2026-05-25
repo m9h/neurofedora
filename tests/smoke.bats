@@ -72,10 +72,10 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "teem (cli): unu --version" {
+@test "teem (cli): unu about 2>&1" {
     _require_installed "teem"
-    run --separate-stderr bash -c "unu --version"
-    grep -qE "Teem" <<<"$output\n$stderr" || { echo "expected /Teem/ in output, got: $output $stderr"; false; }
+    run --separate-stderr bash -c "unu about 2>&1"
+    grep -qE "Teem version" <<<"$output\n$stderr" || { echo "expected /Teem version/ in output, got: $output $stderr"; false; }
 }
 
 @test "gifticlib-cmake-devel (lib): test -d /usr/share/cmake/gifticlib" {
@@ -141,7 +141,7 @@ _require_installed() {
 @test "afni (cli): afni -ver 2>&1" {
     _require_installed "afni"
     run --separate-stderr bash -c "afni -ver 2>&1"
-    grep -qE "AFNI_version" <<<"$output\n$stderr" || { echo "expected /AFNI_version/ in output, got: $output $stderr"; false; }
+    grep -qE "AFNI_[0-9]+" <<<"$output\n$stderr" || { echo "expected /AFNI_[0-9]+/ in output, got: $output $stderr"; false; }
 }
 
 @test "opentopas (cli): test -x /usr/bin/topas" {
