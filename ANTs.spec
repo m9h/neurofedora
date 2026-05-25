@@ -8,7 +8,7 @@
 
 Name:           ANTs
 Version:        2.6.5
-Release:        9%{?dist}
+Release:        11%{?dist}
 Summary:        Advanced Normalization Tools for medical imaging
 
 License:        Apache-2.0
@@ -68,16 +68,41 @@ find %{buildroot}%{_libdir} -name '*.a' -delete
 # These are internal implementation libraries, not a public development API.
 find %{buildroot}%{_libdir} -maxdepth 1 -name '*.so' -type l -delete
 
+# Install ALL upstream Scripts/ -- ANTS.cmake only ships ~21 curated wrappers
+# to /usr/bin (see install(PROGRAMS Scripts/...) block). The remaining
+# ~43 utility/example scripts (buildtemplateparallel.sh, multi_template_*.sh,
+# the cbf_*.R batch scripts, the waitForXgridJobs.pl helpers, etc.) ship to
+# %%{_datadir}/ANTs/scripts/ so users can find and use them.
+# NB: %%cmake_install above already populated /usr/bin/ with the curated set.
+mkdir -p %{buildroot}%{_datadir}/ANTs/scripts
+cp -p Scripts/* %{buildroot}%{_datadir}/ANTs/scripts/
+for f in %{buildroot}%{_bindir}/*; do
+    rm -f "%{buildroot}%{_datadir}/ANTs/scripts/$(basename "$f")"
+done
+# Permissions: .sh/.pl/utility scripts executable; .R aren't
+chmod 0755 %{buildroot}%{_datadir}/ANTs/scripts/*.sh \
+           %{buildroot}%{_datadir}/ANTs/scripts/*.pl 2>/dev/null || :
+chmod 0644 %{buildroot}%{_datadir}/ANTs/scripts/*.R 2>/dev/null || :
+
 %ldconfig_scriptlets
 
 %files
 %license COPYING.txt
-%doc README.md
+%doc README.md CONTRIBUTING.md
 %{_bindir}/*
 %{_libdir}/libantsUtilities.so.*
 %{_libdir}/libl_*.so.*
+%dir %{_datadir}/ANTs
+%{_datadir}/ANTs/scripts/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-11
+- Re-apply ALL-scripts install + Documentation/code_of_conduct.md docs.
+  Skipping bogus -10 release (its `%%cmake_install` literal in a comment was
+  macro-expanded by RPM and run as a stray shell command, crashing %install).
+- Comment now uses `%%cmake_install` (escaped) and explicit double-quotes
+  in the rm-loop to prevent any future filename surprises.
+
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-9
 - Rebuild against InsightToolkit5 5.4.6 (GDCM CVE-2026-3650, F44 target)
 - Bump BuildRequires: InsightToolkit5-devel >= 5.4.6
