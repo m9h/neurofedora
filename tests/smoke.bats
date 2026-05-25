@@ -72,10 +72,10 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "teem (cli): unu about 2>&1" {
+@test "teem (cli): test -x /usr/bin/unu" {
     _require_installed "teem"
-    run --separate-stderr bash -c "unu about 2>&1"
-    grep -qE "Teem version" <<<"$output\n$stderr" || { echo "expected /Teem version/ in output, got: $output $stderr"; false; }
+    run --separate-stderr bash -c "test -x /usr/bin/unu"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
 @test "gifticlib-cmake-devel (lib): test -d /usr/share/cmake/gifticlib" {

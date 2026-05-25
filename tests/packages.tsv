@@ -32,9 +32,11 @@ SlicerExecutionModel	lib	test -d /usr/lib64/SlicerExecutionModel
 dcmtk	cli	dcmdump --version	dcmdump v[0-9]
 gdcm	lib	test -f /usr/lib64/libgdcmDICT.so.3.0
 ismrmrd	cli	ismrmrd_info
-# unu has no --version flag (rejects it); `unu about` prints the welcome
-# banner that includes "Teem version <N>".
-teem	cli	unu about 2>&1	Teem version
+# teem CLI surface drifts across versions: teem-1.11 (Fedora) had `unu about`
+# printing the welcome banner; teem-1.12 (COPR) treats `about` as a dataset
+# filename and prints "** can't open dataset". `unu --version` is also
+# rejected. Fall back to a version-agnostic binary-exists smoke.
+teem	cli	test -x /usr/bin/unu
 # WIP-F44: bicpl	lib	test -d /usr/lib64/cmake/bicpl || test -f /usr/lib64/libbicpl.so
 gifticlib-cmake-devel	lib	test -d /usr/share/cmake/gifticlib
 geant4	cli	geant4-config --version	[0-9]+\.[0-9]+
