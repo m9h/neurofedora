@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -58,6 +58,11 @@ BuildRequires:  python3-devel
 # BR or the find_package(ParaView) call fails before we get to compile.
 BuildRequires:  cmake(Qt6)
 BuildRequires:  cmake(Qt6Svg)
+# ParaView 6.x's find_package(Qt6 COMPONENTS Core5Compat) is required by
+# the ParaView Qt5 compat shim layer. Without qt6-qt5compat-devel, the
+# cmake configure dies at ParaView-vtk-module-find-packages.cmake:168
+# with "Failed to find required Qt component Core5Compat".
+BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  qt6-qtbase-devel
 # More ParaView 6.x transitive find_package deps — each appears at
 # configure time when paraview-config.cmake loads its module manifest.
@@ -239,6 +244,13 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-3
+- Add `BuildRequires: cmake(Qt6Core5Compat)`. ParaView 6.x's cmake
+  config does `find_package(Qt6 COMPONENTS Core5Compat REQUIRED)` from
+  ParaView-vtk-module-find-packages.cmake:168, which dies with
+  "Failed to find required Qt component Core5Compat" without this BR.
+  Build 10509069 (-2) failed at exactly this configure step.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-2
 - Extend %%__requires_exclude to also drop the auto-generated
   vtk-libs(x86-64) and CGAL-libs(x86-64) package-level Requires.

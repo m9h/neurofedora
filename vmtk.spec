@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -161,6 +161,14 @@ sed -i 's|TYPE LIB|DESTINATION %{_lib}/cmake/vmtk|' CMakeLists.txt
 sed -i 's|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_BIN_DIR}|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_LIB_DIR}|' \
     vtkVmtk/Utilities/tetgen1.4.3/CMakeLists.txt
 
+# GCC 15 no longer re-exports std::cout via the cstdlib chain;
+# vtkvmtkPolyDataDiscreteElasticaFilter.cxx uses bare `cout` at line 331
+# and fails with "error: 'cout' was not declared in this scope". Same
+# class of regression as the itksnap SynchronizationModel.cxx fix —
+# prepend an explicit <iostream> + `using std::cout;` to the file.
+sed -i '1i #include <iostream>\nusing std::cout;' \
+    vtkVmtk/DifferentialGeometry/vtkvmtkPolyDataDiscreteElasticaFilter.cxx
+
 %build
 # GCC 15 / Fedora 43+ compatibility
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -fpermissive"
@@ -198,6 +206,7 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17 -Wno-erro
     -DVTK_VMTK_INSTALL_INCLUDE_DIR:PATH=include/vmtk \
     -DVTK_VMTK_MODULE_INSTALL_LIB_DIR:PATH=%{python3_sitearch}/vmtk \
     -DVMTK_SCRIPTS_INSTALL_BIN_DIR:PATH=bin \
+    `# (see also sed in %%prep above: GCC 15 cout fix for ElasticaFilter)` \
     `# All vmtk Python files must land in ONE directory or Python's import` \
     `# system can't merge them. The previous split (C extensions in sitearch,` \
     `# scripts in sitelib) made vmtk/__init__.py visible from sitelib while` \
@@ -254,6 +263,12 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.7.20250820git311f4792
+- Back-port GCC 15 `cout` qualification to
+  vtkVmtk/DifferentialGeometry/vtkvmtkPolyDataDiscreteElasticaFilter.cxx
+  (sed-prepend #include <iostream> + using std::cout;). -0.6 hit
+  "error: 'cout' was not declared in this scope" at line 331.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.6.20250820git311f4792
 - Install entire vmtk Python package into %%{python3_sitearch}/vmtk/ instead
   of splitting C extensions to sitearch and pure-Python scripts to sitelib.

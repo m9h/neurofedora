@@ -1,22 +1,18 @@
 Subject: Replace bundled xmlParser (AFPL) with pugixml (MIT) via xml_compat wrapper
 Author:  Morgan Hough <morgan.hough@gmail.com>
-Origin:  Local morpheus fork — morpheus_xmlparser_replacement.md
+Origin:  Local morpheus fork — memory/morpheus_xmlparser_replacement.md
 
-The bundled xmlParser code in 3rdparty/ is Aladdin Free Public License
-(AFPL), which Fedora does not accept. Replace it with a thin wrapper
-(xmlutils/xml_compat.{h,cpp}) that reimplements the small subset of
-xmlParser API morpheus actually uses (XMLNode, XMLResults, XMLError,
-XMLAttribute, XMLClear, XMLParserBase64Tool) on top of system pugixml
-(MIT-licensed, already in Fedora). 81 unit tests in
-xmlutils/test_xml_compat.cpp validate parity.
+Wraps morpheus's small subset of xmlParser usage (XMLNode, XMLResults,
+XMLError, XMLAttribute, XMLClear, XMLParserBase64Tool) on top of system
+pugixml (MIT-licensed, in Fedora). Replaces the AFPL-licensed xmlParser
+bundle, which Fedora cannot ship. Generated from a diff of vanilla
+morpheus-2.3.9 against the same tree with the wrapper applied, so the
+patch is byte-exact and applies under `patch --fuzz=0` (the strict
+default mock/rpmbuild uses).
 
-The patch applies cleanly to morpheus 2.3.9 (developed against 2.3.7
-but the touched files diverge minimally between the two tags).
-
-diff --git a/3rdparty/CMakeLists.txt b/3rdparty/CMakeLists.txt
-index 5fed270..3d0c359 100644
---- a/3rdparty/CMakeLists.txt
-+++ b/3rdparty/CMakeLists.txt
+diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/CMakeLists.txt m239-patched/morpheus-v2.3.9/3rdparty/CMakeLists.txt
+--- a/3rdparty/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
++++ b/3rdparty/CMakeLists.txt	2026-05-24 22:12:00.478037562 -0700
 @@ -1,5 +1,5 @@
  add_subdirectory(muParser)
 -add_subdirectory(xmlParser)
@@ -24,11 +20,9 @@ index 5fed270..3d0c359 100644
  add_subdirectory(tiny-process)
  add_subdirectory(gnuplot_i)
  SET(XTENSOR_USE_XSIMD 1)
-diff --git a/3rdparty/xmlParser/AFPL_License.html b/3rdparty/xmlParser/AFPL_License.html
-deleted file mode 100644
-index d019ea1..0000000
---- a/3rdparty/xmlParser/AFPL_License.html
-+++ /dev/null
+diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/AFPL_License.html m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/AFPL_License.html
+--- a/3rdparty/xmlParser/AFPL_License.html	2025-02-28 03:17:39.000000000 -0800
++++ b/3rdparty/xmlParser/AFPL_License.html	1969-12-31 16:00:00.000000000 -0800
 @@ -1,499 +0,0 @@
 -<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
 -<html>
@@ -529,18 +523,14 @@ index d019ea1..0000000
 -     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
 -     SECTION 108(a)(3)).
 --->
-diff --git a/3rdparty/xmlParser/CMakeLists.txt b/3rdparty/xmlParser/CMakeLists.txt
-deleted file mode 100644
-index 6b42083..0000000
---- a/3rdparty/xmlParser/CMakeLists.txt
-+++ /dev/null
+diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/CMakeLists.txt m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/CMakeLists.txt
+--- a/3rdparty/xmlParser/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
++++ b/3rdparty/xmlParser/CMakeLists.txt	1969-12-31 16:00:00.000000000 -0800
 @@ -1 +0,0 @@
 -add_library(xmlParser xmlParser.cpp)
-diff --git a/3rdparty/xmlParser/xmlParser.cpp b/3rdparty/xmlParser/xmlParser.cpp
-deleted file mode 100644
-index 3481347..0000000
---- a/3rdparty/xmlParser/xmlParser.cpp
-+++ /dev/null
+diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.cpp m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.cpp
+--- a/3rdparty/xmlParser/xmlParser.cpp	2025-02-28 03:17:39.000000000 -0800
++++ b/3rdparty/xmlParser/xmlParser.cpp	1969-12-31 16:00:00.000000000 -0800
 @@ -1,2892 +0,0 @@
 -/**
 - ****************************************************************************
@@ -3434,11 +3424,9 @@ index 3481347..0000000
 -    return (unsigned char*)buf;
 -}
 -
-diff --git a/3rdparty/xmlParser/xmlParser.h b/3rdparty/xmlParser/xmlParser.h
-deleted file mode 100644
-index 9caa2d4..0000000
---- a/3rdparty/xmlParser/xmlParser.h
-+++ /dev/null
+diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.h m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.h
+--- a/3rdparty/xmlParser/xmlParser.h	2025-02-28 03:17:39.000000000 -0800
++++ b/3rdparty/xmlParser/xmlParser.h	1969-12-31 16:00:00.000000000 -0800
 @@ -1,735 +0,0 @@
 -
 -/****************************************************************************/
@@ -4175,11 +4163,10 @@ index 9caa2d4..0000000
 -#undef XMLDLLENTRY
 -
 -#endif
-diff --git a/morpheus/CMakeLists.txt b/morpheus/CMakeLists.txt
-index 389fcd5..3c70198 100644
---- a/morpheus/CMakeLists.txt
-+++ b/morpheus/CMakeLists.txt
-@@ -35,7 +35,7 @@ ENDIF()
+diff -ruN m239-clean/morpheus-v2.3.9/morpheus/CMakeLists.txt m239-patched/morpheus-v2.3.9/morpheus/CMakeLists.txt
+--- a/morpheus/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
++++ b/morpheus/CMakeLists.txt	2026-05-24 22:12:00.478851819 -0700
+@@ -35,7 +35,7 @@
  TARGET_LINK_LIBRARIES_PATCHED(MorpheusSIM PRIVATE MorpheusCore)
  
  
@@ -4188,10 +4175,27 @@ index 389fcd5..3c70198 100644
  
  IF(HAVE_OPENMP)
  	if (CMAKE_VERSION VERSION_LESS 3.10)
-diff --git a/morpheus/core/exceptions.h b/morpheus/core/exceptions.h
-index c74f30d..8bd6c1e 100644
---- a/morpheus/core/exceptions.h
-+++ b/morpheus/core/exceptions.h
+@@ -105,7 +105,7 @@
+ 	## We guess the static library dependencies from the corresponding dynamic library dependencies
+ 	#		message(FATAL_ERROR "Static binary build only supported on *nix systems") 
+ 	IF(UNIX)
+-		execute_process( COMMAND /sbin/ldconfig -p 
++		execute_process( COMMAND ldconfig -p 
+ 						 COMMAND grep "libtiff.so "
+ 						 OUTPUT_VARIABLE TIFF_DYN_LIB
+ 		)
+@@ -143,7 +143,7 @@
+ 		ENDIF()
+ 		IF("libwebp" IN_LIST TIFF_DEPENDS)
+ 			message(STATUS "LibTIFF requires webp")
+-			TARGET_LINK_LIBRARIES_PATCHED(MorpheusCore PUBLIC -lwebp -lsharpyuv )
++			TARGET_LINK_LIBRARIES_PATCHED(MorpheusCore PUBLIC -lwebp )
+ 		ENDIF()
+ 		IF("libzstd" IN_LIST TIFF_DEPENDS)
+ 			message(STATUS "LibTIFF requires zstd")
+diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/exceptions.h m239-patched/morpheus-v2.3.9/morpheus/core/exceptions.h
+--- a/morpheus/core/exceptions.h	2025-02-28 03:17:39.000000000 -0800
++++ b/morpheus/core/exceptions.h	2026-05-24 22:12:00.479631312 -0700
 @@ -4,7 +4,6 @@
  #include <stdexcept>
  #include <mutex>
@@ -4200,11 +4204,176 @@ index c74f30d..8bd6c1e 100644
  #include "xml_functions.h"
  
  
-diff --git a/morpheus/core/simulation.cpp b/morpheus/core/simulation.cpp
-index 9d83390..3fe3fca 100644
---- a/morpheus/core/simulation.cpp
-+++ b/morpheus/core/simulation.cpp
-@@ -824,7 +824,7 @@ void saveToXML() {
+diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/simulation.cpp m239-patched/morpheus-v2.3.9/morpheus/core/simulation.cpp
+--- a/morpheus/core/simulation.cpp	2025-02-28 03:17:39.000000000 -0800
++++ b/morpheus/core/simulation.cpp	2026-05-24 22:12:00.480418309 -0700
+@@ -9,7 +9,6 @@
+ #include "cpm_p.h"
+ #include "ml_conversion.h"
+ #include "rss_stat.h"
+-#include <filesystem>
+ #include <boost/program_options.hpp>
+ #include <boost/property_tree/json_parser.hpp>
+ #include "utils/parallel_thread_pool.h"
+@@ -204,27 +203,27 @@
+ }
+ 
+ string prettyFormattingTime( double time_in_sec ) {
+-	stringstream ss;
++	char s[100];
+ 	if( time_in_sec >= 0) {
+-		int msec = time_in_sec*1000;
+-		int millisec=(msec)%1000;
+-		int seconds=(msec/1000)%60;
+-		int minutes=(msec/(1000*60))%60;
+-		int hours=(msec/(1000*60*60))%24;
++        int msec = time_in_sec*1000;
++        int millisec=(msec)%1000;
++        int seconds=(msec/1000)%60;
++        int minutes=(msec/(1000*60))%60;
++        int hours=(msec/(1000*60*60))%24;
+ 		int days=(msec/(1000*60*60*24));
+ 		
+ 		if (days > 0)
+-			ss << days << "d " << setfill('0') << setw(2) << hours << "h " << minutes << "m";
+-		else if(hours > 0)
+-			ss << hours << "h " << setfill('0') << setw(2) << minutes << "m " << seconds << "s ";
+-		else if( minutes > 0 )
+-			ss << minutes << "m " << setfill('0') << setw(2) << seconds << "s";
+-		else
+-			ss << seconds << "s " << setfill('0') << setw(3) << millisec << "ms";
+-	}
+-	else
+-		ss << " -- ";
+-	return ss.str();
++			std::sprintf(s, "%dd %02dh %02dm", days, hours, minutes);
++        else if(hours > 0)
++            std::sprintf(s, "%dh %02dm", hours, minutes);
++        else if( minutes > 0 )
++            std::sprintf(s, "%dm %02ds", minutes, seconds);
++        else
++            std::sprintf(s, "%1ds %03dms", seconds, millisec);
++    }
++    else
++        std::sprintf(s, " -- ");
++	return string(s);
+ }
+ 
+ // Prints to the provided buffer a nice number of bytes (KB, MB, GB, etc)
+@@ -359,8 +358,6 @@
+ 		("perf-stats", "Generate performance stats in json format.")
+ 		("outdir", po::value<std::string>(), "override output directory.")
+ 		("model-graph", po::value<std::string>()->implicit_value("dot"), "Generate the model graph in the given format [dot,svg,pdf,png].")
+-		("num-threads", po::value<int>(), "Thread count for parallel computation. Defaults to OMP_NUM_THREADS.")
+-		("num-cpm-threads", po::value<int>(), "Thread count for parallel CPM computation. Defaults to 'num-threads'.")
+ 		("help,h", "show this help page.");
+ 	
+ 	po::options_description hidden;
+@@ -430,28 +427,10 @@
+ 	else {
+ 		generate_symbol_graph_and_exit = false;
+ 	}
+-	
+-	if (cmd_line.count("num-threads")) {
+-		auto thread_count = cmd_line["num-threads"].as<int>();
+-		if (thread_count <= 0) {
+-			cerr << "Invalid number of threads. Must be strictly larger than 0."<< endl;
+-			return false;
+-		}
+-		TP::setTeamSize(thread_count);
+-	}
+-	if (cmd_line.count("num-cpm-threads")) {
+-		auto thread_count = cmd_line["num-cpm-threads"].as<int>();
+-		if (thread_count <= 0) {
+-			cerr << "Invalid number of CPM threads. Must be strictly larger than 0."<< endl;
+-			return false;
+-		}
+-		TP::setCPMTeamSize(thread_count);
+-	}
+ 
+ 	struct stat filestatus;
+ 	if (cmd_line.count("outdir")) {
+ 		output_directory = cmd_line["outdir"].as<string>();
+-		std::filesystem::create_directories( output_directory );
+ 		if ( access( output_directory.c_str(), R_OK | W_OK) != 0) {
+ 			throw  string("Error: output directory '") + output_directory + "' does not exist or is not writable.";
+ 		}
+@@ -465,14 +444,12 @@
+     }
+ 
+ 	string filename = cmd_line["file"].as<string>();
+-	if (filename != "-") {
+-		int filenotexists = stat( filename.c_str(), &filestatus );
+-		if ( filenotexists > 0 || filename.empty() ) {
+-			throw  string("Error: file '") + filename + "' does not exist.";
+-		}
+-		else if ( filestatus.st_size == 0 ) {
+-			throw  string("Error: file '") + filename + "' is empty.";
+-		}
++	int filenotexists = stat( filename.c_str(), &filestatus );
++	if ( filenotexists > 0 || filename.empty() ) {
++		throw  string("Error: file '") + filename + "' does not exist.";
++	}
++	else if ( filestatus.st_size == 0 ) {
++		throw  string("Error: file '") + filename + "' is empty.";
+ 	}
+ 	
+ 	generate_performance_stats = cmd_line.count("perf-stats");
+@@ -510,10 +487,31 @@
+ // 	}
+ // 	cout << endl;
+ 	
+-	if (filename == "-")
+-		return init(std::string(std::istreambuf_iterator<char>{std::cin}, {}), overrides);
+-	else
+-		return init(readFile(filename), overrides);
++	return init(readFile(filename), overrides);
++	
++	// recover  --- code path move to level above
++// 	try {
++// 		return init(readFile(filename), overrides);
++// 	}
++// 	catch (const string &e) {
++// 		cerr << "Could not initialize model " << filename << "\n";
++// 		cerr << e << endl;
++// 		return false;
++// 	}
++// 	catch (const MorpheusException &e) {
++// 		cerr << "Could not initialize model " << filename << "\n";
++// 		cerr << e.what() << "\n";
++// 		cerr << e.where() << endl;
++// 		return false;
++// 	}
++	
++// 	if (SIM::generate_symbol_graph_and_exit) {
++// 		createDepGraph();
++// 		cerr << "Generated symbol dependency graph. Exiting." << endl;
++// 		return false;
++// 	}
++// 
++// 	return true;
+ };
+ 
+ bool init(string model, map<string,string> overrides) {
+@@ -548,7 +546,7 @@
+ 	current_scope = global_scope.get();
+ 	
+ 	setRandomSeeds(XMLNode::emptyNode());
+-#pragma omp parallel num_threads(TP::teamSize())
++#pragma omp parallel 
+ 	{
+ 		TP::setTeamNum(omp_get_thread_num());
+ 	}
+@@ -679,7 +677,7 @@
+ 	global_lattice = lattice_plugin->getLattice();
+ 	
+ 	CPM::init();
+-
++	
+ 	// all model constituents are loaded. let's initialize them (i.e. interlink)
+ 	for (auto glob : global_section_plugins) {
+ #ifdef NO_CORE_CATCH
+@@ -826,7 +824,7 @@
  		exit(-1);
  	}
  	gzclose(zfile);
@@ -4213,11 +4382,10 @@ index 9d83390..3fe3fca 100644
  }
  
  void wipe()
-diff --git a/morpheus/plugins/analysis/tiff_plotter.cpp b/morpheus/plugins/analysis/tiff_plotter.cpp
-index f348a70..d72d0cb 100644
---- a/morpheus/plugins/analysis/tiff_plotter.cpp
-+++ b/morpheus/plugins/analysis/tiff_plotter.cpp
-@@ -652,7 +652,7 @@ void TiffPlotter::writeDescrHeader() {
+diff -ruN m239-clean/morpheus-v2.3.9/morpheus/plugins/analysis/tiff_plotter.cpp m239-patched/morpheus-v2.3.9/morpheus/plugins/analysis/tiff_plotter.cpp
+--- a/morpheus/plugins/analysis/tiff_plotter.cpp	2025-02-28 03:17:39.000000000 -0800
++++ b/morpheus/plugins/analysis/tiff_plotter.cpp	2026-05-24 22:12:00.481210364 -0700
+@@ -652,7 +652,7 @@
  		//cout << "OME-TIFF Header" << endl;
  		//cout << string(ome_data) << endl;
  		TIFFSetField(file_desc.output, TIFFTAG_IMAGEDESCRIPTION, data.c_str());
@@ -4226,10 +4394,9 @@ index f348a70..d72d0cb 100644
  	}
  	else if (file_desc.header == Header::IMAGEJ) {
  
-diff --git a/xmlutils/CMakeLists.txt b/xmlutils/CMakeLists.txt
-index 15e9214..294e063 100644
---- a/xmlutils/CMakeLists.txt
-+++ b/xmlutils/CMakeLists.txt
+diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/CMakeLists.txt m239-patched/morpheus-v2.3.9/xmlutils/CMakeLists.txt
+--- a/xmlutils/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
++++ b/xmlutils/CMakeLists.txt	2026-05-24 22:12:00.482006498 -0700
 @@ -1,6 +1,7 @@
 -set(xml_util_src 
 +set(xml_util_src
@@ -4239,7 +4406,7 @@ index 15e9214..294e063 100644
  )
  
  
-@@ -9,8 +10,14 @@ set(xml_util_src
+@@ -9,8 +10,14 @@
  ################################
  
  FIND_PACKAGE(Boost REQUIRED)
@@ -4255,258 +4422,9 @@ index 15e9214..294e063 100644
 +    target_link_libraries(runXmlCompatTests XMLUtils gtest)
 +ENDIF()
  
-diff --git a/xmlutils/xml_functions.h b/xmlutils/xml_functions.h
-index 592de89..2a86518 100644
---- a/xmlutils/xml_functions.h
-+++ b/xmlutils/xml_functions.h
-@@ -16,7 +16,7 @@
- // #include "config.h"
- #include "string_functions.h"
- #include "traits.h"
--#include "xmlParser/xmlParser.h"
-+#include "xml_compat.h"
- 
- #include <zlib.h>
- #include <fstream>
---- a/xmlutils/xml_compat.h
-+++ b/xmlutils/xml_compat.h
-@@ -0,0 +1,234 @@
-+//////
-+//
-+// xml_compat.h — Drop-in replacement for xmlParser.h using pugixml
-+//
-+// Provides XMLNode, XMLResults, XMLError, XMLAttribute, etc. types
-+// that match the xmlParser v2.39 API used by Morpheus, backed by pugixml.
-+//
-+//////
-+
-+#ifndef XML_COMPAT_H
-+#define XML_COMPAT_H
-+
-+#include <pugixml.hpp>
-+#include <memory>
-+#include <string>
-+#include <cstring>
-+#include <cstdlib>
-+#include <sstream>
-+#include <vector>
-+
-+// Type aliases matching xmlParser conventions
-+typedef const char* XMLCSTR;
-+typedef char* XMLSTR;
-+typedef char XMLCHAR;
-+
-+#ifndef FALSE
-+#define FALSE 0
-+#endif
-+#ifndef TRUE
-+#define TRUE 1
-+#endif
-+
-+/// Enumeration for XML parse errors (matches xmlParser)
-+typedef enum XMLError
-+{
-+    eXMLErrorNone = 0,
-+    eXMLErrorMissingEndTag,
-+    eXMLErrorNoXMLTagFound,
-+    eXMLErrorEmpty,
-+    eXMLErrorMissingTagName,
-+    eXMLErrorMissingEndTagName,
-+    eXMLErrorUnmatchedEndTag,
-+    eXMLErrorUnmatchedEndClearTag,
-+    eXMLErrorUnexpectedToken,
-+    eXMLErrorNoElements,
-+    eXMLErrorFileNotFound,
-+    eXMLErrorFirstTagNotFound,
-+    eXMLErrorUnknownCharacterEntity,
-+    eXMLErrorCharacterCodeAbove255,
-+    eXMLErrorCharConversionError,
-+    eXMLErrorCannotOpenWriteFile,
-+    eXMLErrorCannotWriteFile,
-+
-+    eXMLErrorBase64DataSizeIsNotMultipleOf4,
-+    eXMLErrorBase64DecodeIllegalCharacter,
-+    eXMLErrorBase64DecodeTruncatedData,
-+    eXMLErrorBase64DecodeBufferTooSmall
-+} XMLError;
-+
-+/// Enumeration for element types
-+typedef enum XMLElementType
-+{
-+    eNodeChild = 0,
-+    eNodeAttribute = 1,
-+    eNodeText = 2,
-+    eNodeClear = 3,
-+    eNodeNULL = 4
-+} XMLElementType;
-+
-+/// Structure used to obtain error details if the parse fails.
-+typedef struct XMLResults
-+{
-+    enum XMLError error;
-+    int nLine, nColumn;
-+} XMLResults;
-+
-+/// Structure for XML clear (unformatted) node (usually comments)
-+typedef struct XMLClear {
-+    XMLCSTR lpszValue;
-+    XMLCSTR lpszOpenTag;
-+    XMLCSTR lpszCloseTag;
-+} XMLClear;
-+
-+/// Structure for XML attribute.
-+typedef struct XMLAttribute {
-+    XMLCSTR lpszName;
-+    XMLCSTR lpszValue;
-+} XMLAttribute;
-+
-+/// XMLElementPosition type
-+typedef int XMLElementPosition;
-+
-+struct XMLNodeContents;
-+
-+/// Main Class representing an XML node, wrapping pugixml
-+class XMLNode
-+{
-+public:
-+    // Default constructor — empty node
-+    XMLNode();
-+
-+    // Parsing
-+    static XMLNode parseString(XMLCSTR lpXMLString, XMLCSTR tag = NULL, XMLResults* pResults = NULL);
-+    static XMLNode parseFile(XMLCSTR filename, XMLCSTR tag = NULL, XMLResults* pResults = NULL);
-+    static XMLNode openFileHelper(XMLCSTR filename, XMLCSTR tag = NULL);
-+
-+    // Error reporting
-+    static XMLCSTR getError(XMLError error);
-+
-+    // Serialization
-+    XMLSTR createXMLString(int nFormat = 1, int* pnSize = NULL) const;
-+    XMLError writeToFile(XMLCSTR filename, const char* encoding = NULL, char nFormat = 1) const;
-+
-+    // Navigation (read-only)
-+    XMLCSTR getName() const;
-+    XMLCSTR getText(int i = 0) const;
-+    int nText() const;
-+    XMLNode getParentNode() const;
-+    XMLNode getChildNode(int i = 0) const;
-+    XMLNode getChildNode(XMLCSTR name, int i) const;
-+    XMLNode getChildNode(XMLCSTR name, int* i = NULL) const;
-+    XMLNode getChildNodeWithAttribute(XMLCSTR tagName, XMLCSTR attributeName,
-+                                      XMLCSTR attributeValue = NULL, int* i = NULL) const;
-+    int nChildNode(XMLCSTR name) const;
-+    int nChildNode() const;
-+    XMLAttribute getAttribute(int i) const;
-+    XMLCSTR getAttributeValue(int i = 0) const;
-+    XMLCSTR getAttributeName(int i = 0) const;
-+    char isAttributeSet(XMLCSTR name) const;
-+    XMLCSTR getAttribute(XMLCSTR name, int i) const;
-+    XMLCSTR getAttribute(XMLCSTR name, int* i = NULL) const;
-+    int nAttribute() const;
-+    XMLClear getClear(int i = 0) const;
-+    int nClear() const;
-+    int nElement() const;
-+    char isEmpty() const;
-+    char isDeclaration() const;
-+    XMLNode deepCopy() const;
-+    static XMLNode emptyNode();
-+
-+    // Creation
-+    static XMLNode createXMLTopNode(XMLCSTR lpszName, char isDeclaration = FALSE);
-+    XMLNode addChild(XMLCSTR lpszName, char isDeclaration = FALSE, XMLElementPosition pos = -1);
-+    XMLNode addChild(XMLNode nodeToAdd, XMLElementPosition pos = -1);
-+    XMLAttribute* addAttribute(XMLCSTR lpszName, XMLCSTR lpszValue);
-+    XMLCSTR addText(XMLCSTR lpszValue, XMLElementPosition pos = -1);
-+
-+    // Update
-+    XMLCSTR updateName(XMLCSTR lpszName);
-+    XMLAttribute* updateAttribute(XMLCSTR lpszNewValue, XMLCSTR lpszNewName = NULL, int i = 0);
-+    XMLAttribute* updateAttribute(XMLCSTR lpszNewValue, XMLCSTR lpszNewName, XMLCSTR lpszOldName);
-+    XMLCSTR updateText(XMLCSTR lpszNewValue, int i = 0);
-+    XMLCSTR updateText(XMLCSTR lpszNewValue, XMLCSTR lpszOldValue);
-+
-+    // Deletion
-+    void deleteNodeContent();
-+    void deleteAttribute(int i = 0);
-+    void deleteAttribute(XMLCSTR lpszName);
-+    void deleteText(int i = 0);
-+    void deleteText(XMLCSTR lpszValue);
-+
-+    // Position helpers
-+    XMLElementPosition positionOfText(int i = 0) const;
-+    XMLElementPosition positionOfChildNode(int i = 0) const;
-+    XMLElementPosition positionOfChildNode(XMLNode x) const;
-+    XMLElementPosition positionOfChildNode(XMLCSTR name, int i = 0) const;
-+
-+    // Operators
-+    bool operator==(const XMLNode& other) const;
-+
-+    // Static members
-+    static XMLNode emptyXMLNode;
-+    static XMLClear emptyXMLClear;
-+    static XMLAttribute emptyXMLAttribute;
-+
-+private:
-+    // The shared document keeps the parsed DOM alive as long as any XMLNode references it
-+    std::shared_ptr<pugi::xml_document> doc_;
-+    pugi::xml_node node_;
-+
-+    // Private constructor from existing doc + node
-+    XMLNode(std::shared_ptr<pugi::xml_document> doc, pugi::xml_node node);
-+
-+    // Helper: collect pcdata/cdata children
-+    std::vector<pugi::xml_node> textChildren() const;
-+
-+    // Helper: collect comment/PI children
-+    std::vector<pugi::xml_node> clearChildren() const;
-+
-+    // Helper: deep copy a node tree into a new document
-+    static void deepCopyNode(pugi::xml_node dest, pugi::xml_node src);
-+
-+    // Storage for returned attribute structs (per-node static thread_local)
-+    static thread_local XMLAttribute s_attr_storage;
-+    static thread_local XMLClear s_clear_storage;
-+    static thread_local std::string s_clear_value_storage;
-+};
-+
-+/// Structure for enumContents (not heavily used but provided for completeness)
-+typedef struct XMLNodeContents
-+{
-+    enum XMLElementType etype;
-+    XMLNode child;
-+    XMLAttribute attrib;
-+    XMLCSTR text;
-+    XMLClear clear;
-+} XMLNodeContents;
-+
-+// Free functions matching xmlParser API
-+XMLSTR stringDup(XMLCSTR source, int cbData = -1);
-+void freeXMLString(XMLSTR t);
-+
-+/// Helper class for Base64 encoding/decoding (replaces xmlParser's XMLParserBase64Tool)
-+class XMLParserBase64Tool
-+{
-+public:
-+    XMLParserBase64Tool() : buf_(nullptr), buflen_(0) {}
-+    ~XMLParserBase64Tool() { freeBuffer(); }
-+
-+    void freeBuffer() { if (buf_) { free(buf_); buf_ = nullptr; buflen_ = 0; } }
-+
-+    XMLSTR encode(unsigned char* inByteBuf, unsigned int inByteLen, char formatted = 0);
-+    unsigned char* decode(XMLCSTR inString, int* outByteLen = NULL, XMLError* xe = NULL);
-+
-+    static int encodeLength(int inBufLen, char formatted = 0);
-+    static unsigned int decodeSize(XMLCSTR inString, XMLError* xe = NULL);
-+
-+private:
-+    void* buf_;
-+    int buflen_;
-+    void alloc(int newsize);
-+};
-+
-+#endif // XML_COMPAT_H
---- a/xmlutils/xml_compat.cpp
-+++ b/xmlutils/xml_compat.cpp
+diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.cpp m239-patched/morpheus-v2.3.9/xmlutils/xml_compat.cpp
+--- a/xmlutils/xml_compat.cpp	1969-12-31 16:00:00.000000000 -0800
++++ b/xmlutils/xml_compat.cpp	2026-05-24 22:12:00.477151260 -0700
 @@ -0,0 +1,956 @@
 +//////
 +//
@@ -5464,3 +5382,253 @@ index 592de89..2a86518 100644
 +    if (outByteLen) *outByteLen = outSize;
 +    return out;
 +}
+diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.h m239-patched/morpheus-v2.3.9/xmlutils/xml_compat.h
+--- a/xmlutils/xml_compat.h	1969-12-31 16:00:00.000000000 -0800
++++ b/xmlutils/xml_compat.h	2026-05-24 22:12:00.474812691 -0700
+@@ -0,0 +1,234 @@
++//////
++//
++// xml_compat.h — Drop-in replacement for xmlParser.h using pugixml
++//
++// Provides XMLNode, XMLResults, XMLError, XMLAttribute, etc. types
++// that match the xmlParser v2.39 API used by Morpheus, backed by pugixml.
++//
++//////
++
++#ifndef XML_COMPAT_H
++#define XML_COMPAT_H
++
++#include <pugixml.hpp>
++#include <memory>
++#include <string>
++#include <cstring>
++#include <cstdlib>
++#include <sstream>
++#include <vector>
++
++// Type aliases matching xmlParser conventions
++typedef const char* XMLCSTR;
++typedef char* XMLSTR;
++typedef char XMLCHAR;
++
++#ifndef FALSE
++#define FALSE 0
++#endif
++#ifndef TRUE
++#define TRUE 1
++#endif
++
++/// Enumeration for XML parse errors (matches xmlParser)
++typedef enum XMLError
++{
++    eXMLErrorNone = 0,
++    eXMLErrorMissingEndTag,
++    eXMLErrorNoXMLTagFound,
++    eXMLErrorEmpty,
++    eXMLErrorMissingTagName,
++    eXMLErrorMissingEndTagName,
++    eXMLErrorUnmatchedEndTag,
++    eXMLErrorUnmatchedEndClearTag,
++    eXMLErrorUnexpectedToken,
++    eXMLErrorNoElements,
++    eXMLErrorFileNotFound,
++    eXMLErrorFirstTagNotFound,
++    eXMLErrorUnknownCharacterEntity,
++    eXMLErrorCharacterCodeAbove255,
++    eXMLErrorCharConversionError,
++    eXMLErrorCannotOpenWriteFile,
++    eXMLErrorCannotWriteFile,
++
++    eXMLErrorBase64DataSizeIsNotMultipleOf4,
++    eXMLErrorBase64DecodeIllegalCharacter,
++    eXMLErrorBase64DecodeTruncatedData,
++    eXMLErrorBase64DecodeBufferTooSmall
++} XMLError;
++
++/// Enumeration for element types
++typedef enum XMLElementType
++{
++    eNodeChild = 0,
++    eNodeAttribute = 1,
++    eNodeText = 2,
++    eNodeClear = 3,
++    eNodeNULL = 4
++} XMLElementType;
++
++/// Structure used to obtain error details if the parse fails.
++typedef struct XMLResults
++{
++    enum XMLError error;
++    int nLine, nColumn;
++} XMLResults;
++
++/// Structure for XML clear (unformatted) node (usually comments)
++typedef struct XMLClear {
++    XMLCSTR lpszValue;
++    XMLCSTR lpszOpenTag;
++    XMLCSTR lpszCloseTag;
++} XMLClear;
++
++/// Structure for XML attribute.
++typedef struct XMLAttribute {
++    XMLCSTR lpszName;
++    XMLCSTR lpszValue;
++} XMLAttribute;
++
++/// XMLElementPosition type
++typedef int XMLElementPosition;
++
++struct XMLNodeContents;
++
++/// Main Class representing an XML node, wrapping pugixml
++class XMLNode
++{
++public:
++    // Default constructor — empty node
++    XMLNode();
++
++    // Parsing
++    static XMLNode parseString(XMLCSTR lpXMLString, XMLCSTR tag = NULL, XMLResults* pResults = NULL);
++    static XMLNode parseFile(XMLCSTR filename, XMLCSTR tag = NULL, XMLResults* pResults = NULL);
++    static XMLNode openFileHelper(XMLCSTR filename, XMLCSTR tag = NULL);
++
++    // Error reporting
++    static XMLCSTR getError(XMLError error);
++
++    // Serialization
++    XMLSTR createXMLString(int nFormat = 1, int* pnSize = NULL) const;
++    XMLError writeToFile(XMLCSTR filename, const char* encoding = NULL, char nFormat = 1) const;
++
++    // Navigation (read-only)
++    XMLCSTR getName() const;
++    XMLCSTR getText(int i = 0) const;
++    int nText() const;
++    XMLNode getParentNode() const;
++    XMLNode getChildNode(int i = 0) const;
++    XMLNode getChildNode(XMLCSTR name, int i) const;
++    XMLNode getChildNode(XMLCSTR name, int* i = NULL) const;
++    XMLNode getChildNodeWithAttribute(XMLCSTR tagName, XMLCSTR attributeName,
++                                      XMLCSTR attributeValue = NULL, int* i = NULL) const;
++    int nChildNode(XMLCSTR name) const;
++    int nChildNode() const;
++    XMLAttribute getAttribute(int i) const;
++    XMLCSTR getAttributeValue(int i = 0) const;
++    XMLCSTR getAttributeName(int i = 0) const;
++    char isAttributeSet(XMLCSTR name) const;
++    XMLCSTR getAttribute(XMLCSTR name, int i) const;
++    XMLCSTR getAttribute(XMLCSTR name, int* i = NULL) const;
++    int nAttribute() const;
++    XMLClear getClear(int i = 0) const;
++    int nClear() const;
++    int nElement() const;
++    char isEmpty() const;
++    char isDeclaration() const;
++    XMLNode deepCopy() const;
++    static XMLNode emptyNode();
++
++    // Creation
++    static XMLNode createXMLTopNode(XMLCSTR lpszName, char isDeclaration = FALSE);
++    XMLNode addChild(XMLCSTR lpszName, char isDeclaration = FALSE, XMLElementPosition pos = -1);
++    XMLNode addChild(XMLNode nodeToAdd, XMLElementPosition pos = -1);
++    XMLAttribute* addAttribute(XMLCSTR lpszName, XMLCSTR lpszValue);
++    XMLCSTR addText(XMLCSTR lpszValue, XMLElementPosition pos = -1);
++
++    // Update
++    XMLCSTR updateName(XMLCSTR lpszName);
++    XMLAttribute* updateAttribute(XMLCSTR lpszNewValue, XMLCSTR lpszNewName = NULL, int i = 0);
++    XMLAttribute* updateAttribute(XMLCSTR lpszNewValue, XMLCSTR lpszNewName, XMLCSTR lpszOldName);
++    XMLCSTR updateText(XMLCSTR lpszNewValue, int i = 0);
++    XMLCSTR updateText(XMLCSTR lpszNewValue, XMLCSTR lpszOldValue);
++
++    // Deletion
++    void deleteNodeContent();
++    void deleteAttribute(int i = 0);
++    void deleteAttribute(XMLCSTR lpszName);
++    void deleteText(int i = 0);
++    void deleteText(XMLCSTR lpszValue);
++
++    // Position helpers
++    XMLElementPosition positionOfText(int i = 0) const;
++    XMLElementPosition positionOfChildNode(int i = 0) const;
++    XMLElementPosition positionOfChildNode(XMLNode x) const;
++    XMLElementPosition positionOfChildNode(XMLCSTR name, int i = 0) const;
++
++    // Operators
++    bool operator==(const XMLNode& other) const;
++
++    // Static members
++    static XMLNode emptyXMLNode;
++    static XMLClear emptyXMLClear;
++    static XMLAttribute emptyXMLAttribute;
++
++private:
++    // The shared document keeps the parsed DOM alive as long as any XMLNode references it
++    std::shared_ptr<pugi::xml_document> doc_;
++    pugi::xml_node node_;
++
++    // Private constructor from existing doc + node
++    XMLNode(std::shared_ptr<pugi::xml_document> doc, pugi::xml_node node);
++
++    // Helper: collect pcdata/cdata children
++    std::vector<pugi::xml_node> textChildren() const;
++
++    // Helper: collect comment/PI children
++    std::vector<pugi::xml_node> clearChildren() const;
++
++    // Helper: deep copy a node tree into a new document
++    static void deepCopyNode(pugi::xml_node dest, pugi::xml_node src);
++
++    // Storage for returned attribute structs (per-node static thread_local)
++    static thread_local XMLAttribute s_attr_storage;
++    static thread_local XMLClear s_clear_storage;
++    static thread_local std::string s_clear_value_storage;
++};
++
++/// Structure for enumContents (not heavily used but provided for completeness)
++typedef struct XMLNodeContents
++{
++    enum XMLElementType etype;
++    XMLNode child;
++    XMLAttribute attrib;
++    XMLCSTR text;
++    XMLClear clear;
++} XMLNodeContents;
++
++// Free functions matching xmlParser API
++XMLSTR stringDup(XMLCSTR source, int cbData = -1);
++void freeXMLString(XMLSTR t);
++
++/// Helper class for Base64 encoding/decoding (replaces xmlParser's XMLParserBase64Tool)
++class XMLParserBase64Tool
++{
++public:
++    XMLParserBase64Tool() : buf_(nullptr), buflen_(0) {}
++    ~XMLParserBase64Tool() { freeBuffer(); }
++
++    void freeBuffer() { if (buf_) { free(buf_); buf_ = nullptr; buflen_ = 0; } }
++
++    XMLSTR encode(unsigned char* inByteBuf, unsigned int inByteLen, char formatted = 0);
++    unsigned char* decode(XMLCSTR inString, int* outByteLen = NULL, XMLError* xe = NULL);
++
++    static int encodeLength(int inBufLen, char formatted = 0);
++    static unsigned int decodeSize(XMLCSTR inString, XMLError* xe = NULL);
++
++private:
++    void* buf_;
++    int buflen_;
++    void alloc(int newsize);
++};
++
++#endif // XML_COMPAT_H
+diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_functions.h m239-patched/morpheus-v2.3.9/xmlutils/xml_functions.h
+--- a/xmlutils/xml_functions.h	2025-02-28 03:17:39.000000000 -0800
++++ b/xmlutils/xml_functions.h	2026-05-24 22:12:00.482810799 -0700
+@@ -16,7 +16,7 @@
+ // #include "config.h"
+ #include "string_functions.h"
+ #include "traits.h"
+-#include "xmlParser/xmlParser.h"
++#include "xml_compat.h"
+ 
+ #include <zlib.h>
+ #include <fstream>
