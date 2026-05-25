@@ -1,6 +1,6 @@
 Name:           quit
 Version:        3.4
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Quantitative Imaging Tools for MRI data processing
 
 License:        MPL-2.0
@@ -67,7 +67,17 @@ sed -i '1i #include <sstream>' Source/Sequences/SSFPSequence.h
 %build
 # Suppress GCC 15 -Wtemplate-body diagnostics in QUIT's own template code
 export CFLAGS="%{optflags} -std=gnu17"
-export CXXFLAGS="%{optflags} -Wno-template-body -include cstdint"
+# GCC 16 + ITK 5.4's bundled Eigen 3.3.x: itkeigen/Eigen/src/Geometry/Quaternion.h
+# uses `typename std::is_nothrow_move_constructible<T>::value` — invalid since
+# C++17 (::value is a non-type). Patch ITK's installed header into a local
+# private copy with the typename keyword stripped, then prepend it on the
+# include path so the patched version wins over /usr/include/ITK-5.4/itkeigen/.
+mkdir -p _itk_eigen_patch/Eigen/src/Geometry
+cp /usr/include/ITK-5.4/itkeigen/Eigen/src/Geometry/Quaternion.h \
+   _itk_eigen_patch/Eigen/src/Geometry/Quaternion.h
+sed -i 's/typename std::is_nothrow_move_/std::is_nothrow_move_/g' \
+   _itk_eigen_patch/Eigen/src/Geometry/Quaternion.h
+export CXXFLAGS="%{optflags} -Wno-template-body -include cstdint -fpermissive -I$PWD/_itk_eigen_patch"
 # Build bundled fmt 9.1.0 first
 cmake -S External/fmt -B External/fmt/build \
     -DCMAKE_BUILD_TYPE=Release \
@@ -91,6 +101,14 @@ cmake -S External/fmt -B External/fmt/build \
 %{_bindir}/qi
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-4
+- Shadow-patch ITK 5.4's bundled itkeigen/Eigen/src/Geometry/Quaternion.h:
+  copy it into _itk_eigen_patch/ in %build, strip the invalid
+  `typename std::is_nothrow_move_*<T>::value` typename keyword, prepend the
+  patched dir to -I so it wins over /usr/include/ITK-5.4/itkeigen/.
+  Add -fpermissive belt-and-suspenders. GCC 16 now enforces what was
+  always invalid C++ (typename used on a non-type ::value member).
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-2
 - Add missing Source2 Findargs.cmake (was referenced but never committed,
   blocking SRPM rebuild). Simple header-only find module providing

@@ -3,12 +3,18 @@
 
 Name:           mrtrix3
 Version:        3.0.8
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Advanced Diffusion MRI Processing and Visualisation
 
 License:        MPL-2.0
 URL:            https://www.mrtrix.org/
 Source0:        https://github.com/MRtrix3/%{name}/archive/refs/tags/%{version}.tar.gz#/%{name}-%{version}.tar.gz
+# Bundled Eigen 3.4.0 — system eigen3 5.0.1 on F44+ renamed the version macros
+# (EIGEN_WORLD_VERSION → EIGEN_VERSION_MAJOR, etc.) which breaks mrtrix3's
+# configure test compile. Bundling lets us pin to a 3.x API.
+Source1:        https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
+
+Provides:       bundled(eigen3) = 3.4.0
 
 BuildRequires:  gcc-c++
 BuildRequires:  git
@@ -39,6 +45,9 @@ group-level analyses.
 %prep
 %autosetup
 
+# Extract bundled Eigen 3.4.0 alongside the source tree
+tar xf %{SOURCE1}
+
 %build
 # 1. Fix build scripts to use python3 (Required for Mock/Fedora)
 # MRtrix3 defaults to 'python', which doesn't exist in clean Fedora chroots.
@@ -58,6 +67,9 @@ export ARCH="native"
 export QMAKE=/usr/bin/qmake-qt5
 export MOC=/usr/bin/moc-qt5
 export RCC=/usr/bin/rcc-qt5
+
+# Force configure to use bundled Eigen 3.4.0 (avoid system Eigen 5)
+export EIGEN_CFLAGS="-isystem $PWD/eigen-3.4.0"
 
 # 6. Configure (now using python3)
 ./configure -debug
@@ -105,5 +117,11 @@ done
 %{_bindir}/*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 3.0.8-2
+- Bundle Eigen 3.4.0: F44+ system eigen3 5.0.1 renamed the version macros
+  (EIGEN_WORLD_VERSION → EIGEN_VERSION_MAJOR) which breaks mrtrix3's
+  configure test-compile of the Eigen3 detection probe. Pinning to a 3.x API
+  via $PWD/eigen-3.4.0 + EIGEN_CFLAGS sidesteps the Eigen-5 incompatibility.
+
 * Sun Jan 04 2026 Morgan Hough <morgan.hough@gmail.com> - 3.0.8-1
 - Initial package for MRtrix3 version 3.0.8
