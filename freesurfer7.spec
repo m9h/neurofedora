@@ -22,7 +22,7 @@ Source0:        https://github.com/freesurfer/freesurfer/archive/refs/tags/v%{ve
 # NOTE: freesurfer-fedora-host-os.patch is FS-8.2.0-tailored and does not apply
 # to the FS-7.4.1 source tree (4/4 hunks reject on CMakeLists.txt). Until a
 # 7.4.1-port of that patch is written, leave it out — most of what it does
-# (set Fedora as host_os, VTK/ITK paths) we do via %cmake flags below anyway.
+# (set Fedora as host_os, VTK/ITK paths) we do via %%cmake flags below anyway.
 
 # Shared infrastructure: /etc/profile.d/freesurfer.{sh,csh}, license install
 # tool, /etc/freesurfer/ layout — all owned by freesurfer-common so parallel
