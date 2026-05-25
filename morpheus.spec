@@ -11,7 +11,7 @@
 
 Name:           morpheus
 Version:        2.3.9
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -178,15 +178,15 @@ for lib in \
     redhat-linux-build/3rdparty/gnuplot_i/libgnuplot_interface.so \
     redhat-linux-build/3rdparty/tiny-process/libtiny-process-library.so \
     redhat-linux-build/3rdparty/qtsingleapp/libqtsingleapp.so; do
-    if [[ -f "$lib" ]]; then
+    if [ -f "$lib" ]; then
         install -m 0755 "$lib" %{buildroot}%{_libdir}/morpheus/
     fi
 done
 
 # Set RPATH on the binaries so they find the private libs at runtime
-# (the %cmake build embeds a build-tree RPATH that rpmbuild then strips).
+# (the %%cmake build embeds a build-tree RPATH that rpmbuild then strips).
 for bin in %{buildroot}%{_bindir}/morpheus %{buildroot}%{_bindir}/morpheus-gui; do
-    [[ -x "$bin" ]] && patchelf --set-rpath %{_libdir}/morpheus "$bin"
+    [ -x "$bin" ] && patchelf --set-rpath %{_libdir}/morpheus "$bin"
 done
 
 # Install desktop file
@@ -206,6 +206,15 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-6
+- Fix %%cmake macro expansion inside %%install comment from -5: a comment
+  said "(the %cmake build embeds ...)" without %% escape, rpmbuild
+  expanded it into a multi-line cmake invocation that made %%install
+  fail at line 104 with `syntax error near unexpected token ')'`.
+  Escape now. Also swap [[ ]] for [ ] in install since the spec script
+  runs under sh; bash-only syntax was incidentally working before but
+  isn't worth depending on.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-5
 - Install the 5 bundled shared libs (libXMLUtils, libMorpheusMLconv,
   libmuParser, libgnuplot_interface, libtiny-process-library) to a
