@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -129,7 +129,10 @@ unless a commercial CGAL license is obtained from GeometryFactory.
 %package libs
 Summary:        VTK modules for VESPA's CGAL bridge
 Requires:       vtk%{?_isa}
-Requires:       CGAL%{?_isa}
+# Fedora's CGAL package is noarch (header-only library), so its Provides
+# don't include the (x86-64) arch tag — drop the %%{?_isa} or dnf can't
+# resolve `CGAL(x86-64)`.
+Requires:       CGAL
 
 %description libs
 The vtkCGAL* VTK modules: Delaunay, PointSetProcessing,
@@ -155,6 +158,7 @@ not, load it manually via Tools > Manage Plugins > Load New.
 Summary:        Development files for %{name}
 Requires:       %{name}-libs%{?_isa} = %{version}-%{release}
 Requires:       vtk-devel
+# CGAL-devel is also noarch (it just provides headers); no _isa needed.
 Requires:       CGAL-devel
 
 %description devel
@@ -271,6 +275,13 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-8
+- Drop %%{?_isa} from `Requires: CGAL` / `Requires: CGAL-devel`. Fedora's
+  CGAL package is noarch (header-only library) and doesn't provide a
+  CGAL(x86-64) tag, so dnf couldn't resolve the dep on the harness install.
+- (Rawhide chroot still fails on VTK::cli11 missing target; F44 builds and
+  installs cleanly.)
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-7
 - Set -DBUILD_PYTHON_WRAPPERS=OFF: VTK 9.6's Python wrapper code
   generator emits *Python.cxx files referencing PyVTKGetSet,

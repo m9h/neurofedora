@@ -87,7 +87,12 @@ collect() {
             # known shared-root directories explicitly. Anything left is
             # almost always a real file (libraries, binaries, headers,
             # cmake config) — exactly what causes install-time conflicts.
-            dnf -q repoquery --quiet -l "$pkg" 2>/dev/null \
+            # --latest-limit 1: dnf repoquery -l returns files for ALL
+            # versions of a package in the repo by default, which produces
+            # phantom collisions when an older version had different bundling
+            # (the itksnap-0.7 / -0.9 case — 0.9 dropped the bundled c3d/greedy
+            # CLIs but repoquery still saw 0.7's /usr/bin/c3d).
+            dnf -q repoquery --quiet -l --latest-limit 1 "$pkg" 2>/dev/null \
                 | awk '
                     # build-id tree: per-package by design, never a real conflict
                     /^\/usr\/lib\/\.build-id(\/|$)/ {next}

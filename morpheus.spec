@@ -1,8 +1,17 @@
 %define debug_package %{nil}
 
+# Filter auto-Requires for morpheus's bundled shared libs. The 2.3.9 cmake
+# emits them as libXMLUtils.so / libMorpheusMLconv.so / libmuParser.so /
+# libgnuplot_interface.so / libtiny-process-library.so under
+# %%{_libdir}/morpheus/ (private dir, ldconfig doesn't index). The morpheus
+# binary's RPATH points there. rpmbuild's auto-dep generator doesn't know
+# about RPATH so it'd generate unsatisfiable Requires for these unversioned
+# SONAMEs — exclude them explicitly.
+%global __requires_exclude ^lib(XMLUtils|MorpheusMLconv|muParser|gnuplot_interface|tiny-process-library|qtsingleapp)\.so
+
 Name:           morpheus
 Version:        2.3.9
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -27,6 +36,7 @@ Patch0:         morpheus-2.3.7-xml_compat-pugixml.patch
 
 BuildRequires:  cmake >= 3.5
 BuildRequires:  gcc-c++
+BuildRequires:  patchelf
 BuildRequires:  make
 BuildRequires:  boost-devel
 BuildRequires:  pugixml-devel
@@ -153,12 +163,40 @@ export CXXFLAGS="%{optflags} -std=c++17"
 %install
 %cmake_install
 
+# Ship the 5 bundled shared libs morpheus and morpheus-gui link against.
+# Upstream cmake builds them as SHARED but doesn't install() them; the
+# 2.3.7 -> 2.3.9 jump introduced a regression where these went from static
+# (baked in) to shared (NEEDED entries on the binaries). Install to a
+# private %%{_libdir}/morpheus/ dir + patchelf the binaries to RPATH
+# there. Private dir keeps ldconfig from indexing them globally (would
+# collide with Fedora's muParser, for instance).
+install -d %{buildroot}%{_libdir}/morpheus
+for lib in \
+    redhat-linux-build/xmlutils/libXMLUtils.so \
+    redhat-linux-build/morpheusML/libMorpheusMLconv.so \
+    redhat-linux-build/3rdparty/muParser/libmuParser.so \
+    redhat-linux-build/3rdparty/gnuplot_i/libgnuplot_interface.so \
+    redhat-linux-build/3rdparty/tiny-process/libtiny-process-library.so \
+    redhat-linux-build/3rdparty/qtsingleapp/libqtsingleapp.so; do
+    if [[ -f "$lib" ]]; then
+        install -m 0755 "$lib" %{buildroot}%{_libdir}/morpheus/
+    fi
+done
+
+# Set RPATH on the binaries so they find the private libs at runtime
+# (the %cmake build embeds a build-tree RPATH that rpmbuild then strips).
+for bin in %{buildroot}%{_bindir}/morpheus %{buildroot}%{_bindir}/morpheus-gui; do
+    [[ -x "$bin" ]] && patchelf --set-rpath %{_libdir}/morpheus "$bin"
+done
+
 # Install desktop file
 desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || true
 
 %files
 %license LICENSE.md
 %{_bindir}/morpheus
+%dir %{_libdir}/morpheus
+%{_libdir}/morpheus/lib*.so
 
 %files gui
 %{_bindir}/morpheus-gui
@@ -168,6 +206,18 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-5
+- Install the 5 bundled shared libs (libXMLUtils, libMorpheusMLconv,
+  libmuParser, libgnuplot_interface, libtiny-process-library) to a
+  private %%{_libdir}/morpheus/ dir + patchelf the morpheus / morpheus-gui
+  binaries to RPATH there. Upstream cmake builds them as SHARED but
+  doesn't install() them; the 2.3.7 -> 2.3.9 jump made the binaries
+  NEEDED these libs at runtime, so the -4 RPM shipped with unsatisfiable
+  Requires that blocked dnf install. Private dir avoids collision with
+  Fedora's own muParser. Auto-Requires for the private SONAMEs filtered
+  via %%__requires_exclude.
+- Add patchelf to BuildRequires.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-4
 - Replace `%%autosetup -n morpheus-v%%{version} -p1` with split
   `%%setup -q -n morpheus-v%%{version}` + `%%patch -P 0 -p1`. The
