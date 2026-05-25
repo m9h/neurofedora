@@ -10,7 +10,6 @@ morpheus-2.3.9 against the same tree with the wrapper applied, so the
 patch is byte-exact and applies under `patch --fuzz=0` (the strict
 default mock/rpmbuild uses).
 
-diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/CMakeLists.txt m239-patched/morpheus-v2.3.9/3rdparty/CMakeLists.txt
 --- a/3rdparty/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
 +++ b/3rdparty/CMakeLists.txt	2026-05-24 22:12:00.478037562 -0700
 @@ -1,5 +1,5 @@
@@ -20,7 +19,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/CMakeLists.txt m239-patched/morphe
  add_subdirectory(tiny-process)
  add_subdirectory(gnuplot_i)
  SET(XTENSOR_USE_XSIMD 1)
-diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/AFPL_License.html m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/AFPL_License.html
 --- a/3rdparty/xmlParser/AFPL_License.html	2025-02-28 03:17:39.000000000 -0800
 +++ b/3rdparty/xmlParser/AFPL_License.html	1969-12-31 16:00:00.000000000 -0800
 @@ -1,499 +0,0 @@
@@ -523,12 +521,10 @@ diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/AFPL_License.html m239-p
 -     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
 -     SECTION 108(a)(3)).
 --->
-diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/CMakeLists.txt m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/CMakeLists.txt
 --- a/3rdparty/xmlParser/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
 +++ b/3rdparty/xmlParser/CMakeLists.txt	1969-12-31 16:00:00.000000000 -0800
 @@ -1 +0,0 @@
 -add_library(xmlParser xmlParser.cpp)
-diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.cpp m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.cpp
 --- a/3rdparty/xmlParser/xmlParser.cpp	2025-02-28 03:17:39.000000000 -0800
 +++ b/3rdparty/xmlParser/xmlParser.cpp	1969-12-31 16:00:00.000000000 -0800
 @@ -1,2892 +0,0 @@
@@ -3424,7 +3420,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.cpp m239-patch
 -    return (unsigned char*)buf;
 -}
 -
-diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.h m239-patched/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.h
 --- a/3rdparty/xmlParser/xmlParser.h	2025-02-28 03:17:39.000000000 -0800
 +++ b/3rdparty/xmlParser/xmlParser.h	1969-12-31 16:00:00.000000000 -0800
 @@ -1,735 +0,0 @@
@@ -4163,7 +4158,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/3rdparty/xmlParser/xmlParser.h m239-patched
 -#undef XMLDLLENTRY
 -
 -#endif
-diff -ruN m239-clean/morpheus-v2.3.9/morpheus/CMakeLists.txt m239-patched/morpheus-v2.3.9/morpheus/CMakeLists.txt
 --- a/morpheus/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
 +++ b/morpheus/CMakeLists.txt	2026-05-24 22:12:00.478851819 -0700
 @@ -35,7 +35,7 @@
@@ -4193,7 +4187,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/morpheus/CMakeLists.txt m239-patched/morphe
  		ENDIF()
  		IF("libzstd" IN_LIST TIFF_DEPENDS)
  			message(STATUS "LibTIFF requires zstd")
-diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/exceptions.h m239-patched/morpheus-v2.3.9/morpheus/core/exceptions.h
 --- a/morpheus/core/exceptions.h	2025-02-28 03:17:39.000000000 -0800
 +++ b/morpheus/core/exceptions.h	2026-05-24 22:12:00.479631312 -0700
 @@ -4,7 +4,6 @@
@@ -4204,7 +4197,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/exceptions.h m239-patched/mor
  #include "xml_functions.h"
  
  
-diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/simulation.cpp m239-patched/morpheus-v2.3.9/morpheus/core/simulation.cpp
 --- a/morpheus/core/simulation.cpp	2025-02-28 03:17:39.000000000 -0800
 +++ b/morpheus/core/simulation.cpp	2026-05-24 22:12:00.480418309 -0700
 @@ -9,7 +9,6 @@
@@ -4382,7 +4374,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/morpheus/core/simulation.cpp m239-patched/m
  }
  
  void wipe()
-diff -ruN m239-clean/morpheus-v2.3.9/morpheus/plugins/analysis/tiff_plotter.cpp m239-patched/morpheus-v2.3.9/morpheus/plugins/analysis/tiff_plotter.cpp
 --- a/morpheus/plugins/analysis/tiff_plotter.cpp	2025-02-28 03:17:39.000000000 -0800
 +++ b/morpheus/plugins/analysis/tiff_plotter.cpp	2026-05-24 22:12:00.481210364 -0700
 @@ -652,7 +652,7 @@
@@ -4394,7 +4385,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/morpheus/plugins/analysis/tiff_plotter.cpp 
  	}
  	else if (file_desc.header == Header::IMAGEJ) {
  
-diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/CMakeLists.txt m239-patched/morpheus-v2.3.9/xmlutils/CMakeLists.txt
 --- a/xmlutils/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
 +++ b/xmlutils/CMakeLists.txt	2026-05-24 22:12:00.482006498 -0700
 @@ -1,6 +1,7 @@
@@ -4422,7 +4412,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/CMakeLists.txt m239-patched/morphe
 +    target_link_libraries(runXmlCompatTests XMLUtils gtest)
 +ENDIF()
  
-diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.cpp m239-patched/morpheus-v2.3.9/xmlutils/xml_compat.cpp
 --- a/xmlutils/xml_compat.cpp	1969-12-31 16:00:00.000000000 -0800
 +++ b/xmlutils/xml_compat.cpp	2026-05-24 22:12:00.477151260 -0700
 @@ -0,0 +1,956 @@
@@ -5382,7 +5371,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.cpp m239-patched/morphe
 +    if (outByteLen) *outByteLen = outSize;
 +    return out;
 +}
-diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.h m239-patched/morpheus-v2.3.9/xmlutils/xml_compat.h
 --- a/xmlutils/xml_compat.h	1969-12-31 16:00:00.000000000 -0800
 +++ b/xmlutils/xml_compat.h	2026-05-24 22:12:00.474812691 -0700
 @@ -0,0 +1,234 @@
@@ -5620,7 +5608,6 @@ diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_compat.h m239-patched/morpheus
 +};
 +
 +#endif // XML_COMPAT_H
-diff -ruN m239-clean/morpheus-v2.3.9/xmlutils/xml_functions.h m239-patched/morpheus-v2.3.9/xmlutils/xml_functions.h
 --- a/xmlutils/xml_functions.h	2025-02-28 03:17:39.000000000 -0800
 +++ b/xmlutils/xml_functions.h	2026-05-24 22:12:00.482810799 -0700
 @@ -16,7 +16,7 @@

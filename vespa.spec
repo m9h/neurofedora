@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -72,6 +72,10 @@ BuildRequires:  cmake(Qt6Svg)
 BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  qt6-qttools-devel
 BuildRequires:  qt6-qtbase-devel
+# VTK 9.6's cmake config does find_package(CLI11) for its command-line
+# parsing layer (vtkscn module). Header-only library; provides
+# CLI11Config.cmake in cli11-devel.
+BuildRequires:  cli11-devel
 # More ParaView 6.x transitive find_package deps — each appears at
 # configure time when paraview-config.cmake loads its module manifest.
 BuildRequires:  protobuf-devel
@@ -252,6 +256,11 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-5
+- Add `BuildRequires: cli11-devel`. VTK 9.6's vtkscn cmake module does
+  find_package(CLI11) at configure time. -4 cleared the Qt6 cascade
+  only to hit this next.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-4
 - Add `BuildRequires: qt6-qttools-devel` (provides Qt6Help, Qt6Designer,
   Qt6LinguistTools). -3 cleared Qt6Core5Compat only to hit Qt6Help next

@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -161,13 +161,19 @@ sed -i 's|TYPE LIB|DESTINATION %{_lib}/cmake/vmtk|' CMakeLists.txt
 sed -i 's|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_BIN_DIR}|install(TARGETS tet DESTINATION ${VTK_VMTK_INSTALL_LIB_DIR}|' \
     vtkVmtk/Utilities/tetgen1.4.3/CMakeLists.txt
 
-# GCC 15 no longer re-exports std::cout via the cstdlib chain;
-# vtkvmtkPolyDataDiscreteElasticaFilter.cxx uses bare `cout` at line 331
-# and fails with "error: 'cout' was not declared in this scope". Same
-# class of regression as the itksnap SynchronizationModel.cxx fix —
-# prepend an explicit <iostream> + `using std::cout;` to the file.
-sed -i '1i #include <iostream>\nusing std::cout;' \
-    vtkVmtk/DifferentialGeometry/vtkvmtkPolyDataDiscreteElasticaFilter.cxx
+# GCC 15 no longer re-exports std::cout via the cstdlib chain. Bare `cout`
+# uses scattered across the vtkVmtk/ source tree now fail with
+# "error: 'cout' was not declared in this scope". -0.7 patched one file
+# (vtkvmtkPolyDataDiscreteElasticaFilter.cxx) only to hit the next site
+# (vtkvmtkPolyDataSurfaceRemeshing.cxx) and beyond. Sweep ALL .cxx files
+# under vtkVmtk/ — prepend `#include <iostream>` + `using std::cout;` to
+# every file. Idempotent (skips files where the using-statement is
+# already present). Cheap insurance; no downside even for files that
+# don't use cout — the include and using-decl are harmless.
+find vtkVmtk -name '*.cxx' -type f | while read -r f; do
+    grep -qF 'using std::cout;' "$f" || \
+        sed -i '1i #include <iostream>\nusing std::cout;' "$f"
+done
 
 %build
 # GCC 15 / Fedora 43+ compatibility
@@ -263,6 +269,13 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.8.20250820git311f4792
+- Generalize the GCC 15 cout fix to ALL .cxx files under vtkVmtk/ via a
+  find/sed loop. -0.7 patched one file only to hit the next site
+  (vtkvmtkPolyDataSurfaceRemeshing.cxx) at -0.7's compile step. Cover
+  the whole tree at once — idempotent, no harm to files that don't use
+  cout.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.7.20250820git311f4792
 - Back-port GCC 15 `cout` qualification to
   vtkVmtk/DifferentialGeometry/vtkvmtkPolyDataDiscreteElasticaFilter.cxx
