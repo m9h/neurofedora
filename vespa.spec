@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -129,10 +129,11 @@ unless a commercial CGAL license is obtained from GeometryFactory.
 %package libs
 Summary:        VTK modules for VESPA's CGAL bridge
 Requires:       vtk%{?_isa}
-# Fedora's CGAL package is noarch (header-only library), so its Provides
-# don't include the (x86-64) arch tag — drop the %%{?_isa} or dnf can't
-# resolve `CGAL(x86-64)`.
-Requires:       CGAL
+# CGAL is header-only on Fedora — there is no runtime `CGAL` package at
+# all, only `CGAL-devel` (and CGAL-qt6-devel, CGAL-demos-source). vespa
+# vtkCGAL*.so already has the CGAL template code baked in at build time,
+# so no runtime CGAL Requires is needed. (vespa-devel still pulls in
+# CGAL-devel below for downstream consumers building against the headers.)
 
 %description libs
 The vtkCGAL* VTK modules: Delaunay, PointSetProcessing,
@@ -275,6 +276,13 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-9
+- Drop the runtime `Requires: CGAL` from vespa-libs entirely. -8 changed
+  it from `CGAL(x86-64)` to bare `CGAL` but Fedora has NO runtime CGAL
+  package at all — only CGAL-devel / CGAL-qt6-devel / CGAL-demos-source.
+  Since CGAL is header-only and its template code is baked into
+  libvtkCGAL*.so at build time, no runtime dep is needed.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-8
 - Drop %%{?_isa} from `Requires: CGAL` / `Requires: CGAL-devel`. Fedora's
   CGAL package is noarch (header-only library) and doesn't provide a

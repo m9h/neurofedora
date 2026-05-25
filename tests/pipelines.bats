@@ -320,11 +320,11 @@ PIPECMD
     fi
 }
 
-@test "[016] freesurfer: mri_info --dim \"$FIX/t1.nii.gz\" 2>&1" {
+@test "[016] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/t1.nii.gz\" 2>&1" {
     _require_fixtures
     _require_installed "freesurfer"
     run --separate-stderr bash <<PIPECMD
-mri_info --dim "$FIX/t1.nii.gz" 2>&1
+/usr/lib/freesurfer/bin/mri_info --dim "$FIX/t1.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"

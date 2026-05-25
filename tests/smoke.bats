@@ -132,10 +132,10 @@ _require_installed() {
     grep -qE "MRtrix" <<<"$output\n$stderr" || { echo "expected /MRtrix/ in output, got: $output $stderr"; false; }
 }
 
-@test "freesurfer (cli): mri_info --version 2>&1" {
+@test "freesurfer (cli): /usr/lib/freesurfer/bin/mri_info --version 2>&1" {
     _require_installed "freesurfer"
-    run --separate-stderr bash -c "mri_info --version 2>&1"
-    grep -qE "freesurfer" <<<"$output\n$stderr" || { echo "expected /freesurfer/ in output, got: $output $stderr"; false; }
+    run --separate-stderr bash -c "/usr/lib/freesurfer/bin/mri_info --version 2>&1"
+    grep -qE "[Ff]reesurfer" <<<"$output\n$stderr" || { echo "expected /[Ff]reesurfer/ in output, got: $output $stderr"; false; }
 }
 
 @test "afni (cli): afni -ver 2>&1" {
@@ -174,21 +174,21 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "liblsl (lib): test -f /usr/lib64/liblsl.so" {
+@test "liblsl (lib): test -f /usr/lib64/liblsl.so.2" {
     _require_installed "liblsl"
-    run --separate-stderr bash -c "test -f /usr/lib64/liblsl.so"
+    run --separate-stderr bash -c "test -f /usr/lib64/liblsl.so.2"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "libxdf (lib): test -f /usr/lib64/libxdf.so" {
+@test "libxdf (lib): test -f /usr/lib64/libxdf.so.0" {
     _require_installed "libxdf"
-    run --separate-stderr bash -c "test -f /usr/lib64/libxdf.so"
+    run --separate-stderr bash -c "test -f /usr/lib64/libxdf.so.0"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "brainflow (lib): test -d /usr/lib64/cmake/brainflow || test -f /usr/lib64/libBoardController.so" {
+@test "brainflow (lib): test -f /usr/lib64/libBoardController.so.5" {
     _require_installed "brainflow"
-    run --separate-stderr bash -c "test -d /usr/lib64/cmake/brainflow || test -f /usr/lib64/libBoardController.so"
+    run --separate-stderr bash -c "test -f /usr/lib64/libBoardController.so.5"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -228,9 +228,9 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "dtk-qt6 (lib): test -f /usr/lib64/libdtkCore.so" {
+@test "dtk-qt6 (lib): test -f /usr/lib64/libdtkCore.so.1" {
     _require_installed "dtk-qt6"
-    run --separate-stderr bash -c "test -f /usr/lib64/libdtkCore.so"
+    run --separate-stderr bash -c "test -f /usr/lib64/libdtkCore.so.1"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 

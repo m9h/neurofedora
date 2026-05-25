@@ -54,7 +54,11 @@ mrtrix3	cli	mrconvert --version	MRtrix
 # WIP-F44: dsi-studio	cli	dsi_studio --action=ana 2>&1	DSI Studio
 # WIP-F44: connectome-workbench	cli	wb_command -version 2>&1	Connectome Workbench
 # WIP-F44: minc-tools	cli	mincinfo -version 2>&1	mincinfo
-freesurfer	cli	mri_info --version 2>&1	freesurfer
+# freesurfer ships /usr/lib/freesurfer/bin/mri_info; the bin dir is NOT on
+# the default $PATH (depends on /etc/profile.d/freesurfer.sh being sourced,
+# which a fresh shell may not do). Use the absolute path so the test is
+# environment-independent.
+freesurfer	cli	/usr/lib/freesurfer/bin/mri_info --version 2>&1	[Ff]reesurfer
 # Fixed across afni-26.1.00 -2/-3/-4/-5/-6: bundled lib SONAME renames.
 # `afni -ver` prints "Precompiled binary 1: <date> (Version AFNI_<NN.NN.NN> '<name>')".
 afni	cli	afni -ver 2>&1	AFNI_[0-9]+
@@ -78,9 +82,11 @@ labrecorder	gui	test -x /usr/bin/LabRecorder
 # WIP: mitk	lib	test -f /usr/lib64/libMitkCore.so	  # install rules pending (Patch1 in -7)
 
 # ─── BCI / signal acquisition ──────────────────────────────────────────────────
-liblsl	lib	test -f /usr/lib64/liblsl.so
-libxdf	lib	test -f /usr/lib64/libxdf.so
-brainflow	lib	test -d /usr/lib64/cmake/brainflow || test -f /usr/lib64/libBoardController.so
+# Versioned .so (runtime) — the unversioned `.so` symlinks live in -devel
+# subpackages which aren't always installed alongside the runtime.
+liblsl	lib	test -f /usr/lib64/liblsl.so.2
+libxdf	lib	test -f /usr/lib64/libxdf.so.0
+brainflow	lib	test -f /usr/lib64/libBoardController.so.5
 # WIP-F44: openvibe	gui	test -x /usr/bin/openvibe-acquisition-server || test -x /usr/bin/openvibe-designer
 # WIP: open-ephys-gui	gui	test -x /usr/bin/open-ephys
 
@@ -94,7 +100,7 @@ fcl	lib	test -f /usr/lib64/libfcl.so.0.7
 flann	lib	test -f /usr/lib64/libflann.so.1.9
 
 # ─── INRIA medInria chain (libs) ───────────────────────────────────────────────
-dtk-qt6	lib	test -f /usr/lib64/libdtkCore.so
+dtk-qt6	lib	test -f /usr/lib64/libdtkCore.so.1
 # RPI is header-only by design: the main pkg is empty, content ships in RPI-devel
 RPI-devel	lib	test -d /usr/include/RegistrationAddOn && test -d /usr/lib64/cmake/RPI
 TTK	lib	test -f /usr/lib64/libttkAlgorithms.so.1

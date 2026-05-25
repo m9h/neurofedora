@@ -67,7 +67,7 @@ mrtrix3	mrinfo "$FIX/dwi/dwi.nii.gz"	Dimensions:.*32 x 32 x 32 x 7
 
 # ─── AFNI / FreeSurfer ────────────────────────────────────────────────────────
 afni	3dinfo -n4 "$FIX/t1.nii.gz"	32\s+32\s+32
-freesurfer	mri_info --dim "$FIX/t1.nii.gz" 2>&1	32 +32 +32
+freesurfer	/usr/lib/freesurfer/bin/mri_info --dim "$FIX/t1.nii.gz" 2>&1	32 +32 +32
 
 # ─── Mesh / surfaces ──────────────────────────────────────────────────────────
 # python3-vmtk currently FAILS at `from vmtk import vmtkscripts` with
