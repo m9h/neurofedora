@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -132,6 +132,39 @@ Note: Full TRACULA processing requires FSL (bedpostx, probtrackx2).
 for hdr in include/macros.h include/image.h include/histo.h; do
     sed -i -E 's|^#define[[:space:]]+UCHAR[[:space:]]+unsigned char.*$|typedef unsigned char UCHAR; /* was #define for ITK enum compat */|' "$hdr"
     sed -i -E 's|^#define[[:space:]]+UINT[[:space:]]+unsigned int.*$|typedef unsigned int UINT;  /* was #define for ITK enum compat */|' "$hdr"
+done
+
+# ITK 5.4 deprecated the VXL vcl_* compatibility shims and now emits a hard
+# #error from <vcl_cmath.h>, <vcl_iostream.h>, etc.: "Deprecated. Use
+# equivalent C++11 header instead." FS 7.4.1's fs_powell.cpp / fs_lbfgs.cpp
+# still call vcl_cerr / vcl_setw / vcl_endl / vcl_sqrt / vcl_fabs / vcl_cmath
+# and vnl_math_sqr. FS 8.x already migrated. Apply the same substitutions
+# upstream's UseStandardHeaders.py recipe documents.
+for src in utils/fs_powell.cpp utils/fs_lbfgs.cpp; do
+    [ -f "$src" ] || continue
+    # Symbol replacements: vcl_* → std::*
+    sed -i -E '
+        s|\bvcl_cerr\b|std::cerr|g;
+        s|\bvcl_cout\b|std::cout|g;
+        s|\bvcl_setw\b|std::setw|g;
+        s|\bvcl_endl\b|std::endl|g;
+        s|\bvcl_sqrt\b|std::sqrt|g;
+        s|\bvcl_fabs\b|std::fabs|g;
+        s|\bvcl_abs\b|std::abs|g;
+        s|\bvcl_pow\b|std::pow|g;
+        s|\bvcl_log\b|std::log|g;
+        s|\bvcl_exp\b|std::exp|g;
+        s|\bvnl_math_sqr\b|vnl_math::sqr|g;
+    ' "$src"
+    # Header replacements: "vcl_iostream.h" → <iostream>, etc.
+    sed -i -E '
+        s|#include[[:space:]]+["<]vcl_iostream\.h[">]|#include <iostream>|;
+        s|#include[[:space:]]+["<]vcl_iomanip\.h[">]|#include <iomanip>|;
+        s|#include[[:space:]]+["<]vcl_cmath\.h[">]|#include <cmath>|;
+        s|#include[[:space:]]+["<]vcl_cassert\.h[">]|#include <cassert>|;
+        s|#include[[:space:]]+["<]vcl_cstdlib\.h[">]|#include <cstdlib>|;
+        s|#include[[:space:]]+["<]vcl_cstring\.h[">]|#include <cstring>|;
+    ' "$src"
 done
 
 # GCC 15: fix K&R-style empty parameter lists in bundled CTN DICOM
@@ -386,6 +419,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-4
+- ITK 5.4 vcl_* deprecation: utils/fs_powell.cpp and utils/fs_lbfgs.cpp
+  use vcl_cerr/setw/endl/sqrt/fabs/cmath/vnl_math_sqr. Sed-replace with
+  std::* equivalents per upstream UseStandardHeaders.py recipe.
 
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-3
 - Patch include/macros.h, image.h, histo.h: convert #define UCHAR/UINT

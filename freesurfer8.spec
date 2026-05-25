@@ -10,7 +10,7 @@
 
 Name:           freesurfer8
 Version:        8.2.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 8.2.0)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -171,6 +171,19 @@ sed -i 's/set(QT_LIBRARIES ${QT_LIBRARIES} Qt5::X11Extras)/if(Qt5_DIR)\n    set(
 
 # Remove annex tarball extractions everywhere — data not in source tarball (git-annex)
 find . -name CMakeLists.txt -exec sed -i '/install_tarball/d' {} +
+
+# GCC 16 (rawhide / F45+) tightened the namespace rules: <iostream> defines
+# std::cerr / std::cout / std::endl in namespace std only — they are no
+# longer transitively brought into the global namespace via Qt or other
+# system headers. freeview/FSPointSet.cpp and freeview/GenericRenderView.cpp
+# use bare `cerr` / `cout` / `endl` in many places. Prepend explicit using
+# declarations so unqualified references continue to resolve. (CXXFLAGS
+# -include iostream alone is insufficient — it brings the std namespace
+# into scope but does not pull symbols into global scope.)
+for src in freeview/FSPointSet.cpp freeview/GenericRenderView.cpp; do
+    [ -f "$src" ] || continue
+    sed -i '1i #include <iostream>\nusing std::cerr;\nusing std::cout;\nusing std::endl;' "$src"
+done
 
 # anatomicuts and resurf need ITK JPEG2000/PhilipsREC IO modules not in our ITK build — skip for now
 sed -i '/add_subdirectories(/,/)/{/anatomicuts/d;/resurf/d}' CMakeLists.txt
@@ -370,6 +383,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-4
+- freeview/FSPointSet.cpp + GenericRenderView.cpp use bare cerr/cout/endl;
+  GCC 16 no longer pulls them into global namespace via Qt. Prepend
+  explicit using-declarations (-include iostream alone is insufficient).
 
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-3
 - Add -include iostream to CXXFLAGS for freeview translation units
