@@ -10,7 +10,7 @@
 
 Name:           freesurfer8
 Version:        8.2.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 8.2.0)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -259,6 +259,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DMINIMAL=OFF \
     -DBUILD_GUIS=ON \
     -DFREEVIEW_LINEPROF=OFF \
@@ -369,6 +370,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-2
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 (was in legacy freesurfer-8.2.0-8
+  but lost when this spec was forked off freesurfer-8.2.0-7).
+  Fixes packages/dcm2niix/ucm.cmake:13 cmake_minimum_required FTBFS on cmake 4.x.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-1
 - Rename freesurfer → freesurfer8 for parallel-install layout. Installs under
   /usr/lib/freesurfer-8.2.0/ so freesurfer7 can sit alongside.

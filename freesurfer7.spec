@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -19,8 +19,10 @@ License:        FreeSurfer
 URL:            https://surfer.nmr.mgh.harvard.edu/
 Source0:        https://github.com/freesurfer/freesurfer/archive/refs/tags/v%{version}.tar.gz#/freesurfer-%{version}.tar.gz
 
-# Recognize Fedora in host_os(), set system library flags, VTK/ITK paths
-Patch0:         freesurfer-fedora-host-os.patch
+# NOTE: freesurfer-fedora-host-os.patch is FS-8.2.0-tailored and does not apply
+# to the FS-7.4.1 source tree (4/4 hunks reject on CMakeLists.txt). Until a
+# 7.4.1-port of that patch is written, leave it out — most of what it does
+# (set Fedora as host_os, VTK/ITK paths) we do via %cmake flags below anyway.
 
 # Shared infrastructure: /etc/profile.d/freesurfer.{sh,csh}, license install
 # tool, /etc/freesurfer/ layout — all owned by freesurfer-common so parallel
@@ -259,6 +261,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DMINIMAL=OFF \
     -DBUILD_GUIS=ON \
     -DFREEVIEW_LINEPROF=OFF \
@@ -369,6 +372,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-2
+- Drop freesurfer-fedora-host-os.patch (was FS-8.2.0 tailored, all hunks
+  reject against 7.4.1 source). Build now reaches %build stage.
+- Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 for cmake 4.x compat.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-1
 - Initial freesurfer7 spec — parallel-install of FreeSurfer 7.4.1 alongside
   freesurfer8 (each under its own /usr/lib/freesurfer-<ver>/ tree).
