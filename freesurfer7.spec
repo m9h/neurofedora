@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -207,6 +207,18 @@ sed -i 's/add_compile_options(-w -fPIC)/add_compile_options(-w -fPIC -std=gnu89)
 sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
 # jpeg stays bundled — imageio.cpp uses internal jinclude.h not in system libjpeg
 sed -i '/^  xml2$/d;/^  expat$/d' packages/CMakeLists.txt
+
+# ISO C++17 removed dynamic exception specifications (the `throw(SomeType)`
+# function suffix syntax) — GCC 16 now hard-errors on them. FS 7.4.1's
+# mris_volmask/{mris_volmask,mris_volmask_old}.cpp declare two functions as
+# `... surfRightPial) throw(IoError);`. Strip those clauses — the body
+# already catches IoError internally and rethrows, so dropping the
+# specification preserves observable behaviour. (`throw()` for no-throw
+# destructors is also a deprecated dynamic-spec, but g++ still warns rather
+# than errors on the empty form — leave those as-is.)
+sed -i -E 's/\)[[:space:]]*throw\(IoError\)/)/g' \
+    mris_volmask/mris_volmask.cpp \
+    mris_volmask/mris_volmask_old.cpp
 
 # GCC 16 / libstdc++ tightened transitive includes — many headers no longer
 # bring in <string>. FS 7.4.1's include/argparse.h:10 uses std::string in a
@@ -479,6 +491,10 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-9
+- ISO C++17 forbids dynamic exception specifications: strip
+  throw(IoError) clauses from mris_volmask/mris_volmask{,_old}.cpp.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-8
 - GCC 16 tightened transitive includes: include/argparse.h uses
