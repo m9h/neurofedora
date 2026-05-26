@@ -1,6 +1,6 @@
 Name:           python-trx-python
 Version:        0.4.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Community-oriented file format for tractography
 
 # Upstream pyproject says "BSD License" (SPDX: BSD-3-Clause per the
@@ -41,11 +41,13 @@ Summary:        %{summary}
 # "0.0", which trips Fedora's _python_dist_allow_version_zero check.
 #
 # Set SETUPTOOLS_SCM_PRETEND_VERSION to override. CRUCIAL: must be set
-# with `export` on its own line — `VAR=value %pyproject_wheel` does NOT
-# work because %pyproject_wheel expands to a multi-line shell block, so
+# with `export` on its own line — `VAR=value %%pyproject_wheel` does NOT
+# work because %%pyproject_wheel expands to a multi-line shell block, so
 # bash treats `VAR=value` as a plain shell assignment (not exported to
 # subprocesses), and the Python wheel-build subprocess never sees it.
-# -2 hit this exact trap.
+# -2 hit this exact trap. (% in comments MUST be doubled to prevent
+# RPM macro expansion — -3 ran %%pyproject_wheel's expansion inside
+# %prep when the bare % expanded the macro right here.)
 
 
 %generate_buildrequires
@@ -72,9 +74,16 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-4
+- Escape bare %% in %%prep comments — -3's comment said `%%pyproject_wheel`
+  with single %%, and RPM dutifully expanded the macro right there inside
+  %%prep, dumping the wheel-build pipeline mid-comment. Build died with
+  "No module named pip" because pip isn't installed in the %%prep BR set.
+  Doubled every %% in the explanatory comment.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-3
 - Use `export SETUPTOOLS_SCM_PRETEND_VERSION` on its own line instead of
-  the `VAR=value %pyproject_*` prefix form. %pyproject_wheel et al expand
+  the `VAR=value %%pyproject_*` prefix form. %%pyproject_wheel et al expand
   to multi-line shell blocks, so the prefix form sets a shell var but
   doesn't export it — the Python wheel-build subprocess never saw the
   override, and setuptools_scm fell back to "0.0" again. -2 logs show the
