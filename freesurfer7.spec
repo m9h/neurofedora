@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -449,9 +449,11 @@ find %{__cmake_builddir} -name cmake_install.cmake \
 # Fix ambiguous Python shebangs (Fedora rejects bare `python`)
 # Covers: `/usr/bin/env python`, `/usr/bin/python`, plus `python` followed by
 # args (e.g. `python -u`). brp-mangle-shebangs hard-errors on these.
+# (Use `@` as the s/// delimiter so the alternation `|` inside the regex
+# doesn't collide with the delimiter; `#` would clash with `#!`.)
 find %{buildroot}%{fs_install} -type f -exec \
-    sed -i -E '1s|^#!/usr/bin/env python([[:space:]]\|$)|#!/usr/bin/python3\1|;
-              1s|^#!/usr/bin/python([[:space:]]\|$)|#!/usr/bin/python3\1|' \
+    sed -i -E '1s@^#!/usr/bin/env python([[:space:]]|$)@#!/usr/bin/python3\1@;
+              1s@^#!/usr/bin/python([[:space:]]|$)@#!/usr/bin/python3\1@' \
     {} + 2>/dev/null || :
 
 # profile.d/freesurfer.{sh,csh} are owned by freesurfer-common now (so a
@@ -512,6 +514,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-14
+- Fix shebang sed delimiter conflict: use @ as s/// delimiter so
+  the alternation | inside the regex doesn't collide with the
+  delimiter. (FS7-13 had the right intent but unparseable sed.)
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-13
 - Extend the ambiguous-python-shebang sed to also match
