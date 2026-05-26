@@ -892,10 +892,10 @@ PIPECMD
 }
 
 @test "[044] python3-nibabel: /usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load(\"$…" {
-    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "python3-nibabel"
     run --separate-stderr bash <<PIPECMD
-/usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI150.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI150.bvec"); print("shape", img.shape, "bvec", bvec.shape)'
+/usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI193.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI193.bvec"); print("shape", img.shape, "bvec", bvec.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -915,7 +915,7 @@ PIPECMD
     _require_fixtures
     _require_installed "python3-dipy"
     run --separate-stderr bash <<PIPECMD
-/usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; from dipy.core.gradients import gradient_table; b,v=read_bvals_bvecs("$FIX/real/dwi/HARDI150.bval","$FIX/real/dwi/HARDI150.bvec"); g=gradient_table(b,bvecs=v); print("bvals", b.shape, "shells", sorted(set(b.astype(int).tolist())))'
+/usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; from dipy.core.gradients import gradient_table; b,v=read_bvals_bvecs("$FIX/real/dwi/HARDI193.bval","$FIX/real/dwi/HARDI193.bvec"); g=gradient_table(b,bvecs=v); print("bvals", b.shape, "shells", sorted(set(b.astype(int).tolist())))'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -931,11 +931,11 @@ PIPECMD
     fi
 }
 
-@test "[046] mrtrix3: mrinfo \"$FIX/real/dwi/HARDI150.nii.gz\" 2>&1" {
-    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+@test "[046] mrtrix3: mrinfo \"$FIX/real/dwi/HARDI193.nii.gz\" 2>&1" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "mrtrix3"
     run --separate-stderr bash <<PIPECMD
-mrinfo "$FIX/real/dwi/HARDI150.nii.gz" 2>&1
+mrinfo "$FIX/real/dwi/HARDI193.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -951,11 +951,11 @@ PIPECMD
     fi
 }
 
-@test "[047] mrtrix3: mrconvert -force -fslgrad \"$FIX/real/dwi/HARDI150.bvec\" \"$FIX/real/dwi…" {
-    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+@test "[047] mrtrix3: mrconvert -force -fslgrad \"$FIX/real/dwi/HARDI193.bvec\" \"$FIX/real/dwi…" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "mrtrix3"
     run --separate-stderr bash <<PIPECMD
-mrconvert -force -fslgrad "$FIX/real/dwi/HARDI150.bvec" "$FIX/real/dwi/HARDI150.bval" "$FIX/real/dwi/HARDI150.nii.gz" "$TMP/dwi_real.mif" 2>&1 | tail -3
+mrconvert -force -fslgrad "$FIX/real/dwi/HARDI193.bvec" "$FIX/real/dwi/HARDI193.bval" "$FIX/real/dwi/HARDI193.nii.gz" "$TMP/dwi_real.mif" 2>&1 | tail -3
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -972,10 +972,10 @@ PIPECMD
 }
 
 @test "[048] python3-nilearn: /usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=m…" {
-    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "python3-nilearn"
     run --separate-stderr bash <<PIPECMD
-/usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=mean_img(load_img("$FIX/real/dwi/HARDI150.nii.gz")); print("mean shape", m.shape)'
+/usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=mean_img(load_img("$FIX/real/dwi/HARDI193.nii.gz")); print("mean shape", m.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"

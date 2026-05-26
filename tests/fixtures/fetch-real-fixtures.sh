@@ -215,9 +215,9 @@ else
 fi
 
 # ─── Section 6/6: DWI via dipy.data.fetch_sherbrooke_3shell ────────────────
-# Real 4D DWI (HARDI 150 directions) with companion bval/bvec — the
+# Real 4D DWI (HARDI 193 directions) with companion bval/bvec — the
 # canonical "smallest real DWI" dataset dipy ships a fetcher for.
-# ~13 MB compressed, cached under ~/.dipy/sherbrooke_3shell/. Unlocks
+# ~184 MB compressed, cached under ~/.dipy/sherbrooke_3shell/. Unlocks
 # tests of: mrconvert -fslgrad, dwi2tensor, dipy DKI/DTI fits, fslpy
 # DWI loaders, nibabel bvec parsing.
 #
@@ -227,13 +227,13 @@ fi
 DWI_DIR="$REAL/dwi"
 mkdir -p "$DWI_DIR"
 
-if [[ -f "$DWI_DIR/HARDI150.nii.gz" && -f "$DWI_DIR/HARDI150.bval" \
-   && -f "$DWI_DIR/HARDI150.bvec" ]]; then
+if [[ -f "$DWI_DIR/HARDI193.nii.gz" && -f "$DWI_DIR/HARDI193.bval" \
+   && -f "$DWI_DIR/HARDI193.bvec" ]]; then
     echo "[real-fixtures] DWI: already present"
 elif ! /usr/bin/python3 -c "import dipy" 2>/dev/null; then
     echo "[real-fixtures] DWI: dipy not importable — skipping (install python3-dipy)"
 else
-    echo "[real-fixtures] DWI: fetching sherbrooke_3shell via dipy (~13 MB)"
+    echo "[real-fixtures] DWI: fetching sherbrooke_3shell via dipy (~184 MB)"
 /usr/bin/python3 - "$DWI_DIR" <<'PY' || echo "[real-fixtures] DWI: fetch failed (network?), skipping"
 """Fetch HARDI 3-shell DWI via dipy and copy into fixtures/real/dwi/."""
 import sys, pathlib, shutil
