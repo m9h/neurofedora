@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -31,8 +31,9 @@ Requires:       freesurfer-common
 
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
-# talairach_avi/gauss_4dfp links with -static-libgfortran; needs libgfortran.a
-BuildRequires:  libgfortran-static
+# (libgfortran-static was tried in -11 but conflicts with Fedora's hardened
+#  PIE link defaults — libgfortran.a is not built with -fPIE. Dropped here;
+#  the spec sed-strips -static-libgfortran from talairach_avi instead.)
 BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  python3-devel
@@ -229,6 +230,14 @@ sed -i -E 's/\)[[:space:]]*throw\(IoError\)/)/g' \
 sed -i '/^#ifndef ARGPARSE_H/,/^#define ARGPARSE_H/{/^#define ARGPARSE_H/a\
 #include <string>
 }' include/argparse.h
+
+# Fedora's redhat-hardened-ld specs force -pie linking. The static
+# libgfortran.a in Fedora is NOT compiled with -fPIE (it's only intended for
+# building non-PIE applications). FS 7.4.1's talairach_avi/CMakeLists.txt
+# unconditionally adds `-static-libgfortran` to both CMAKE_Fortran_FLAGS and
+# CMAKE_EXE_LINKER_FLAGS, which conflicts with PIE. Drop the flag — dynamic
+# libgfortran.so.5 is PIE-safe and is already an RPM Requires anyway.
+sed -i 's/-static-libgfortran//g' talairach_avi/CMakeLists.txt
 
 # ITK 5.x renamed itk::MultiThreader to itk::MultiThreaderBase (the legacy
 # alias was kept as a typedef for a while, then removed in 5.4+). FS 7.4.1's
@@ -499,6 +508,13 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-12
+- Drop -static-libgfortran from talairach_avi/CMakeLists.txt:
+  Fedora libgfortran.a isn't built -fPIE so static-linking
+  collides with the hardened-ld -pie default. Use dynamic
+  libgfortran.so.5 (still a runtime Requires).
+- Revert libgfortran-static BR added in -11 (no longer needed).
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-11
 - BR libgfortran-static: talairach_avi/gauss_4dfp uses
