@@ -890,3 +890,103 @@ PIPECMD
         false
     fi
 }
+
+@test "[044] python3-nibabel: /usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load(\"$…" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_installed "python3-nibabel"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI150.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI150.bvec"); print("shape", img.shape, "bvec", bvec.shape)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "shape \\(128, 128, 60, 193\\) bvec \\(3, 193\\)" <<<"$output $stderr"; then
+        echo "expected /shape \\(128, 128, 60, 193\\) bvec \\(3, 193\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[045] python3-dipy: /usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; f…" {
+    _require_fixtures
+    _require_installed "python3-dipy"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; from dipy.core.gradients import gradient_table; b,v=read_bvals_bvecs("$FIX/real/dwi/HARDI150.bval","$FIX/real/dwi/HARDI150.bvec"); g=gradient_table(b,bvecs=v); print("bvals", b.shape, "shells", sorted(set(b.astype(int).tolist())))'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "bvals \\(193,\\) shells \\[0," <<<"$output $stderr"; then
+        echo "expected /bvals \\(193,\\) shells \\[0,/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[046] mrtrix3: mrinfo \"$FIX/real/dwi/HARDI150.nii.gz\" 2>&1" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/real/dwi/HARDI150.nii.gz" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:\\s+128 x 128 x 60 x 193" <<<"$output $stderr"; then
+        echo "expected /Dimensions:\\s+128 x 128 x 60 x 193/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[047] mrtrix3: mrconvert -force -fslgrad \"$FIX/real/dwi/HARDI150.bvec\" \"$FIX/real/dwi…" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrconvert -force -fslgrad "$FIX/real/dwi/HARDI150.bvec" "$FIX/real/dwi/HARDI150.bval" "$FIX/real/dwi/HARDI150.nii.gz" "$TMP/dwi_real.mif" 2>&1 | tail -3
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "(mrconvert|completed)" <<<"$output $stderr"; then
+        echo "expected /(mrconvert|completed)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[048] python3-nilearn: /usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=m…" {
+    _require_real_fixtures "$FIX/real/dwi/HARDI150.nii.gz"
+    _require_installed "python3-nilearn"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=mean_img(load_img("$FIX/real/dwi/HARDI150.nii.gz")); print("mean shape", m.shape)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "mean shape \\(128, 128, 60\\)" <<<"$output $stderr"; then
+        echo "expected /mean shape \\(128, 128, 60\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}

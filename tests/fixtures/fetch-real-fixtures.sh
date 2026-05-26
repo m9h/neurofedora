@@ -214,6 +214,50 @@ else
     echo "[real-fixtures]   (set FSLDIR or install FSL to unlock)"
 fi
 
+# ─── Section 6/6: DWI via dipy.data.fetch_sherbrooke_3shell ────────────────
+# Real 4D DWI (HARDI 150 directions) with companion bval/bvec — the
+# canonical "smallest real DWI" dataset dipy ships a fetcher for.
+# ~13 MB compressed, cached under ~/.dipy/sherbrooke_3shell/. Unlocks
+# tests of: mrconvert -fslgrad, dwi2tensor, dipy DKI/DTI fits, fslpy
+# DWI loaders, nibabel bvec parsing.
+#
+# Requires python-dipy >= 1.10 (in mhough/neurofedora COPR). Skips
+# cleanly if dipy isn't importable (e.g., on a box that hasn't enabled
+# the COPR yet).
+DWI_DIR="$REAL/dwi"
+mkdir -p "$DWI_DIR"
+
+if [[ -f "$DWI_DIR/HARDI150.nii.gz" && -f "$DWI_DIR/HARDI150.bval" \
+   && -f "$DWI_DIR/HARDI150.bvec" ]]; then
+    echo "[real-fixtures] DWI: already present"
+elif ! /usr/bin/python3 -c "import dipy" 2>/dev/null; then
+    echo "[real-fixtures] DWI: dipy not importable — skipping (install python3-dipy)"
+else
+    echo "[real-fixtures] DWI: fetching sherbrooke_3shell via dipy (~13 MB)"
+/usr/bin/python3 - "$DWI_DIR" <<'PY' || echo "[real-fixtures] DWI: fetch failed (network?), skipping"
+"""Fetch HARDI 3-shell DWI via dipy and copy into fixtures/real/dwi/."""
+import sys, pathlib, shutil
+from dipy.data import fetch_sherbrooke_3shell, get_fnames
+
+OUT = pathlib.Path(sys.argv[1])
+OUT.mkdir(exist_ok=True)
+
+# fetch_sherbrooke_3shell caches under ~/.dipy/sherbrooke_3shell/
+fetch_sherbrooke_3shell()
+fdwi, fbval, fbvec = get_fnames(name='sherbrooke_3shell')
+
+# Copy (not symlink) so the fixture survives a ~/.dipy/ wipe
+for src in (fdwi, fbval, fbvec):
+    dst = OUT / pathlib.Path(src).name
+    if not dst.exists():
+        shutil.copy2(src, dst)
+
+# Report sizes
+total_mb = sum(p.stat().st_size for p in OUT.iterdir()) / (1024*1024)
+print(f"[real-fixtures] DWI: copied 3 files, {total_mb:.1f} MB total")
+PY
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────
 total_kb=$(du -sLk "$REAL" 2>/dev/null | awk '{print $1}')
 echo "[real-fixtures] all sections done; total ${total_kb} KB under $REAL"

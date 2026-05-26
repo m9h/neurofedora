@@ -49,20 +49,22 @@ if [[ ! -f "${HERE}/fixtures/t1.nii.gz" ]]; then
         echo "[run] fixture generation failed — pipelines.bats tests will SKIP"
 fi
 
-# Real-world dataset layer (4 domains: MRI + URDF + MorpheusML + BED, ~500 KB).
-# Each section has its own idempotency check in the fetcher, so re-running is
-# cheap; first run pulls everything in one network pass. Always invoke unless
-# every domain's marker file is already present — catches the case where MRI
-# was fetched in a previous run but other domains were added later.
+# Real-world dataset layer (5 domains: MRI + URDF + MorpheusML + BED + DWI,
+# ~13.5 MB once dipy fetched).  Each section has its own idempotency check
+# in the fetcher, so re-running is cheap; first run pulls everything in one
+# network pass.  Always invoke unless every domain's marker file is already
+# present — catches the case where one domain was fetched in a previous run
+# but a new one (e.g. DWI) was added later.
 need_fetch=0
 for marker in fixtures/real/mni152_t1_2mm.nii.gz \
               fixtures/real/urdf/primitive_geometry.urdf \
               fixtures/real/morpheus/ActivatorInhibitor_1D.xml \
-              fixtures/real/genomics/sample.bed; do
+              fixtures/real/genomics/sample.bed \
+              fixtures/real/dwi/HARDI150.nii.gz; do
     [[ -f "${HERE}/$marker" ]] || { need_fetch=1; break; }
 done
 if (( need_fetch )); then
-    echo "==> fetch real-world fixtures (MRI + URDF + MorpheusML + genomics)"
+    echo "==> fetch real-world fixtures (MRI + URDF + MorpheusML + genomics + DWI)"
     "${HERE}/fixtures/fetch-real-fixtures.sh" || \
         echo "[run] real-fixture fetch had failures — affected pipelines will SKIP"
 fi
