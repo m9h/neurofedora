@@ -129,10 +129,14 @@ case "$MODE" in
         log="$OUTDIR/providers-$pkg.log"
         : > "$log"
         # Get the Requires list (filter rpmlib(), built-in soft deps,
-        # and meta deps that always resolve)
+        # and meta deps that always resolve). `|| true` on each grep
+        # because grep returns 1 when nothing matches its INCLUDE pattern
+        # — with `set -e` that aborts the script. We're using -v
+        # (invert), so grep returning 1 means "every line was filtered
+        # out" which IS the legitimate empty case for tiny packages.
         reqs=$(rpm -q --requires "$pkg" 2>/dev/null \
-                | grep -vE '^(rpmlib\(|/bin/sh|/usr/bin/python3|/usr/bin/env)' \
-                | grep -vE '^(config\(|systemd-units)' \
+                | { grep -vE '^(rpmlib\(|/bin/sh|/usr/bin/python3|/usr/bin/env)' || true; } \
+                | { grep -vE '^(config\(|systemd-units)' || true; } \
                 | sed 's/[[:space:]].*//' | sort -u)
         unresolved=0
         for req in $reqs; do
