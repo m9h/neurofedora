@@ -69,6 +69,26 @@ mrtrix3	mrinfo "$FIX/dwi/dwi.nii.gz"	Dimensions:.*32 x 32 x 32 x 7
 afni	3dinfo -n4 "$FIX/t1.nii.gz"	32\s+32\s+32
 freesurfer	/usr/lib/freesurfer/bin/mri_info --dim "$FIX/t1.nii.gz" 2>&1	32 +32 +32
 
+# ─── Real-data MRI pipelines ───────────────────────────────────────────────
+# Tests that exercise tools on a real anatomical brain (MNI152 2009a, 2 mm
+# iso, shape 99x117x95 — nilearn's load_mni152_template(2) crops a bit
+# tighter than FSL's classic 91x109x91 but the anatomy is identical).
+# Fetched separately via fixtures/fetch-real-fixtures.sh (~0.4 MB total);
+# each row below SKIPs cleanly until the fetcher has run. Generator
+# auto-detects $FIX/real/ in the command and emits _require_real_fixtures.
+
+c3d	c3d "$FIX/real/mni152_t1_2mm.nii.gz" -info	Image #1.* dim = \[99, 117, 95\]
+c3d	c3d "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_brain_mask_2mm.nii.gz" -multiply -info	dim = \[99, 117, 95\]
+mrtrix3	mrinfo "$FIX/real/mni152_t1_2mm.nii.gz"	Dimensions:.*99 x 117 x 95
+afni	3dinfo -n4 "$FIX/real/mni152_t1_2mm.nii.gz"	99\s+117\s+95
+freesurfer	/usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/mni152_t1_2mm.nii.gz" 2>&1	99 +117 +95
+python3-fslpy	/usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("shape=", im.shape, "ras=", im.isNeurological())'	shape= \(99, 117, 95\)
+python3-nilearn	/usr/bin/python3 -c 'from nilearn.datasets import load_mni152_template; t=load_mni152_template(2); print("expected shape:", t.shape)'	expected shape: \(99, 117, 95\)
+python3-simpleitk	/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("size=",img.GetSize(),"spacing=",img.GetSpacing())'	size= \(99, 117, 95\)
+# Real registration: 2-voxel x-shift recoverable in <30s on the 99x117x95 grid
+ANTs	antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10	reg_Warped\.nii\.gz
+greedy	greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3	0\.0+\s+0\.0+\s+0\.0+\s+1\.0+
+
 # ─── Mesh / surfaces ──────────────────────────────────────────────────────────
 # python3-vmtk currently FAILS at `from vmtk import vmtkscripts` with
 # "ImportError: cannot import name 'vtkvmtk' from 'vmtk'" — the vtkvmtk C

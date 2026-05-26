@@ -49,6 +49,15 @@ if [[ ! -f "${HERE}/fixtures/t1.nii.gz" ]]; then
         echo "[run] fixture generation failed — pipelines.bats tests will SKIP"
 fi
 
+# Real-world dataset layer (MNI152 templates via nilearn, ~0.4 MB).
+# Pipelines that reference $FIX/real/ SKIP cleanly when this hasn't run,
+# so it's safe to call unconditionally; idempotent after first fetch.
+if [[ ! -f "${HERE}/fixtures/real/mni152_t1_2mm.nii.gz" ]]; then
+    echo "==> fetch real-world MRI fixtures (one-time, ~0.4 MB via nilearn)"
+    "${HERE}/fixtures/fetch-real-fixtures.sh" || \
+        echo "[run] real-fixture fetch failed — real-data pipelines will SKIP"
+fi
+
 echo "==> bats (jobs=$JOBS)"
 EXTRA=""
 if [[ -n "$JUNIT_DIR" ]]; then

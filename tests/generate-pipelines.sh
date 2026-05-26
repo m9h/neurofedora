@@ -48,6 +48,14 @@ _require_fixtures() {
         || skip "fixtures missing (run fixtures/generate-fixtures.sh)"
 }
 
+# Real-world MRI data — MNI152 T1 + brain mask + a moved counterpart, fetched
+# via nilearn. Tests that reference $FIX/real/* declare this requirement so
+# the suite stays green on boxes where the fetcher hasn't run yet.
+_require_real_fixtures() {
+    [[ -f "$FIX/real/mni152_t1_2mm.nii.gz" ]] \
+        || skip "real fixtures missing (run fixtures/fetch-real-fixtures.sh)"
+}
+
 HEADER
 
 awk -F'\t' '
@@ -82,12 +90,20 @@ awk -F'\t' '
         e_expect = expect; gsub(/\\/, "\\\\", e_expect); gsub(/"/, "\\\"", e_expect)
         e_title  = title;  gsub(/\\/, "\\\\", e_title);  gsub(/"/, "\\\"", e_title)
 
+        # Auto-detect whether this row needs the real-data fixture set
+        # (fetched separately via fetch-real-fixtures.sh, ~0.4 MB MNI152
+        # templates). A row qualifies if its command references $FIX/real/.
+        needs_real = (cmd ~ /\$FIX\/real\//)
+
         printf "\n"
         # Prefix the title with a row number — guarantees uniqueness even
         # when two manifest lines share an identical command prefix (bats
         # hashes long titles into function names and would collide otherwise).
         printf "@test \"[%03d] %s: %s\" {\n", row, pkg, e_title
-        printf "    _require_fixtures\n"
+        if (needs_real)
+            printf "    _require_real_fixtures\n"
+        else
+            printf "    _require_fixtures\n"
         printf "    _require_installed \"%s\"\n", pkg
         # We deliberately do NOT escape $ inside cmd above for $FIX/$TMP/$PATH —
         # the command is expected to reference these. Use heredoc to avoid all
