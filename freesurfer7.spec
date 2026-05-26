@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -31,6 +31,8 @@ Requires:       freesurfer-common
 
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
+# talairach_avi/gauss_4dfp links with -static-libgfortran; needs libgfortran.a
+BuildRequires:  libgfortran-static
 BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  python3-devel
@@ -497,6 +499,10 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-11
+- BR libgfortran-static: talairach_avi/gauss_4dfp uses
+  -static-libgfortran which requires the static libgfortran.a.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-10
 - Extend gems-disable: also drop mris_skeletonize/ and python/
