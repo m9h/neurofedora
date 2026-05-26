@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -207,6 +207,22 @@ sed -i 's/add_compile_options(-w -fPIC)/add_compile_options(-w -fPIC -std=gnu89)
 sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
 # jpeg stays bundled — imageio.cpp uses internal jinclude.h not in system libjpeg
 sed -i '/^  xml2$/d;/^  expat$/d' packages/CMakeLists.txt
+
+# ITK 5.x renamed itk::MultiThreader to itk::MultiThreaderBase (the legacy
+# alias was kept as a typedef for a while, then removed in 5.4+). FS 7.4.1's
+# Ants wrapper apps call the legacy name directly. Sed-rename to the new
+# class. Same API: SetGlobalDefaultNumberOfThreads(N) still works.
+sed -i 's/itk::MultiThreader\b/itk::MultiThreaderBase/g' \
+    AntsDenoiseImageFs/AntsDenoiseImageFs.cpp \
+    AntsN4BiasFieldCorrectionFs/AntsN4BiasFieldCorrectionFs.cpp
+
+# VTK 9.x tightened the signature of vtkCellArray::GetNextCell — its second
+# parameter is now `const vtkIdType*&` (was `vtkIdType*&`). Declare the
+# matching local in vtkInflatePolyData.cxx as `const vtkIdType*` so the
+# reference binding succeeds. The pointer is only read after, never written
+# through, so adding const is safe.
+sed -i 's|^  vtkIdType\* pPoints = NULL;|  const vtkIdType* pPoints = NULL;|' \
+    vtkutils/vtkInflatePolyData.cxx
 
 # Disable the bundled GEMS (Generic Expectation-Maximization Segmentation)
 # library + its consumers (samseg, samsegmesh2surf). FS 7.4.1's gems/ pins
@@ -455,6 +471,12 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-7
+- ITK 5.x rename: itk::MultiThreader -> itk::MultiThreaderBase in
+  the AntsDenoiseImageFs and AntsN4BiasFieldCorrectionFs wrappers.
+- VTK 9.x: vtkCellArray::GetNextCell now takes const vtkIdType*&;
+  declare matching local in vtkInflatePolyData.cxx as const.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-6
 - Disable bundled GEMS subdir (gems/, samseg/, samsegmesh2surf/):
