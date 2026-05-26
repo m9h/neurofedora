@@ -155,6 +155,26 @@ chr2	242193529
 SIZES
 fi
 
+# AutoSql schema for the BED-6 fixture. bedToBigBed in Fedora's kent
+# build emits "AutoSql file ((null)) not in legal format." when -type=bed6
+# is the *only* schema hint — apparently the inline-AutoSql codepath
+# is broken (or the flag isn't being recognised). Workaround: ship an
+# explicit .as file and pass `-as=sample.as` to bypass the auto-builder.
+if [[ ! -f "$GENOMICS_DIR/sample.as" ]]; then
+    cat > "$GENOMICS_DIR/sample.as" <<'AS'
+table bed6
+"Browser extensible data (6 fields)"
+(
+string chrom;       "Reference sequence chromosome or scaffold"
+uint   chromStart;  "Start position on chromosome"
+uint   chromEnd;    "End position on chromosome"
+string name;        "Name of item"
+uint   score;       "Score (0-1000)"
+char[1] strand;     "+ or -"
+)
+AS
+fi
+
 echo "[real-fixtures] genomics: $(ls "$GENOMICS_DIR" 2>/dev/null | wc -l) files"
 
 # ─── Section 5/5: FSL reference data (anat + DTI templates) ────────────────

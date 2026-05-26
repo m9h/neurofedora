@@ -141,10 +141,11 @@ morpheus	/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:",
 # ─── Real-data genomics (BED → BigBed via ucsc-kent-utils) ────────────────
 # Synthesized 5-region BED-6 file + chrom.sizes for chr1/chr2. Exercises
 # bedToBigBed's parser, sort, and binary writer.
-# -type=bed6 tells bedToBigBed our input is the standard BED-6 schema
-# (chrom, start, end, name, score, strand) — without this it asks for
-# an AutoSql schema file we'd have to ship separately.
-ucsc-kent-utils	bedToBigBed -type=bed6 "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"	produced [0-9]+ bytes
+# Pass an explicit -as=sample.as schema file: Fedora's kent build emits
+# "AutoSql file ((null)) not in legal format." when only -type=bed6 is
+# given. The fetcher writes a matching BED-6 AutoSql to
+# fixtures/real/genomics/sample.as.
+ucsc-kent-utils	bedToBigBed -type=bed6 -as="$FIX/real/genomics/sample.as" "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"	produced [0-9]+ bytes
 
 # ─── Mesh / surfaces ──────────────────────────────────────────────────────────
 # python3-vmtk currently FAILS at `from vmtk import vmtkscripts` with
@@ -163,8 +164,11 @@ python3-vmtk	python3 -c 'import vmtk; print("vmtk", getattr(vmtk, "__version__",
 # installed (fetch-real-fixtures.sh's Section 6 only runs when dipy is
 # importable). Pipelines that need real DWI use $FIX/real/dwi/HARDI193.*
 
-# nibabel: bare NIfTI load + bvec parse (canonical Python DWI smoke)
-python3-nibabel	python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI193.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI193.bvec"); print("shape", img.shape, "bvec", bvec.shape)'	shape \(128, 128, 60, 193\) bvec \(3, 193\)
+# nibabel: bare NIfTI load + bvec parse (canonical Python DWI smoke).
+# Note: dipy's HARDI193.bvec is stored as (193, 3) — directions × xyz —
+# NOT the FSL canonical (3, 193). np.loadtxt reads it as-is; tools that
+# need FSL layout (.bvec = 3 rows × N cols) must transpose.
+python3-nibabel	python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI193.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI193.bvec"); print("shape", img.shape, "bvec", bvec.shape)'	shape \(128, 128, 60, 193\) bvec \(193, 3\)
 
 # dipy itself: gradient table construction + a single-tensor fit smoke
 python3-dipy	python3 -c 'from dipy.io.gradients import read_bvals_bvecs; from dipy.core.gradients import gradient_table; b,v=read_bvals_bvecs("$FIX/real/dwi/HARDI193.bval","$FIX/real/dwi/HARDI193.bvec"); g=gradient_table(b,bvecs=v); print("bvals", b.shape, "shells", sorted(set(b.astype(int).tolist())))'	bvals \(193,\) shells \[0,

@@ -851,11 +851,11 @@ PIPECMD
     fi
 }
 
-@test "[042] ucsc-kent-utils: bedToBigBed -type=bed6 \"$FIX/real/genomics/sample.bed\" \"$FIX/real/geno…" {
+@test "[042] ucsc-kent-utils: bedToBigBed -type=bed6 -as=\"$FIX/real/genomics/sample.as\" \"$FIX/real/g…" {
     _require_real_fixtures "$FIX/real/genomics/sample.bed"
     _require_installed "ucsc-kent-utils"
     run --separate-stderr bash <<PIPECMD
-bedToBigBed -type=bed6 "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
+bedToBigBed -type=bed6 -as="$FIX/real/genomics/sample.as" "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -903,8 +903,8 @@ PIPECMD
         echo "stderr: $stderr"
         false
     fi
-    if ! grep -qE "shape \\(128, 128, 60, 193\\) bvec \\(3, 193\\)" <<<"$output $stderr"; then
-        echo "expected /shape \\(128, 128, 60, 193\\) bvec \\(3, 193\\)/ in output, got:"
+    if ! grep -qE "shape \\(128, 128, 60, 193\\) bvec \\(193, 3\\)" <<<"$output $stderr"; then
+        echo "expected /shape \\(128, 128, 60, 193\\) bvec \\(193, 3\\)/ in output, got:"
         echo "stdout: $output"
         echo "stderr: $stderr"
         false
