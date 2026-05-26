@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -257,6 +257,12 @@ sed -i 's|^  vtkIdType\* pPoints = NULL;|  const vtkIdType* pPoints = NULL;|' \
 # freesurfer-fspython venv, which is the path FreeSurfer 8.x has migrated to.
 sed -i '/^add_subdirectory(gems)/d' CMakeLists.txt
 sed -i '/^  samseg$/d;/^  samsegmesh2surf$/d' CMakeLists.txt
+# Also disable mris_skeletonize (the only remaining consumer of the disabled
+# kvlGEMSCommon library) and python/ (which contains python/gems/cxx
+# pybind11 bindings that also link kvlGEMSCommon — Python bindings to FS
+# are provided by the freesurfer-fspython venv instead).
+sed -i '/^  mris_skeletonize$/d' CMakeLists.txt
+sed -i '/^add_subdirectory(python)/d' CMakeLists.txt
 
 # Replace bundled xml2 include path with system path in utils/CMakeLists.txt
 sed -i 's|${CMAKE_SOURCE_DIR}/packages/xml2|/usr/include/libxml2|' utils/CMakeLists.txt
@@ -491,6 +497,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-10
+- Extend gems-disable: also drop mris_skeletonize/ and python/
+  subdirs — both link the now-absent libkvlGEMSCommon. Python
+  bindings to FS internals are provided by freesurfer-fspython.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-9
 - ISO C++17 forbids dynamic exception specifications: strip
