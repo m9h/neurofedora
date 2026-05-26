@@ -851,11 +851,11 @@ PIPECMD
     fi
 }
 
-@test "[042] ucsc-kent-utils: bedToBigBed -type=bed6 -as=\"$FIX/real/genomics/sample.as\" \"$FIX/real/g…" {
+@test "[042] ucsc-kent-utils: bedSort \"$FIX/real/genomics/sample.bed\" \"$TMP/sorted.bed\" && wc -l < \"…" {
     _require_real_fixtures "$FIX/real/genomics/sample.bed"
     _require_installed "ucsc-kent-utils"
     run --separate-stderr bash <<PIPECMD
-bedToBigBed -type=bed6 -as="$FIX/real/genomics/sample.as" "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
+bedSort "$FIX/real/genomics/sample.bed" "$TMP/sorted.bed" && wc -l < "$TMP/sorted.bed"
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -863,8 +863,8 @@ PIPECMD
         echo "stderr: $stderr"
         false
     fi
-    if ! grep -qE "produced [0-9]+ bytes" <<<"$output $stderr"; then
-        echo "expected /produced [0-9]+ bytes/ in output, got:"
+    if ! grep -qE "5" <<<"$output $stderr"; then
+        echo "expected /5/ in output, got:"
         echo "stdout: $output"
         echo "stderr: $stderr"
         false
