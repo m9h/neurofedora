@@ -94,9 +94,12 @@ greedy	greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_
 # few canonical valid ones (primitive_geometry, joint_properties, testWorld,
 # issue838) for urdfdom's check_urdf parser. Output: "Successfully Parsed XML"
 # on valid input.
+# testWorld.urdf is a multi-robot WORLD file (root <world>), not a URDF
+# (root <robot>) — check_urdf correctly rejects it. issue838.urdf is a
+# bug-regression URDF with a single robot definition; we use that instead.
 urdfdom	check_urdf "$FIX/real/urdf/primitive_geometry.urdf" 2>&1	Successfully Parsed XML
 urdfdom	check_urdf "$FIX/real/urdf/joint_properties.urdf" 2>&1	Successfully Parsed XML
-urdfdom	check_urdf "$FIX/real/urdf/testWorld.urdf" 2>&1	Successfully Parsed XML
+urdfdom	check_urdf "$FIX/real/urdf/issue838.urdf" 2>&1	Successfully Parsed XML
 
 # ─── Real-data cellular modeling (MorpheusML examples) ────────────────────
 # Upstream Examples/ — fetched two minimal models (a 1D PDE activator-
@@ -110,7 +113,10 @@ morpheus	/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:",
 # ─── Real-data genomics (BED → BigBed via ucsc-kent-utils) ────────────────
 # Synthesized 5-region BED-6 file + chrom.sizes for chr1/chr2. Exercises
 # bedToBigBed's parser, sort, and binary writer.
-ucsc-kent-utils	bedToBigBed "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"	produced [0-9]+ bytes
+# -type=bed6 tells bedToBigBed our input is the standard BED-6 schema
+# (chrom, start, end, name, score, strand) — without this it asks for
+# an AutoSql schema file we'd have to ship separately.
+ucsc-kent-utils	bedToBigBed -type=bed6 "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"	produced [0-9]+ bytes
 
 # ─── Mesh / surfaces ──────────────────────────────────────────────────────────
 # python3-vmtk currently FAILS at `from vmtk import vmtkscripts` with

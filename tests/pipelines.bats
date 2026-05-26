@@ -591,11 +591,11 @@ PIPECMD
     fi
 }
 
-@test "[029] urdfdom: check_urdf \"$FIX/real/urdf/testWorld.urdf\" 2>&1" {
-    _require_real_fixtures "$FIX/real/urdf/testWorld.urdf"
+@test "[029] urdfdom: check_urdf \"$FIX/real/urdf/issue838.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/issue838.urdf"
     _require_installed "urdfdom"
     run --separate-stderr bash <<PIPECMD
-check_urdf "$FIX/real/urdf/testWorld.urdf" 2>&1
+check_urdf "$FIX/real/urdf/issue838.urdf" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
@@ -651,11 +651,11 @@ PIPECMD
     fi
 }
 
-@test "[032] ucsc-kent-utils: bedToBigBed \"$FIX/real/genomics/sample.bed\" \"$FIX/real/genomics/chrom.…" {
+@test "[032] ucsc-kent-utils: bedToBigBed -type=bed6 \"$FIX/real/genomics/sample.bed\" \"$FIX/real/geno…" {
     _require_real_fixtures "$FIX/real/genomics/sample.bed"
     _require_installed "ucsc-kent-utils"
     run --separate-stderr bash <<PIPECMD
-bedToBigBed "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
+bedToBigBed -type=bed6 "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
 PIPECMD
     if [ "$status" -ne 0 ]; then
         echo "command failed (exit=$status)"
