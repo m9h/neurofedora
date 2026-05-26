@@ -1,6 +1,6 @@
 Name:           python-trx-python
 Version:        0.4.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Community-oriented file format for tractography
 
 # Upstream pyproject says "BSD License" (SPDX: BSD-3-Clause per the
@@ -36,13 +36,18 @@ Summary:        %{summary}
 %prep
 %autosetup -n trx-python-%{version}
 
-# Upstream uses setuptools_scm for version detection — provide a
-# SETUPTOOLS_SCM_PRETEND_VERSION at build time so it doesn't try to
-# read the git tag (the tarball has no .git/).
+# Upstream uses setuptools_scm for version detection. The release tarball
+# has no .git/ tree, so setuptools_scm falls back to "0.0", which trips
+# Fedora's _python_dist_allow_version_zero check. Set
+# SETUPTOOLS_SCM_PRETEND_VERSION via the global env so ALL build phases
+# (generate_buildrequires, build, install) see it consistently —
+# generate_buildrequires also runs the wheel-metadata step and was the
+# step that failed on -1.
+%global _setuptools_scm_pretend_version %{version}
 
 
 %generate_buildrequires
-%pyproject_buildrequires
+SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_buildrequires
 
 
 %build
@@ -62,6 +67,13 @@ SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_install
 
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-2
+- Set SETUPTOOLS_SCM_PRETEND_VERSION in %%generate_buildrequires too —
+  -1 only set it for %%build and %%install but the wheel-metadata
+  extraction in %%pyproject_buildrequires also needs it. Without it,
+  setuptools_scm fell back to "0.0" and Fedora's version-zero check
+  refused to ship the wheel.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-1
 - Initial COPR build (mhough/neurofedora). Prerequisite for python-dipy
   1.12+ which added a hard dep on trx-python for tractogram I/O. Pure
