@@ -31,12 +31,15 @@ _require_fixtures() {
         || skip "fixtures missing (run fixtures/generate-fixtures.sh)"
 }
 
-# Real-world MRI data — MNI152 T1 + brain mask + a moved counterpart, fetched
-# via nilearn. Tests that reference $FIX/real/* declare this requirement so
-# the suite stays green on boxes where the fetcher hasn't run yet.
+# Real-world fixture set — MRI (MNI152), robotics URDFs, MorpheusML
+# examples, BED genomics samples — all fetched by fetch-real-fixtures.sh.
+# Accepts an optional path argument so each test can guard on its own
+# specific file (the fetcher's sections are independent; one may have
+# succeeded while another failed offline).
 _require_real_fixtures() {
-    [[ -f "$FIX/real/mni152_t1_2mm.nii.gz" ]] \
-        || skip "real fixtures missing (run fixtures/fetch-real-fixtures.sh)"
+    local file="${1:-$FIX/real/mni152_t1_2mm.nii.gz}"
+    [[ -f "$file" ]] \
+        || skip "real fixture missing: $file (run fixtures/fetch-real-fixtures.sh)"
 }
 
 
@@ -349,7 +352,7 @@ PIPECMD
 }
 
 @test "[017] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" -info" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "c3d"
     run --separate-stderr bash <<PIPECMD
 c3d "$FIX/real/mni152_t1_2mm.nii.gz" -info
@@ -369,7 +372,7 @@ PIPECMD
 }
 
 @test "[018] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_brain_mask_2mm.…" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "c3d"
     run --separate-stderr bash <<PIPECMD
 c3d "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_brain_mask_2mm.nii.gz" -multiply -info
@@ -389,7 +392,7 @@ PIPECMD
 }
 
 @test "[019] mrtrix3: mrinfo \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "mrtrix3"
     run --separate-stderr bash <<PIPECMD
 mrinfo "$FIX/real/mni152_t1_2mm.nii.gz"
@@ -409,7 +412,7 @@ PIPECMD
 }
 
 @test "[020] afni: 3dinfo -n4 \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "afni"
     run --separate-stderr bash <<PIPECMD
 3dinfo -n4 "$FIX/real/mni152_t1_2mm.nii.gz"
@@ -429,7 +432,7 @@ PIPECMD
 }
 
 @test "[021] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/mni152_t1_2mm.nii.gz…" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "freesurfer"
     run --separate-stderr bash <<PIPECMD
 /usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/mni152_t1_2mm.nii.gz" 2>&1
@@ -509,7 +512,7 @@ PIPECMD
 }
 
 @test "[025] ANTs: antsRegistrationSyN.sh -d 3 -f \"$FIX/real/mni152_t1_2mm.nii.gz\" -m \"$F…" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "ANTs"
     run --separate-stderr bash <<PIPECMD
 antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10
@@ -529,7 +532,7 @@ PIPECMD
 }
 
 @test "[026] greedy: greedy -d 3 -i \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_t1_2…" {
-    _require_real_fixtures
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "greedy"
     run --separate-stderr bash <<PIPECMD
 greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3
@@ -548,7 +551,127 @@ PIPECMD
     fi
 }
 
-@test "[027] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
+@test "[027] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/primitive_geometry.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/primitive_geometry.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[028] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/joint_properties.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/joint_properties.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[029] urdfdom: check_urdf \"$FIX/real/urdf/testWorld.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/testWorld.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/testWorld.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[030] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+    _require_fixtures
+    _require_installed "morpheus"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/ActivatorInhibitor_1D.xml").getroot().tag)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "root: MorpheusModel" <<<"$output $stderr"; then
+        echo "expected /root: MorpheusModel/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[031] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+    _require_fixtures
+    _require_installed "morpheus"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/CellSorting_2D.xml").getroot().tag)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "root: MorpheusModel" <<<"$output $stderr"; then
+        echo "expected /root: MorpheusModel/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[032] ucsc-kent-utils: bedToBigBed \"$FIX/real/genomics/sample.bed\" \"$FIX/real/genomics/chrom.…" {
+    _require_real_fixtures "$FIX/real/genomics/sample.bed"
+    _require_installed "ucsc-kent-utils"
+    run --separate-stderr bash <<PIPECMD
+bedToBigBed "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "produced [0-9]+ bytes" <<<"$output $stderr"; then
+        echo "expected /produced [0-9]+ bytes/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[033] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
     _require_fixtures
     _require_installed "python3-vmtk"
     run --separate-stderr bash <<PIPECMD

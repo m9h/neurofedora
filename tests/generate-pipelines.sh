@@ -48,12 +48,15 @@ _require_fixtures() {
         || skip "fixtures missing (run fixtures/generate-fixtures.sh)"
 }
 
-# Real-world MRI data — MNI152 T1 + brain mask + a moved counterpart, fetched
-# via nilearn. Tests that reference $FIX/real/* declare this requirement so
-# the suite stays green on boxes where the fetcher hasn't run yet.
+# Real-world fixture set — MRI (MNI152), robotics URDFs, MorpheusML
+# examples, BED genomics samples — all fetched by fetch-real-fixtures.sh.
+# Accepts an optional path argument so each test can guard on its own
+# specific file (the fetcher's sections are independent; one may have
+# succeeded while another failed offline).
 _require_real_fixtures() {
-    [[ -f "$FIX/real/mni152_t1_2mm.nii.gz" ]] \
-        || skip "real fixtures missing (run fixtures/fetch-real-fixtures.sh)"
+    local file="${1:-$FIX/real/mni152_t1_2mm.nii.gz}"
+    [[ -f "$file" ]] \
+        || skip "real fixture missing: $file (run fixtures/fetch-real-fixtures.sh)"
 }
 
 HEADER
@@ -91,19 +94,33 @@ awk -F'\t' '
         e_title  = title;  gsub(/\\/, "\\\\", e_title);  gsub(/"/, "\\\"", e_title)
 
         # Auto-detect whether this row needs the real-data fixture set
-        # (fetched separately via fetch-real-fixtures.sh, ~0.4 MB MNI152
-        # templates). A row qualifies if its command references $FIX/real/.
+        # (fetched by fetch-real-fixtures.sh). A row qualifies if its
+        # command references $FIX/real/, and we extract the FIRST such
+        # path so the skip can name the specific missing file rather than
+        # generically "real fixtures missing".
         needs_real = (cmd ~ /\$FIX\/real\//)
+        real_file = ""
+        if (needs_real) {
+            tmp = cmd
+            # match up to and including .nii.gz / .urdf / .xml / .bed /
+            # .sizes — same set the fetcher produces.
+            if (match(tmp, /\$FIX\/real\/[A-Za-z0-9._\/-]+\.(nii\.gz|urdf|xml|bed|sizes|bb)/))
+                real_file = substr(tmp, RSTART, RLENGTH)
+        }
 
         printf "\n"
         # Prefix the title with a row number — guarantees uniqueness even
         # when two manifest lines share an identical command prefix (bats
         # hashes long titles into function names and would collide otherwise).
         printf "@test \"[%03d] %s: %s\" {\n", row, pkg, e_title
-        if (needs_real)
-            printf "    _require_real_fixtures\n"
-        else
+        if (needs_real) {
+            if (real_file != "")
+                printf "    _require_real_fixtures \"%s\"\n", real_file
+            else
+                printf "    _require_real_fixtures\n"
+        } else {
             printf "    _require_fixtures\n"
+        }
         printf "    _require_installed \"%s\"\n", pkg
         # We deliberately do NOT escape $ inside cmd above for $FIX/$TMP/$PATH —
         # the command is expected to reference these. Use heredoc to avoid all

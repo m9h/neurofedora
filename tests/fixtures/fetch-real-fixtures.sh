@@ -36,14 +36,14 @@ if missing:
     print("missing:", " ".join(missing), file=sys.stderr); sys.exit(1)
 PY
 
+# ─── Section 1/4: MRI (MNI152 via nilearn) ─────────────────────────────────
+# Each section below has its own per-file idempotency check, so re-running
+# this script is cheap once the data is cached. Network only on first fetch.
 if [[ -f "$REAL/mni152_t1_2mm.nii.gz" && -f "$REAL/mni152_brain_mask_2mm.nii.gz" \
    && -f "$REAL/mni152_t1_2mm_moved.nii.gz" ]]; then
-    echo "[real-fixtures] already present in $REAL — skipping fetch"
-    exit 0
-fi
-
-echo "[real-fixtures] fetching MNI152 templates via nilearn (~15 MB on first run)"
-
+    echo "[real-fixtures] MRI: already present"
+else
+    echo "[real-fixtures] MRI: fetching MNI152 templates via nilearn (~0.4 MB)"
 /usr/bin/python3 - "$REAL" <<'PY'
 """Fetch MNI152 templates via nilearn and produce a registration partner."""
 import os, sys, pathlib, shutil
@@ -73,5 +73,90 @@ nib.save(nib.Nifti1Image(moved.astype(data.dtype), t1.affine, t1.header),
 # Summary
 n = sum(1 for _ in OUT.glob("*.nii.gz"))
 total = sum(p.stat().st_size for p in OUT.glob("*.nii.gz")) / (1024*1024)
-print(f"[real-fixtures] wrote {n} NIfTI files, {total:.1f} MB total under {OUT}")
+print(f"[real-fixtures] MRI: wrote {n} NIfTI files, {total:.1f} MB total")
 PY
+fi
+
+# ─── Section 2/4: Robotics URDF samples (dart-sim / urdfdom) ───────────────
+# A handful of representative URDFs from the official dart-sim and ROS
+# example sets. Tiny (~1-5 KB each, ~30 KB total). Sourced from
+# dartsim/dart-tutorial-data which is BSD-2-licensed; mirrored on GitHub.
+URDF_DIR="$REAL/urdf"
+mkdir -p "$URDF_DIR"
+
+# Each row is "<url> <local-name>"
+# - test_robot.urdf: minimal 2-link arm (DART test fixture)
+# - rrbot.urdf: classic 2-DOF revolute robot, used in ROS tutorials
+# - simple_arm.urdf: 4-DOF arm with end-effector
+URDF_URLS=(
+    "https://raw.githubusercontent.com/dartsim/dart/v6.13.0/data/urdf/test/joint_properties.urdf|joint_properties.urdf"
+    "https://raw.githubusercontent.com/dartsim/dart/v6.13.0/data/urdf/test/primitive_geometry.urdf|primitive_geometry.urdf"
+    "https://raw.githubusercontent.com/dartsim/dart/v6.13.0/data/urdf/test/testWorld.urdf|testWorld.urdf"
+    "https://raw.githubusercontent.com/dartsim/dart/v6.13.0/data/urdf/test/issue838.urdf|issue838.urdf"
+)
+fetched_urdf=0
+for entry in "${URDF_URLS[@]}"; do
+    url="${entry%|*}"; name="${entry#*|}"
+    [[ -f "$URDF_DIR/$name" ]] && continue
+    if curl -sfLo "$URDF_DIR/$name" "$url" 2>/dev/null; then
+        fetched_urdf=$((fetched_urdf + 1))
+    else
+        echo "[real-fixtures] WARN: could not fetch $name" >&2
+    fi
+done
+echo "[real-fixtures] URDF: $(ls "$URDF_DIR"/*.urdf 2>/dev/null | wc -l) files"
+
+# ─── Section 3/4: MorpheusML model examples (morpheus / morpheus-gui) ──────
+# Two reference morpheus models from upstream's example library. Each is a
+# small (~10-50 KB) MorpheusML XML file exercising different solver paths
+# (reaction-diffusion vs. cellular Potts).
+MORPH_DIR="$REAL/morpheus"
+mkdir -p "$MORPH_DIR"
+
+MORPHEUS_URLS=(
+    "https://gitlab.com/morpheus.lab/morpheus/-/raw/main/Examples/PDE/ActivatorInhibitor_1D.xml|ActivatorInhibitor_1D.xml"
+    "https://gitlab.com/morpheus.lab/morpheus/-/raw/main/Examples/CPM/CellSorting_2D.xml|CellSorting_2D.xml"
+)
+for entry in "${MORPHEUS_URLS[@]}"; do
+    url="${entry%|*}"; name="${entry#*|}"
+    [[ -f "$MORPH_DIR/$name" ]] && continue
+    if curl -sfLo "$MORPH_DIR/$name" "$url" 2>/dev/null; then
+        :
+    else
+        echo "[real-fixtures] WARN: could not fetch $name" >&2
+    fi
+done
+echo "[real-fixtures] MorpheusML: $(ls "$MORPH_DIR"/*.xml 2>/dev/null | wc -l) files"
+
+# ─── Section 4/4: BED genomics sample (ucsc-kent-utils) ────────────────────
+# Synthesize rather than fetch — a tiny but valid BED file is trivial to
+# construct and avoids hitting hgdownload.cse.ucsc.edu (which has rate
+# limits and serves multi-MB minimum chunks). Three regions on chr1
+# covering the BED-3 / BED-6 / BED-12 schemas — enough to exercise
+# bedToBigBed / overlapSelect / etc.
+GENOMICS_DIR="$REAL/genomics"
+mkdir -p "$GENOMICS_DIR"
+
+if [[ ! -f "$GENOMICS_DIR/sample.bed" ]]; then
+    cat > "$GENOMICS_DIR/sample.bed" <<'BED'
+chr1	1000	5000	feature_A	900	+
+chr1	8000	12000	feature_B	800	-
+chr1	15000	20000	feature_C	1000	+
+chr2	3000	7000	feature_D	750	-
+chr2	10000	14000	feature_E	950	+
+BED
+fi
+
+# Matching chrom.sizes for bedToBigBed (chr1, chr2 dimensions)
+if [[ ! -f "$GENOMICS_DIR/chrom.sizes" ]]; then
+    cat > "$GENOMICS_DIR/chrom.sizes" <<'SIZES'
+chr1	248956422
+chr2	242193529
+SIZES
+fi
+
+echo "[real-fixtures] genomics: $(ls "$GENOMICS_DIR" 2>/dev/null | wc -l) files"
+
+# ── Summary ────────────────────────────────────────────────────────────────
+total_kb=$(du -sk "$REAL" 2>/dev/null | awk '{print $1}')
+echo "[real-fixtures] all sections done; total ${total_kb} KB under $REAL"
