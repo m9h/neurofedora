@@ -49,13 +49,22 @@ if [[ ! -f "${HERE}/fixtures/t1.nii.gz" ]]; then
         echo "[run] fixture generation failed — pipelines.bats tests will SKIP"
 fi
 
-# Real-world dataset layer (MNI152 templates via nilearn, ~0.4 MB).
-# Pipelines that reference $FIX/real/ SKIP cleanly when this hasn't run,
-# so it's safe to call unconditionally; idempotent after first fetch.
-if [[ ! -f "${HERE}/fixtures/real/mni152_t1_2mm.nii.gz" ]]; then
-    echo "==> fetch real-world MRI fixtures (one-time, ~0.4 MB via nilearn)"
+# Real-world dataset layer (4 domains: MRI + URDF + MorpheusML + BED, ~500 KB).
+# Each section has its own idempotency check in the fetcher, so re-running is
+# cheap; first run pulls everything in one network pass. Always invoke unless
+# every domain's marker file is already present — catches the case where MRI
+# was fetched in a previous run but other domains were added later.
+need_fetch=0
+for marker in fixtures/real/mni152_t1_2mm.nii.gz \
+              fixtures/real/urdf/primitive_geometry.urdf \
+              fixtures/real/morpheus/ActivatorInhibitor_1D.xml \
+              fixtures/real/genomics/sample.bed; do
+    [[ -f "${HERE}/$marker" ]] || { need_fetch=1; break; }
+done
+if (( need_fetch )); then
+    echo "==> fetch real-world fixtures (MRI + URDF + MorpheusML + genomics)"
     "${HERE}/fixtures/fetch-real-fixtures.sh" || \
-        echo "[run] real-fixture fetch failed — real-data pipelines will SKIP"
+        echo "[run] real-fixture fetch had failures — affected pipelines will SKIP"
 fi
 
 echo "==> bats (jobs=$JOBS)"

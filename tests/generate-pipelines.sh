@@ -95,17 +95,18 @@ awk -F'\t' '
 
         # Auto-detect whether this row needs the real-data fixture set
         # (fetched by fetch-real-fixtures.sh). A row qualifies if its
-        # command references $FIX/real/, and we extract the FIRST such
-        # path so the skip can name the specific missing file rather than
-        # generically "real fixtures missing".
-        needs_real = (cmd ~ /\$FIX\/real\//)
+        # command references /real/ anywhere — this catches both the
+        # direct bash form `$FIX/real/foo` AND the python-style form
+        # `'"$FIX"'/real/foo` (quotes between $FIX and /real/ for shell
+        # interpolation). We then extract the /real/<path>.<ext>
+        # substring and rebuild it as $FIX/real/<path>.<ext> for the
+        # skip-check helper.
+        needs_real = (cmd ~ /\/real\/[A-Za-z0-9._\/-]+\.(nii\.gz|urdf|xml|bed|sizes|bb)/)
         real_file = ""
         if (needs_real) {
             tmp = cmd
-            # match up to and including .nii.gz / .urdf / .xml / .bed /
-            # .sizes — same set the fetcher produces.
-            if (match(tmp, /\$FIX\/real\/[A-Za-z0-9._\/-]+\.(nii\.gz|urdf|xml|bed|sizes|bb)/))
-                real_file = substr(tmp, RSTART, RLENGTH)
+            if (match(tmp, /\/real\/[A-Za-z0-9._\/-]+\.(nii\.gz|urdf|xml|bed|sizes|bb)/))
+                real_file = "$FIX" substr(tmp, RSTART, RLENGTH)
         }
 
         printf "\n"
