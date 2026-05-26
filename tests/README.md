@@ -11,6 +11,7 @@ package, then runs four layers of automated checks:
 | **collisions** | "two packages own the same `/usr/bin/foo`" | pairwise `comm -12` over installed + repo file lists |
 | **gui** | "GUI crashes within 5s of starting" | launches under `QT_QPA_PLATFORM=offscreen` or `xvfb-run`, asserts the process is still alive at the deadline |
 | **pipelines** | "tool fails on real data" | synthesizes a tiny NIfTI/DICOM/DWI/mesh corpus, runs documented first-example commands, checks output |
+| **static-qa** | "Fedora-compliance regression / missing .so dep / unresolved Requires" | per-host baseline of `rpmlint -i`, `ldd` scan, `dnf repoquery --whatprovides`; fails ONLY on counts that increased vs baseline |
 
 Everything is **BATS-core**, with TAP output by default and JUnit XML for CI.
 Tests **SKIP cleanly** when a package isn't installed so a partial install
@@ -22,7 +23,7 @@ never produces a wall of false failures.
 git clone <this-repo> neurofedora-tests
 cd neurofedora-tests
 
-# First time: enable COPR + install every package + run all four layers
+# First time: enable COPR + install every package + run all five layers
 ./run.sh
 
 # Subsequent runs (skip the slow install pass):
@@ -33,6 +34,7 @@ bats smoke.bats              # per-package install check
 bats collisions.bats         # file-conflict guard
 bats gui.bats                # headless GUI startup
 bats pipelines.bats          # real-data first-examples
+bats static-qa.bats          # rpmlint + ldd + repoquery vs per-host baseline
 
 # CI:
 ./run.sh --junit results/    # writes JUnit XML

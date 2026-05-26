@@ -1,0 +1,6 @@
+# Per-host baselines for static-qa.bats — each machine captures its own
+# rpmlint/ldd/providers baseline on first run and validates against it
+# thereafter. Intentionally not version-controlled because the right
+# baseline depends on which packages are installed on that particular
+# host (different boxes have different COPR + Fedora package sets).
+*/
