@@ -1,6 +1,6 @@
 Name:           python-trx-python
 Version:        0.4.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Community-oriented file format for tractography
 
 # Upstream pyproject says "BSD License" (SPDX: BSD-3-Clause per the
@@ -36,26 +36,31 @@ Summary:        %{summary}
 %prep
 %autosetup -n trx-python-%{version}
 
-# Upstream uses setuptools_scm for version detection. The release tarball
-# has no .git/ tree, so setuptools_scm falls back to "0.0", which trips
-# Fedora's _python_dist_allow_version_zero check. Set
-# SETUPTOOLS_SCM_PRETEND_VERSION via the global env so ALL build phases
-# (generate_buildrequires, build, install) see it consistently —
-# generate_buildrequires also runs the wheel-metadata step and was the
-# step that failed on -1.
-%global _setuptools_scm_pretend_version %{version}
+# Upstream pyproject sets [tool.setuptools_scm] fallback_version="0.0",
+# so when the release tarball (no .git/) is built, setuptools_scm yields
+# "0.0", which trips Fedora's _python_dist_allow_version_zero check.
+#
+# Set SETUPTOOLS_SCM_PRETEND_VERSION to override. CRUCIAL: must be set
+# with `export` on its own line — `VAR=value %pyproject_wheel` does NOT
+# work because %pyproject_wheel expands to a multi-line shell block, so
+# bash treats `VAR=value` as a plain shell assignment (not exported to
+# subprocesses), and the Python wheel-build subprocess never sees it.
+# -2 hit this exact trap.
 
 
 %generate_buildrequires
-SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_buildrequires
+export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
+%pyproject_buildrequires
 
 
 %build
-SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_wheel
+export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
+%pyproject_wheel
 
 
 %install
-SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_install
+export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
+%pyproject_install
 %pyproject_save_files trx
 
 
@@ -67,6 +72,15 @@ SETUPTOOLS_SCM_PRETEND_VERSION=%{version} %pyproject_install
 
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-3
+- Use `export SETUPTOOLS_SCM_PRETEND_VERSION` on its own line instead of
+  the `VAR=value %pyproject_*` prefix form. %pyproject_wheel et al expand
+  to multi-line shell blocks, so the prefix form sets a shell var but
+  doesn't export it — the Python wheel-build subprocess never saw the
+  override, and setuptools_scm fell back to "0.0" again. -2 logs show the
+  trap: every "+ SETUPTOOLS_SCM_PRETEND_VERSION=0.4.0" was followed by
+  "creating .../trx_python-0.0.dist-info".
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-2
 - Set SETUPTOOLS_SCM_PRETEND_VERSION in %%generate_buildrequires too —
   -1 only set it for %%build and %%install but the wheel-metadata
