@@ -3,7 +3,7 @@
 
 Name:           python-simpleitk
 Version:        2.5.5
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Simplified interface to the Insight Toolkit (ITK) for image analysis
 
 License:        Apache-2.0
@@ -140,6 +140,11 @@ SimpleITK. After install, browse %{_docdir}/simpleitk-doc/html/index.html.
 sed -i -E 's|5\.3\.\.\.<5\.5|5.3...<6.0|g' \
     CMake/FindLuaInterp.cmake \
     CMake/sitkGenerateFilterSource.cmake 2>/dev/null || :
+# sitkGenerateFilterSource.cmake also has its own redundant version guard
+# (independent of FindLuaInterp) at line ~55 that rejects anything not
+# strictly Lua 5.3-5.4 — widen the upper bound there too.
+sed -i -E 's|VERSION_LESS "5\.5"|VERSION_LESS "6.0"|g' \
+    CMake/sitkGenerateFilterSource.cmake
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
@@ -267,6 +272,10 @@ print('SmoothingRecursiveGaussian ok')
 %{_docdir}/simpleitk-doc/html/
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-5
+- Fix second Lua version guard at sitkGenerateFilterSource.cmake:55
+  that independently rejected Lua 5.5 even after FindLuaInterp range bump.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.5-4
 - Widen FindLuaInterp version range from 5.3...<5.5 to 5.3...<6.0 in %%prep

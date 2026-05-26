@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -165,6 +165,28 @@ for src in utils/fs_powell.cpp utils/fs_lbfgs.cpp; do
         s|#include[[:space:]]+["<]vcl_cstdlib\.h[">]|#include <cstdlib>|;
         s|#include[[:space:]]+["<]vcl_cstring\.h[">]|#include <cstring>|;
     ' "$src"
+done
+
+# GCC 16 / C++17: <cstddef> defines std::byte; combined with `using namespace
+# std;` in some TUs, this makes FS 7.4.1's `typedef unsigned char byte;` (at
+# hips.h:6) ambiguous wherever bare `byte` appears. Mass-rename the FS-side
+# type to `hips_byte` across all four HIPS-family headers (hips.h, image.h,
+# analyze.h, affine.hpp) and every .cpp consumer that uses bare `byte`.
+# json.h is intentionally skipped — it's the vendored nlohmann/json header
+# and uses `byte` only as a local variable name (no collision).
+hips_byte_files=(
+    include/hips.h include/image.h include/analyze.h include/affine.hpp
+)
+# Add every utils/*.cpp that uses bare `byte` as a token. -P (PCRE) lookarounds
+# ensure we don't catch `sbyte`, `byte_t`, or `byte_v`.
+while IFS= read -r f; do
+    [ "$f" = "include/json.h" ] && continue
+    hips_byte_files+=("$f")
+done < <(grep -rln -P '(?<![:_a-zA-Z0-9])byte(?![_a-zA-Z0-9])' utils mri_convert freeview 2>/dev/null)
+
+for f in "${hips_byte_files[@]}"; do
+    [ -f "$f" ] || continue
+    sed -i 's/\bbyte\b/hips_byte/g' "$f"
 done
 
 # GCC 15: fix K&R-style empty parameter lists in bundled CTN DICOM
@@ -419,6 +441,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-5
+- GCC 16 / C++17 std::byte collision: rename FS-side typedef byte→hips_byte
+  across hips.h/image.h/analyze.h/affine.hpp + every .cpp consumer
+  that uses bare 'byte' as a type. json.h skipped (vendored, local var).
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-4
 - ITK 5.4 vcl_* deprecation: utils/fs_powell.cpp and utils/fs_lbfgs.cpp

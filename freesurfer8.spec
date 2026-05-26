@@ -10,7 +10,7 @@
 
 Name:           freesurfer8
 Version:        8.2.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 8.2.0)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -175,12 +175,12 @@ find . -name CMakeLists.txt -exec sed -i '/install_tarball/d' {} +
 # GCC 16 (rawhide / F45+) tightened the namespace rules: <iostream> defines
 # std::cerr / std::cout / std::endl in namespace std only — they are no
 # longer transitively brought into the global namespace via Qt or other
-# system headers. freeview/FSPointSet.cpp and freeview/GenericRenderView.cpp
-# use bare `cerr` / `cout` / `endl` in many places. Prepend explicit using
-# declarations so unqualified references continue to resolve. (CXXFLAGS
-# -include iostream alone is insufficient — it brings the std namespace
-# into scope but does not pull symbols into global scope.)
-for src in freeview/FSPointSet.cpp freeview/GenericRenderView.cpp; do
+# system headers. Many freeview/*.cpp files use bare `cerr` / `cout` /
+# `endl`. Prepend explicit using declarations to every freeview source file
+# that touches one of those names. (CXXFLAGS -include iostream alone is
+# insufficient — it brings the std namespace into scope but does not pull
+# symbols into global scope.)
+for src in $(grep -lP '(^|[^:a-zA-Z_])(cerr|cout|endl)\b' freeview/*.cpp 2>/dev/null); do
     [ -f "$src" ] || continue
     sed -i '1i #include <iostream>\nusing std::cerr;\nusing std::cout;\nusing std::endl;' "$src"
 done
@@ -383,6 +383,11 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-5
+- Extend using-decl sed to all freeview/*.cpp files using bare
+  cerr/cout/endl (~30+ files; was only two). Sweep done at build time
+  via grep -lP rather than enumerated for resilience to upstream changes.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 8.2.0-4
 - freeview/FSPointSet.cpp + GenericRenderView.cpp use bare cerr/cout/endl;
