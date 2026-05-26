@@ -94,13 +94,20 @@ _compare_counts() {
     # Stronger guarantee than rpmlint: ANY 'not found' is a real bug
     # (the binary will segfault on the missing symbol). Hard fail with
     # 0 baseline — don't tolerate any.
+    #
+    # Diagnostic shows missing LIBRARIES not binary counts. One broken
+    # lib (say libmrix.so) typically affects many binaries in the same
+    # package; the user wants "afni is missing libmrix.so", not
+    # "afni has 47 broken binaries" without saying why.
+    local summary="${HERE}/.static-qa-logs/ldd-missing-libs.tsv"
     local broken
-    broken=$(awk -F'\t' '$2>0 {print "  "$1": "$2" not-found deps"}' "$current")
+    broken=$(awk -F'\t' '$2>0 {printf "  %-30s missing: %s (%d affected binaries)\n", $1, $3, $2}' "$summary")
     if [[ -n "$broken" ]]; then
-        echo "binaries with unresolved shared-library deps:" >&3
+        echo "shipped binaries with unresolved shared-library deps:" >&3
         echo "${broken}" >&3
         echo "" >&3
-        echo "detail: ${HERE}/.static-qa-logs/ldd-not-found.log" >&3
+        echo "  per-binary detail:  ${HERE}/.static-qa-logs/ldd-not-found.log" >&3
+        echo "  format:             package <TAB> binary <TAB> missing-lib" >&3
         return 1
     fi
 }

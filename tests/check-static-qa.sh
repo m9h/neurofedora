@@ -83,23 +83,38 @@ case "$MODE" in
 
 # ── Mode 2: ldd on shipped binaries ───────────────────────────────────────
 --ldd)
-    summary="$OUTDIR/ldd-not-found.log"
-    : > "$summary"
+    detail="$OUTDIR/ldd-not-found.log"   # one line per (pkg, bin, libname)
+    summary="$OUTDIR/ldd-missing-libs.tsv"  # per-package deduped missing libs
+    : > "$detail" "$summary"
     while read -r pkg; do
         # All ELF files shipped by this package
         bins=$(rpm -ql "$pkg" 2>/dev/null \
                 | xargs -r file 2>/dev/null \
                 | awk -F: '/ELF .* (executable|shared object)/{print $1}')
+        # Track BOTH the affected-binary count AND the deduplicated set of
+        # missing libraries. One broken lib (say libmrix.so) typically
+        # affects many binaries in the same package; the bats layer wants
+        # to show "afni is missing libmrix.so", not "afni has 47 broken
+        # binaries" without saying why. `local` doesn't work here (case
+        # block is at script scope, not function scope) — plain shell
+        # vars are fine since OUTDIR is per-invocation.
         count=0
+        missing_libs="$OUTDIR/.ldd-tmp-${pkg}.libs"
+        : > "$missing_libs"
         for bin in $bins; do
-            # ldd writes 'not found' to stderr for unresolved deps; the rest
-            # of its output is `lib => path`. Just count 'not found' lines.
-            nf=$(ldd "$bin" 2>/dev/null | grep -cE 'not found' || true)
-            if (( nf > 0 )); then
-                count=$((count + nf))
-                printf '%s\t%s\t%d\n' "$pkg" "$bin" "$nf" >> "$summary"
-            fi
+            # ldd output for a missing dep:
+            #   libmrix.so.1 => not found
+            # awk '/not found/{print $1}' isolates the libname.
+            while read -r lib; do
+                count=$((count + 1))
+                printf '%s\t%s\t%s\n' "$pkg" "$bin" "$lib" >> "$detail"
+                printf '%s\n' "$lib" >> "$missing_libs"
+            done < <(ldd "$bin" 2>/dev/null | awk '/not found/{print $1}')
         done
+        # Per-package unique missing libs (csv) for bats consumption
+        unique=$(sort -u "$missing_libs" | paste -sd, -)
+        rm -f "$missing_libs"
+        printf '%s\t%d\t%s\n' "$pkg" "$count" "$unique" >> "$summary"
         printf '%s\t%d\n' "$pkg" "$count"
     done < "$PKGS_SCAN"
     ;;
