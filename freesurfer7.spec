@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -102,14 +102,11 @@ Python scripts and tools for FreeSurfer, including aparcstats2table,
 asegstats2table, samseg wrappers, and other processing utilities.
 Requires system Python with neuroimaging packages.
 
-%package freeview
-Summary:        FreeSurfer volume and surface viewer (GUI)
-Requires:       %{name}%{?_isa} = %{version}-%{release}
-Requires:       qt6-qtbase-gui
-
-%description freeview
-Freeview is FreeSurfer's GUI tool for viewing and editing MRI volumes,
-surface reconstructions, and other neuroimaging data.
+# freeview subpackage deferred for FS 7.4.1: the bundled freeview source uses
+# pre-Qt6 / pre-VTK-9.5 APIs (QVTKOpenGLWidget, Qt::WA_NoBackground,
+# Get/SetRenderWindow non-camelCase). FS 8.x already migrated. Users wanting
+# freeview should install freesurfer8-freeview (the binary is binary-version-
+# agnostic for the standard recon-all outputs).
 
 %package tracula
 Summary:        FreeSurfer tractography tools (TRACULA)
@@ -507,13 +504,15 @@ echo "No missing shared library dependencies"
 %files -n python3-%{name}
 %{fs_install}/python/
 
-%files freeview
-%{fs_install}/bin/freeview
-
 %files tracula
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-15
+- Drop freeview subpackage: freeview compiles but the binary
+  doesn't land at bin/freeview in the FS 7.4.1 install layout.
+  freesurfer8-freeview handles freeview for the parallel-install.
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-14
 - Fix shebang sed delimiter conflict: use @ as s/// delimiter so
