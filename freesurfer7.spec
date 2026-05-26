@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -208,6 +208,14 @@ sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
 # jpeg stays bundled — imageio.cpp uses internal jinclude.h not in system libjpeg
 sed -i '/^  xml2$/d;/^  expat$/d' packages/CMakeLists.txt
 
+# GCC 16 / libstdc++ tightened transitive includes — many headers no longer
+# bring in <string>. FS 7.4.1's include/argparse.h:10 uses std::string in a
+# typedef but only includes <unordered_map>. Add the missing include
+# directly. (The %build CXXFLAGS also gets `-include string` defensively.)
+sed -i '/^#ifndef ARGPARSE_H/,/^#define ARGPARSE_H/{/^#define ARGPARSE_H/a\
+#include <string>
+}' include/argparse.h
+
 # ITK 5.x renamed itk::MultiThreader to itk::MultiThreaderBase (the legacy
 # alias was kept as a typedef for a while, then removed in 5.4+). FS 7.4.1's
 # Ants wrapper apps call the legacy name directly. Sed-rename to the new
@@ -356,7 +364,7 @@ endfunction()' cmake/functions.cmake
 
 %build
 export CFLAGS="%{optflags} -Wno-error -std=gnu17"
-export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
+export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -include string -fpermissive"
 export FFLAGS="%{optflags} -fallow-invalid-boz -fallow-argument-mismatch"
 
 %cmake -GNinja \
@@ -471,6 +479,12 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-8
+- GCC 16 tightened transitive includes: include/argparse.h uses
+  std::string without #include <string>. Sed-inject the include
+  inside its header guard, plus add -include string globally to
+  CXXFLAGS so other missing-transitive sites get caught at once.
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-7
 - ITK 5.x rename: itk::MultiThreader -> itk::MultiThreaderBase in
