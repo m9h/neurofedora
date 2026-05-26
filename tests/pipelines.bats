@@ -551,7 +551,207 @@ PIPECMD
     fi
 }
 
-@test "[027] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
+@test "[027] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" -info" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" -info
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "dim = \\[91, 109, 91\\]" <<<"$output $stderr"; then
+        echo "expected /dim = \\[91, 109, 91\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[028] mrtrix3: mrinfo \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:.*91 x 109 x 91" <<<"$output $stderr"; then
+        echo "expected /Dimensions:.*91 x 109 x 91/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[029] afni: 3dinfo -n4 \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "afni"
+    run --separate-stderr bash <<PIPECMD
+3dinfo -n4 "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "91\\s+109\\s+91" <<<"$output $stderr"; then
+        echo "expected /91\\s+109\\s+91/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[030] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/feeds/MNI152_T1_2mm.…" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "freesurfer"
+    run --separate-stderr bash <<PIPECMD
+/usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "91 +109 +91" <<<"$output $stderr"; then
+        echo "expected /91 +109 +91/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[031] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" \"$FIX/real/feeds/MNI152_T1_…" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" "$FIX/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz" -multiply -info
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "dim = \\[91, 109, 91\\]" <<<"$output $stderr"; then
+        echo "expected /dim = \\[91, 109, 91\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[032] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:.*182 x 218 x 182" <<<"$output $stderr"; then
+        echo "expected /Dimensions:.*182 x 218 x 182/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[033] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
+    _require_installed "afni"
+    run --separate-stderr bash <<PIPECMD
+3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "182\\s+218\\s+182" <<<"$output $stderr"; then
+        echo "expected /182\\s+218\\s+182/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[034] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:.*182 x 218 x 182 x 3" <<<"$output $stderr"; then
+        echo "expected /Dimensions:.*182 x 218 x 182 x 3/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[035] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
+    _require_installed "afni"
+    run --separate-stderr bash <<PIPECMD
+3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "182\\s+218\\s+182\\s+3" <<<"$output $stderr"; then
+        echo "expected /182\\s+218\\s+182\\s+3/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[036] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as…" {
+    _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
+    _require_installed "python3-fslpy"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as np; t1=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm.nii.gz"); m=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz"); print("t1=", t1.shape, "brain_voxels=", int(np.asarray(m.data).sum()))'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "t1= \\(91, 109, 91\\) brain_voxels= [0-9]+" <<<"$output $stderr"; then
+        echo "expected /t1= \\(91, 109, 91\\) brain_voxels= [0-9]+/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[037] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/primitive_geometry.urdf"
     _require_installed "urdfdom"
     run --separate-stderr bash <<PIPECMD
@@ -571,7 +771,7 @@ PIPECMD
     fi
 }
 
-@test "[028] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
+@test "[038] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/joint_properties.urdf"
     _require_installed "urdfdom"
     run --separate-stderr bash <<PIPECMD
@@ -591,7 +791,7 @@ PIPECMD
     fi
 }
 
-@test "[029] urdfdom: check_urdf \"$FIX/real/urdf/issue838.urdf\" 2>&1" {
+@test "[039] urdfdom: check_urdf \"$FIX/real/urdf/issue838.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/issue838.urdf"
     _require_installed "urdfdom"
     run --separate-stderr bash <<PIPECMD
@@ -611,7 +811,7 @@ PIPECMD
     fi
 }
 
-@test "[030] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+@test "[040] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
     _require_real_fixtures "$FIX/real/morpheus/ActivatorInhibitor_1D.xml"
     _require_installed "morpheus"
     run --separate-stderr bash <<PIPECMD
@@ -631,7 +831,7 @@ PIPECMD
     fi
 }
 
-@test "[031] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+@test "[041] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
     _require_real_fixtures "$FIX/real/morpheus/CellSorting_2D.xml"
     _require_installed "morpheus"
     run --separate-stderr bash <<PIPECMD
@@ -651,7 +851,7 @@ PIPECMD
     fi
 }
 
-@test "[032] ucsc-kent-utils: bedToBigBed -type=bed6 \"$FIX/real/genomics/sample.bed\" \"$FIX/real/geno…" {
+@test "[042] ucsc-kent-utils: bedToBigBed -type=bed6 \"$FIX/real/genomics/sample.bed\" \"$FIX/real/geno…" {
     _require_real_fixtures "$FIX/real/genomics/sample.bed"
     _require_installed "ucsc-kent-utils"
     run --separate-stderr bash <<PIPECMD
@@ -671,7 +871,7 @@ PIPECMD
     fi
 }
 
-@test "[033] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
+@test "[043] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
     _require_fixtures
     _require_installed "python3-vmtk"
     run --separate-stderr bash <<PIPECMD

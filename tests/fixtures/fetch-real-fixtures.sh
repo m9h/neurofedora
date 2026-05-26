@@ -157,6 +157,63 @@ fi
 
 echo "[real-fixtures] genomics: $(ls "$GENOMICS_DIR" 2>/dev/null | wc -l) files"
 
+# ─── Section 5/5: FSL reference data (anat + DTI templates) ────────────────
+# FSL's FEEDS test dataset isn't anonymously fetchable from the FSL gitlab
+# (auth-walled), so we DETECT a local FSL install and symlink its shipped
+# reference data into fixtures/real/feeds/. Covers:
+#   - MNI152 T1 1mm/2mm (richer than nilearn's 2009a 2mm)
+#   - FMRIB58 / HCP1065 FA + L1 + V1 — real DTI-derived templates,
+#     exercises the same NIfTI code paths as raw DWI loading.
+#
+# If FSL isn't installed, the section skips cleanly and the FEEDS-style
+# pipeline rows skip too. Install FSL from
+# https://fsl.fmrib.ox.ac.uk/fsl/docs/#/install/index to unlock.
+FEEDS_DIR="$REAL/feeds"
+mkdir -p "$FEEDS_DIR"
+
+_detect_fsl() {
+    local cand
+    for cand in "${FSLDIR:-}" /usr/share/fsl /opt/fsl /usr/local/fsl \
+                "$HOME/fsl" /Applications/fsl; do
+        [[ -n "$cand" && -d "$cand/data/standard" ]] && { echo "$cand"; return 0; }
+    done
+    # /opt/fsl-* glob (versioned installs)
+    for cand in /opt/fsl-* ; do
+        [[ -d "$cand/data/standard" ]] && { echo "$cand"; return 0; }
+    done
+    return 1
+}
+
+if FSL_DIR=$(_detect_fsl); then
+    # Anatomical T1 templates (1mm and 2mm)
+    for f in MNI152_T1_1mm.nii.gz MNI152_T1_1mm_brain.nii.gz \
+             MNI152_T1_2mm.nii.gz MNI152_T1_2mm_brain.nii.gz \
+             MNI152_T1_2mm_brain_mask.nii.gz; do
+        src="$FSL_DIR/data/standard/$f"
+        [[ -f "$src" && ! -e "$FEEDS_DIR/$f" ]] && ln -sf "$src" "$FEEDS_DIR/$f"
+    done
+    # DTI / diffusion-derived templates
+    for f in FMRIB58_FA_1mm.nii.gz FMRIB58_FA-skeleton_1mm.nii.gz \
+             FSL_HCP1065_FA_1mm.nii.gz FSL_HCP1065_L1_1mm.nii.gz \
+             FSL_HCP1065_V1_1mm.nii.gz; do
+        src="$FSL_DIR/data/standard/$f"
+        [[ -f "$src" && ! -e "$FEEDS_DIR/$f" ]] && ln -sf "$src" "$FEEDS_DIR/$f"
+    done
+    n=$(ls -1 "$FEEDS_DIR" 2>/dev/null | wc -l)
+    echo "[real-fixtures] FSL data: $n symlinks (FSLDIR=$FSL_DIR)"
+    # Optional: an actual FEEDS install adds raw DWI/anat/fmri subdirs
+    if [[ -d "$FSL_DIR/feeds" ]]; then
+        for sub in anat diff fmri; do
+            [[ -d "$FSL_DIR/feeds/$sub" && ! -e "$FEEDS_DIR/$sub" ]] \
+                && ln -sf "$FSL_DIR/feeds/$sub" "$FEEDS_DIR/$sub"
+        done
+        echo "[real-fixtures] FSL FEEDS detected: anat/diff/fmri symlinked"
+    fi
+else
+    echo "[real-fixtures] FSL not detected — FEEDS-style pipelines will SKIP"
+    echo "[real-fixtures]   (set FSLDIR or install FSL to unlock)"
+fi
+
 # ── Summary ────────────────────────────────────────────────────────────────
-total_kb=$(du -sk "$REAL" 2>/dev/null | awk '{print $1}')
+total_kb=$(du -sLk "$REAL" 2>/dev/null | awk '{print $1}')
 echo "[real-fixtures] all sections done; total ${total_kb} KB under $REAL"

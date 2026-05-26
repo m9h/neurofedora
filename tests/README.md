@@ -71,11 +71,44 @@ bats pipelines.bats          # real-data first-examples
     ├── dicom/                    10-slice synthetic CT series
     ├── mesh.vtp                  tiny VTP mesh (8 verts, 12 tris)
     │
-    └── real/                     ← fetched on first run, ~0.4 MB
-        ├── mni152_t1_2mm.nii.gz          MNI152 2009a T1 (99×117×95, uint8)
+    └── real/                     ← fetched/symlinked on first run, ~0.5 MB
+        ├── mni152_t1_2mm.nii.gz          MNI152 2009a T1 via nilearn (99×117×95)
         ├── mni152_brain_mask_2mm.nii.gz  binary brain mask
-        └── mni152_t1_2mm_moved.nii.gz    same T1, 2-voxel x-shift for reg tests
+        ├── mni152_t1_2mm_moved.nii.gz    2-voxel x-shift for reg tests
+        ├── urdf/                          DART/ROS URDF samples (4 files)
+        ├── morpheus/                      MorpheusML example models (2 XMLs)
+        ├── genomics/                      synthesized BED-6 + chrom.sizes
+        └── feeds/                         ← symlinks IF FSL detected locally
+            ├── MNI152_T1_1mm.nii.gz       FSL's 182×218×182 1mm anatomical
+            ├── MNI152_T1_2mm.nii.gz       FSL's classic 91×109×91 grid
+            ├── MNI152_T1_2mm_brain.nii.gz brain-extracted
+            ├── MNI152_T1_2mm_brain_mask.nii.gz
+            ├── FMRIB58_FA_1mm.nii.gz      FMRIB58 FA template (3D float)
+            ├── FSL_HCP1065_FA_1mm.nii.gz  HCP1065 FA template
+            ├── FSL_HCP1065_L1_1mm.nii.gz  HCP1065 eigenvalue λ₁
+            └── FSL_HCP1065_V1_1mm.nii.gz  HCP1065 V1 (4D eigenvector field)
 ```
+
+### FSL FEEDS-style data layer
+
+FSL's official FEEDS test dataset (which would include raw 4D DWI + bvecs +
+bvals) lives on FSL's gitlab behind authentication, so the fetcher can't
+pull it anonymously. Instead, `fetch-real-fixtures.sh` **detects a local FSL
+install** (via `$FSLDIR` + common paths like `/usr/share/fsl`, `/opt/fsl`,
+`~/fsl`, `/Applications/fsl`) and symlinks the standard data into
+`fixtures/real/feeds/`. This unlocks:
+
+- T1 templates at FSL's canonical 91×109×91 (2 mm) and 182×218×182 (1 mm)
+  grids — distinct from nilearn's 99×117×95 cropping (both are valid
+  MNI152 representations)
+- Real diffusion-derived 3D scalar maps (FA) and 4D eigenvector fields (V1)
+- A full brain-extraction pipeline test via T1 × brain_mask
+
+If a real FEEDS install is present at `$FSLDIR/feeds/`, its `anat/`, `diff/`,
+and `fmri/` subdirs are also symlinked — unlocking raw 4D DWI tests. To
+install FEEDS itself: see FSL's docs at https://fsl.fmrib.ox.ac.uk/.
+
+If FSL isn't installed, all `feeds/*` tests SKIP cleanly.
 
 ## Two-tier fixture model
 

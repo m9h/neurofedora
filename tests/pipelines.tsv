@@ -89,6 +89,34 @@ python3-simpleitk	/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadIm
 ANTs	antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10	reg_Warped\.nii\.gz
 greedy	greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3	0\.0+\s+0\.0+\s+0\.0+\s+1\.0+
 
+# ─── Real-data FSL-shipped templates (requires local FSL install) ──────────
+# fetch-real-fixtures.sh detects FSL via $FSLDIR + common install paths and
+# symlinks the standard data into fixtures/real/feeds/. Covers:
+#   - MNI152 T1 1mm/2mm (anatomical) + brain + brain_mask
+#   - FMRIB58 / HCP1065 FA, L1, V1 (DTI-derived, 3D scalar + 4D eigenvector)
+# Pipelines that reference these SKIP cleanly if FSL isn't installed.
+
+# Anatomical T1 on the canonical FSL 91x109x91 grid (different from
+# nilearn's 99x117x95 cropping; both are valid MNI152, distinct test).
+c3d	c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" -info	dim = \[91, 109, 91\]
+mrtrix3	mrinfo "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"	Dimensions:.*91 x 109 x 91
+afni	3dinfo -n4 "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"	91\s+109\s+91
+freesurfer	/usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" 2>&1	91 +109 +91
+
+# Brain mask × T1 — exercises multi-image arithmetic at FSL's grid
+c3d	c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" "$FIX/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz" -multiply -info	dim = \[91, 109, 91\]
+
+# DTI scalar map (FA): real diffusion-derived data, 1mm float32
+mrtrix3	mrinfo "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"	Dimensions:.*182 x 218 x 182
+afni	3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"	182\s+218\s+182
+
+# DTI 4D eigenvector field (V1): tests 4D NIfTI parsing on real data
+mrtrix3	mrinfo "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"	Dimensions:.*182 x 218 x 182 x 3
+afni	3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"	182\s+218\s+182\s+3
+
+# fslpy: real brain-extraction pipeline (T1 × mask, count voxels)
+python3-fslpy	/usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as np; t1=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm.nii.gz"); m=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz"); print("t1=", t1.shape, "brain_voxels=", int(np.asarray(m.data).sum()))'	t1= \(91, 109, 91\) brain_voxels= [0-9]+
+
 # ─── Real-data robotics (DART URDFs via urdfdom) ───────────────────────────
 # DART ships a curated URDF test corpus under data/urdf/test/; we fetch a
 # few canonical valid ones (primitive_geometry, joint_properties, testWorld,
