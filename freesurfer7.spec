@@ -10,7 +10,7 @@
 
 Name:           freesurfer7
 Version:        7.4.1
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Neuroimaging analysis and visualization suite (FreeSurfer 7.4.1)
 
 # FreeSurfer Software License Agreement v1.0 — custom permissive license from MGH
@@ -207,6 +207,20 @@ sed -i 's/add_compile_options(-w -fPIC)/add_compile_options(-w -fPIC -std=gnu89)
 sed -i '/^  glut$/d;/^  gifti$/d;/^  tetgen$/d' packages/CMakeLists.txt
 # jpeg stays bundled — imageio.cpp uses internal jinclude.h not in system libjpeg
 sed -i '/^  xml2$/d;/^  expat$/d' packages/CMakeLists.txt
+
+# Disable the bundled GEMS (Generic Expectation-Maximization Segmentation)
+# library + its consumers (samseg, samsegmesh2surf). FS 7.4.1's gems/ pins
+# to legacy ITK ABIs that ITK 5.4.x has since dropped:
+#   - ITK_THREAD_RETURN_TYPE: removed (now uses itk::ITK_THREAD_RETURN_TYPE
+#     or ITKThreadFunctionType)
+#   - itkExceptionObject.h direct-include now emits a hard #error
+#   - SmartPointer = 0 / = integer-zero is no longer convertible
+#     (ambiguous with the explicit conversions in modern ITK)
+# Migrating gems/ to ITK 5.4 is a significant upstream effort. SAMSEG
+# functionality is still available via the python3-samseg package in the
+# freesurfer-fspython venv, which is the path FreeSurfer 8.x has migrated to.
+sed -i '/^add_subdirectory(gems)/d' CMakeLists.txt
+sed -i '/^  samseg$/d;/^  samsegmesh2surf$/d' CMakeLists.txt
 
 # Replace bundled xml2 include path with system path in utils/CMakeLists.txt
 sed -i 's|${CMAKE_SOURCE_DIR}/packages/xml2|/usr/include/libxml2|' utils/CMakeLists.txt
@@ -441,6 +455,13 @@ echo "No missing shared library dependencies"
 %{fs_install}/bin/dmri_*
 
 %changelog
+
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-6
+- Disable bundled GEMS subdir (gems/, samseg/, samsegmesh2surf/):
+  FS 7.4.1 uses removed ITK 5.x APIs (ITK_THREAD_RETURN_TYPE,
+  itkExceptionObject.h direct-include, SmartPointer=0 ambiguity).
+  SAMSEG functionality is provided by python3-samseg in the
+  freesurfer-fspython venv (FS 8.x migration path).
 
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 7.4.1-5
 - GCC 16 / C++17 std::byte collision: rename FS-side typedef byte→hips_byte
