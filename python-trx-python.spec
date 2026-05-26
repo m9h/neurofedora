@@ -1,6 +1,6 @@
 Name:           python-trx-python
 Version:        0.4.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Community-oriented file format for tractography
 
 # Upstream pyproject says "BSD License" (SPDX: BSD-3-Clause per the
@@ -69,11 +69,23 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %files -n python3-trx-python -f %{pyproject_files}
 %doc README.md
 %license LICENSE
+# Upstream installs 10 entry-point scripts (one bare 'trx' + nine trx_*
+# subcommands). %%pyproject_save_files collects the Python tree but not
+# the /usr/bin/ entry-points, so list them explicitly.
 %{_bindir}/trx
-%{_bindir}/trx_concatenate_tractograms
+%{_bindir}/trx_*
 
 
 %changelog
+* Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-5
+- Glob all 10 entry-point scripts in %%files. Version detection works
+  now (wheel correctly built as trx_python-0.4.0) but the explicit
+  %%{_bindir}/trx and %%{_bindir}/trx_concatenate_tractograms in -4 left
+  9 other trx_* scripts unpackaged: trx_convert_{dsi_studio,tractogram},
+  trx_generate_from_scratch, trx_info, trx_manipulate_datatype,
+  trx_simple_compare, trx_validate, trx_verify_header_compatibility,
+  trx_visualize_overlap. Replaced with %%{_bindir}/trx_* glob.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.0-4
 - Escape bare %% in %%prep comments — -3's comment said `%%pyproject_wheel`
   with single %%, and RPM dutifully expanded the macro right there inside
