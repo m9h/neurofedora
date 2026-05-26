@@ -95,12 +95,10 @@ awk -F'\t' '
 
         # Auto-detect whether this row needs the real-data fixture set
         # (fetched by fetch-real-fixtures.sh). A row qualifies if its
-        # command references /real/ anywhere — this catches both the
-        # direct bash form `$FIX/real/foo` AND the python-style form
-        # `'"$FIX"'/real/foo` (quotes between $FIX and /real/ for shell
-        # interpolation). We then extract the /real/<path>.<ext>
-        # substring and rebuild it as $FIX/real/<path>.<ext> for the
-        # skip-check helper.
+        # command references /real/ anywhere. We match on the literal
+        # /real/ substring (not anchored on FIX) because some rows use
+        # bash-direct paths and others use python-style paths with
+        # embedded quotes that break a FIX-anchored regex.
         needs_real = (cmd ~ /\/real\/[A-Za-z0-9._\/-]+\.(nii\.gz|urdf|xml|bed|sizes|bb)/)
         real_file = ""
         if (needs_real) {

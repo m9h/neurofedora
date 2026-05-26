@@ -42,3 +42,651 @@ _require_real_fixtures() {
         || skip "real fixture missing: $file (run fixtures/fetch-real-fixtures.sh)"
 }
 
+
+@test "[001] dcmtk: dcmdump \"$FIX/dicom/slice_000.dcm\"" {
+    _require_fixtures
+    _require_installed "dcmtk"
+    run --separate-stderr bash <<PIPECMD
+dcmdump "$FIX/dicom/slice_000.dcm"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "NEUROFEDORA-TEST.*PatientID" <<<"$output $stderr"; then
+        echo "expected /NEUROFEDORA-TEST.*PatientID/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[002] dcmtk: dcm2xml \"$FIX/dicom/slice_000.dcm\" > \"$TMP/out.xml\" && grep -q \"Patien…" {
+    _require_fixtures
+    _require_installed "dcmtk"
+    run --separate-stderr bash <<PIPECMD
+dcm2xml "$FIX/dicom/slice_000.dcm" > "$TMP/out.xml" && grep -q "PatientID" "$TMP/out.xml"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[003] gdcm-applications: gdcmdump \"$FIX/dicom/slice_000.dcm\"" {
+    _require_fixtures
+    _require_installed "gdcm-applications"
+    run --separate-stderr bash <<PIPECMD
+gdcmdump "$FIX/dicom/slice_000.dcm"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "(0010,0020).*NEUROFEDORA-TEST" <<<"$output $stderr"; then
+        echo "expected /(0010,0020).*NEUROFEDORA-TEST/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[004] gdcm-applications: gdcminfo \"$FIX/dicom/slice_000.dcm\"" {
+    _require_fixtures
+    _require_installed "gdcm-applications"
+    run --separate-stderr bash <<PIPECMD
+gdcminfo "$FIX/dicom/slice_000.dcm"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "CT Image Storage" <<<"$output $stderr"; then
+        echo "expected /CT Image Storage/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[005] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
+    _require_fixtures
+    _require_installed "python3-simpleitk"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); print("shape=",img.GetSize())'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "shape= \\(32, 32, 32\\)" <<<"$output $stderr"; then
+        echo "expected /shape= \\(32, 32, 32\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[006] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
+    _require_fixtures
+    _require_installed "python3-simpleitk"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); sm=sitk.SmoothingRecursiveGaussian(img,2.0); sitk.WriteImage(sm,"'"$TMP"'/smooth.nii.gz"); print("OK")'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "OK" <<<"$output $stderr"; then
+        echo "expected /OK/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[007] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FI…" {
+    _require_fixtures
+    _require_installed "python3-fslpy"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/t1.nii.gz"); print("shape=", im.shape)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "shape= \\(32, 32, 32\\)" <<<"$output $stderr"; then
+        echo "expected /shape= \\(32, 32, 32\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[008] python3-fsleyes: command -v xvfb-run >/dev/null || { echo \"SKIP: xvfb-run missing\"; exi…" {
+    _require_fixtures
+    _require_installed "python3-fsleyes"
+    run --separate-stderr bash <<PIPECMD
+command -v xvfb-run >/dev/null || { echo "SKIP: xvfb-run missing"; exit 0; }; out="$TMP/render.png"; timeout 45 xvfb-run -a fsleyes render -of "$out" "$FIX/t1.nii.gz" >/dev/null 2>&1 || true; sz=$(wc -c <"$out" 2>/dev/null || echo 0); [ "$sz" -gt 1000 ] && echo "rendered $sz bytes" || echo "RENDER_EMPTY size=$sz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "(rendered [0-9]+ bytes|SKIP|RENDER_EMPTY)" <<<"$output $stderr"; then
+        echo "expected /(rendered [0-9]+ bytes|SKIP|RENDER_EMPTY)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[009] ANTs: antsRegistrationSyN.sh -d 3 -f \"$FIX/t1.nii.gz\" -m \"$FIX/t1_moved.nii.…" {
+    _require_fixtures
+    _require_installed "ANTs"
+    run --separate-stderr bash <<PIPECMD
+antsRegistrationSyN.sh -d 3 -f "$FIX/t1.nii.gz" -m "$FIX/t1_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -5
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "reg_Warped\\.nii\\.gz" <<<"$output $stderr"; then
+        echo "expected /reg_Warped\\.nii\\.gz/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[010] c3d: c3d \"$FIX/t1.nii.gz\" -info" {
+    _require_fixtures
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/t1.nii.gz" -info
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Image #1.* dim = \\[32, 32, 32\\]" <<<"$output $stderr"; then
+        echo "expected /Image #1.* dim = \\[32, 32, 32\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[011] c3d: c3d \"$FIX/t1.nii.gz\" -smooth 2mm -o \"$TMP/smooth.nii.gz\" && test -s \"$…" {
+    _require_fixtures
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/t1.nii.gz" -smooth 2mm -o "$TMP/smooth.nii.gz" && test -s "$TMP/smooth.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[012] greedy: greedy -d 3 -i \"$FIX/t1.nii.gz\" \"$FIX/t1_moved.nii.gz\" -o \"$TMP/warp.n…" {
+    _require_fixtures
+    _require_installed "greedy"
+    run --separate-stderr bash <<PIPECMD
+greedy -d 3 -i "$FIX/t1.nii.gz" "$FIX/t1_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 10x5 -threads 1 2>&1 | tail -3
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "0\\.0+\\s+0\\.0+\\s+0\\.0+\\s+1\\.0+" <<<"$output $stderr"; then
+        echo "expected /0\\.0+\\s+0\\.0+\\s+0\\.0+\\s+1\\.0+/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[013] mrtrix3: mrconvert -force -fslgrad \"$FIX/dwi/bvecs\" \"$FIX/dwi/bvals\" \"$FIX/dwi/…" {
+    _require_fixtures
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrconvert -force -fslgrad "$FIX/dwi/bvecs" "$FIX/dwi/bvals" "$FIX/dwi/dwi.nii.gz" "$TMP/dwi.mif" 2>&1 | tail -3
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "mrconvert" <<<"$output $stderr"; then
+        echo "expected /mrconvert/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[014] mrtrix3: mrinfo \"$FIX/dwi/dwi.nii.gz\"" {
+    _require_fixtures
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/dwi/dwi.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:.*32 x 32 x 32 x 7" <<<"$output $stderr"; then
+        echo "expected /Dimensions:.*32 x 32 x 32 x 7/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[015] afni: 3dinfo -n4 \"$FIX/t1.nii.gz\"" {
+    _require_fixtures
+    _require_installed "afni"
+    run --separate-stderr bash <<PIPECMD
+3dinfo -n4 "$FIX/t1.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "32\\s+32\\s+32" <<<"$output $stderr"; then
+        echo "expected /32\\s+32\\s+32/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[016] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/t1.nii.gz\" 2>&1" {
+    _require_fixtures
+    _require_installed "freesurfer"
+    run --separate-stderr bash <<PIPECMD
+/usr/lib/freesurfer/bin/mri_info --dim "$FIX/t1.nii.gz" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "32 +32 +32" <<<"$output $stderr"; then
+        echo "expected /32 +32 +32/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[017] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" -info" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/real/mni152_t1_2mm.nii.gz" -info
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Image #1.* dim = \\[99, 117, 95\\]" <<<"$output $stderr"; then
+        echo "expected /Image #1.* dim = \\[99, 117, 95\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[018] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_brain_mask_2mm.…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "c3d"
+    run --separate-stderr bash <<PIPECMD
+c3d "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_brain_mask_2mm.nii.gz" -multiply -info
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "dim = \\[99, 117, 95\\]" <<<"$output $stderr"; then
+        echo "expected /dim = \\[99, 117, 95\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[019] mrtrix3: mrinfo \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "mrtrix3"
+    run --separate-stderr bash <<PIPECMD
+mrinfo "$FIX/real/mni152_t1_2mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Dimensions:.*99 x 117 x 95" <<<"$output $stderr"; then
+        echo "expected /Dimensions:.*99 x 117 x 95/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[020] afni: 3dinfo -n4 \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "afni"
+    run --separate-stderr bash <<PIPECMD
+3dinfo -n4 "$FIX/real/mni152_t1_2mm.nii.gz"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "99\\s+117\\s+95" <<<"$output $stderr"; then
+        echo "expected /99\\s+117\\s+95/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[021] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/mni152_t1_2mm.nii.gz…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "freesurfer"
+    run --separate-stderr bash <<PIPECMD
+/usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/mni152_t1_2mm.nii.gz" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "99 +117 +95" <<<"$output $stderr"; then
+        echo "expected /99 +117 +95/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[022] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FI…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "python3-fslpy"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("shape=", im.shape, "ras=", im.isNeurological())'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "shape= \\(99, 117, 95\\)" <<<"$output $stderr"; then
+        echo "expected /shape= \\(99, 117, 95\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[023] python3-nilearn: /usr/bin/python3 -c 'from nilearn.datasets import load_mni152_template…" {
+    _require_fixtures
+    _require_installed "python3-nilearn"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'from nilearn.datasets import load_mni152_template; t=load_mni152_template(2); print("expected shape:", t.shape)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "expected shape: \\(99, 117, 95\\)" <<<"$output $stderr"; then
+        echo "expected /expected shape: \\(99, 117, 95\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[024] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "python3-simpleitk"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("size=",img.GetSize(),"spacing=",img.GetSpacing())'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "size= \\(99, 117, 95\\)" <<<"$output $stderr"; then
+        echo "expected /size= \\(99, 117, 95\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[025] ANTs: antsRegistrationSyN.sh -d 3 -f \"$FIX/real/mni152_t1_2mm.nii.gz\" -m \"$F…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "ANTs"
+    run --separate-stderr bash <<PIPECMD
+antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "reg_Warped\\.nii\\.gz" <<<"$output $stderr"; then
+        echo "expected /reg_Warped\\.nii\\.gz/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[026] greedy: greedy -d 3 -i \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_t1_2…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "greedy"
+    run --separate-stderr bash <<PIPECMD
+greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "0\\.0+\\s+0\\.0+\\s+0\\.0+\\s+1\\.0+" <<<"$output $stderr"; then
+        echo "expected /0\\.0+\\s+0\\.0+\\s+0\\.0+\\s+1\\.0+/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[027] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/primitive_geometry.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/primitive_geometry.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[028] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/joint_properties.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/joint_properties.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[029] urdfdom: check_urdf \"$FIX/real/urdf/testWorld.urdf\" 2>&1" {
+    _require_real_fixtures "$FIX/real/urdf/testWorld.urdf"
+    _require_installed "urdfdom"
+    run --separate-stderr bash <<PIPECMD
+check_urdf "$FIX/real/urdf/testWorld.urdf" 2>&1
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "Successfully Parsed XML" <<<"$output $stderr"; then
+        echo "expected /Successfully Parsed XML/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[030] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+    _require_real_fixtures "$FIX/real/morpheus/ActivatorInhibitor_1D.xml"
+    _require_installed "morpheus"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/ActivatorInhibitor_1D.xml").getroot().tag)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "root: MorpheusModel" <<<"$output $stderr"; then
+        echo "expected /root: MorpheusModel/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[031] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+    _require_real_fixtures "$FIX/real/morpheus/CellSorting_2D.xml"
+    _require_installed "morpheus"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/CellSorting_2D.xml").getroot().tag)'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "root: MorpheusModel" <<<"$output $stderr"; then
+        echo "expected /root: MorpheusModel/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[032] ucsc-kent-utils: bedToBigBed \"$FIX/real/genomics/sample.bed\" \"$FIX/real/genomics/chrom.…" {
+    _require_real_fixtures "$FIX/real/genomics/sample.bed"
+    _require_installed "ucsc-kent-utils"
+    run --separate-stderr bash <<PIPECMD
+bedToBigBed "$FIX/real/genomics/sample.bed" "$FIX/real/genomics/chrom.sizes" "$TMP/sample.bb" 2>&1 && test -s "$TMP/sample.bb" && echo "produced $(stat -c%s "$TMP/sample.bb") bytes"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "produced [0-9]+ bytes" <<<"$output $stderr"; then
+        echo "expected /produced [0-9]+ bytes/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[033] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
+    _require_fixtures
+    _require_installed "python3-vmtk"
+    run --separate-stderr bash <<PIPECMD
+/usr/bin/python3 -c 'import vmtk; print("vmtk", getattr(vmtk, "__version__", "(no version attr)"))'
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "vmtk" <<<"$output $stderr"; then
+        echo "expected /vmtk/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
