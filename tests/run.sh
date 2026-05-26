@@ -60,6 +60,7 @@ for marker in fixtures/real/mni152_t1_2mm.nii.gz \
               fixtures/real/urdf/primitive_geometry.urdf \
               fixtures/real/morpheus/ActivatorInhibitor_1D.xml \
               fixtures/real/genomics/sample.bed \
+              fixtures/real/genomics/sample.as \
               fixtures/real/dwi/HARDI193.nii.gz; do
     [[ -f "${HERE}/$marker" ]] || { need_fetch=1; break; }
 done
