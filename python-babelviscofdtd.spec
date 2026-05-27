@@ -1,6 +1,6 @@
 Name:           python-babelviscofdtd
 Version:        1.2.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        GPU/CPU 3D FDTD solution of viscoelastic equation
 
 License:        BSD-3-Clause
@@ -51,15 +51,21 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 %files -n python3-babelviscofdtd
 %license LICENSE
 %doc README.md
-# The cython-built .so extensions live INSIDE BabelViscoFDTD/ (per the
-# upstream layout), so the directory listing covers them. Don't list
-# top-level _FDTDStaggered*.so — they don't exist there.
 %{python3_sitearch}/BabelViscoFDTD
+# The cython-built .so extensions ARE installed at top-level sitearch (in
+# addition to inside BabelViscoFDTD/) — the pyproject build emits BOTH.
+# (Earlier diagnosis assumed only one location; build log confirms both.)
+%{python3_sitearch}/_FDTDStaggered3D_with_relaxation_*.so
 # The dist-info version drifts because Source0 fetches main.tar.gz (not a tag);
 # the wheel build uses whatever pyproject.toml says in that snapshot. Glob it.
 %{python3_sitearch}/babelviscofdtd-*.dist-info
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-3
+- Restore _FDTDStaggered*.so glob in %%files: the wheel actually
+  installs the cython extensions at BOTH top-level sitearch AND
+  inside BabelViscoFDTD/. The -2 removal was wrong.
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-2
 - Glob the .dist-info path: Source0 fetches main.tar.gz which
