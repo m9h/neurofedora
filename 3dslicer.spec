@@ -29,7 +29,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -213,6 +213,10 @@ export QT_QPA_PLATFORM=offscreen
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
+    `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
+    `# if(DEFINED Qt6_DIR) to pick Qt6 over Qt5. Without this hint it` \
+    `# tries find_package(Qt5) and aborts with "Qt5 was not found".` \
+    -DQt6_DIR:PATH=%{_libdir}/cmake/Qt6 \
     \
     `# Feature toggles` \
     -DSlicer_USE_PYTHONQT:BOOL=ON \
@@ -280,6 +284,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-4
+- Set Qt6_DIR explicitly: SlicerBlockFindQtAndCheckVersion.cmake
+  checks if(DEFINED Qt6_DIR) to choose Qt6 over Qt5. Without the
+  flag, Slicer falls back to find_package(Qt5) and aborts.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-3
 - Switch sed delimiter to @ (was |, which collided with the |
