@@ -21,7 +21,7 @@
 
 Name:           vespa
 Version:        1.0
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        VTK Enhanced with Surface Processing Algorithms (CGAL bridge)
 
 # BSD-3-Clause for source code, GPL-3.0-or-later for any binary because
@@ -36,6 +36,8 @@ Source0:        %{url}/-/archive/v%{version}/%{name}-v%{version}.tar.gz
 BuildRequires:  cmake >= 3.8
 BuildRequires:  gcc-c++
 BuildRequires:  ninja-build
+# patchelf for fixing the ParaView plugin's RUNPATH at install time.
+BuildRequires:  patchelf
 # Plugin variant pulls VTK transitively via paraview-devel; require both
 # explicitly so cmake's find_package(VTK) succeeds for the module half.
 BuildRequires:  vtk-devel >= 9.0
@@ -238,6 +240,31 @@ export CXXFLAGS="%{optflags} -std=c++17 -Wno-error=deprecated-declarations"
 # python3-devel-provided Python.h on install. Upstream bug.
 rm -f %{buildroot}%{_includedir}/Python.h
 
+# Fedora ships ParaView's private VTK libraries under
+# /usr/lib64/paraview/, but our plugin installs to
+# /usr/lib64/paraview/plugins/VESPAPlugin/VESPAPlugin.so — two levels
+# deeper. The plugin needs RUNPATH=$ORIGIN/../.. so its
+# libvtkRemoting*.so.1, libvtkCommonCore.so.1, libvtksys.so.1 deps
+# resolve at runtime. ParaView normally adds /usr/lib64/paraview to
+# LD_LIBRARY_PATH when it loads plugins, but that only works when
+# ParaView is the loader — not for ldd inspection, dlopen() from a
+# script, or static analysis.
+#
+# Bug 6 in [[copr-packaging-bugs-2026-05-23]], surfaced 2026-05-26 by
+# the test harness's qa-2 ldd scan on fedora-imac:
+#   vespa-paraview-plugin missing: libvtkRemotingClientServerStream.so.1,
+#                                  libvtkRemotingCore.so.1
+# Diagnosis confirmed the libs exist at /usr/lib64/paraview/libvtk*.so.1
+# — only the plugin's RUNPATH was missing.
+#
+# $ORIGIN expands to the plugin's own directory at load time, so
+# $ORIGIN/../.. resolves to /usr/lib64/paraview/ where all the VTK and
+# Remoting .so.1 SONAMEs live.
+PLUGIN_SO="%{buildroot}%{_libdir}/paraview/plugins/VESPAPlugin/VESPAPlugin.so"
+if [[ -f "$PLUGIN_SO" ]]; then
+    patchelf --set-rpath '$ORIGIN/../..' "$PLUGIN_SO"
+fi
+
 %files
 %license License.txt
 %doc README.md
@@ -276,6 +303,19 @@ rm -f %{buildroot}%{_includedir}/Python.h
 %{_libdir}/cmake/vespa/
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-10
+- Set RUNPATH=$ORIGIN/../.. on the VESPAPlugin.so via patchelf in
+  %%install. Bug 6 from [[copr-packaging-bugs-2026-05-23]], surfaced
+  2026-05-26 by the harness's qa-2 ldd scan on fedora-imac:
+    vespa-paraview-plugin missing: libvtkRemotingClientServerStream.so.1,
+                                   libvtkRemotingCore.so.1
+  The libs exist at /usr/lib64/paraview/libvtk{RemotingCore,...}.so.1
+  (Fedora ships ParaView's private VTK there) — the plugin just had no
+  RUNPATH to find them. ParaView's plugin loader normally injects
+  LD_LIBRARY_PATH, but ldd/dlopen/static analysis bypass that. $ORIGIN
+  expands to the plugin's dir at load time, so $ORIGIN/../.. resolves
+  to /usr/lib64/paraview/.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-9
 - Drop the runtime `Requires: CGAL` from vespa-libs entirely. -8 changed
   it from `CGAL(x86-64)` to bare `CGAL` but Fedora has NO runtime CGAL
