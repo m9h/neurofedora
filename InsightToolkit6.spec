@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -153,6 +153,13 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DITK_USE_SYSTEM_FFTW:BOOL=ON \
     -DITK_USE_SYSTEM_ZLIB:BOOL=ON \
     -DITK_USE_SYSTEM_OPENJPEG:BOOL=ON \
+    `# HDF5 explicit OFF: ITK6 cmake re-includes hdf5-targets.cmake via` \
+    `# multiple module find_package calls. The system HDF5 export set` \
+    `# only defines the shared targets; subsequent re-loads fail with` \
+    `# "Some (but not all) targets in this export set were already defined".` \
+    `# Bundling HDF5 sidesteps the conflict. (Same class of issue we hit` \
+    `# in VTK 9.6.2; ITK has the same multi-include pattern internally.)` \
+    -DITK_USE_SYSTEM_HDF5:BOOL=OFF \
     -DITK_USE_SYSTEM_DOUBLECONVERSION:BOOL=OFF \
     -DITK_USE_SYSTEM_GDCM:BOOL=OFF \
     -DITK_USE_SYSTEM_MINC:BOOL=OFF \
@@ -198,6 +205,12 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-4
+- Bundle HDF5 (-DITK_USE_SYSTEM_HDF5:BOOL=OFF) to sidestep the
+  cmake export-set conflict between hdf5-shared and hdf5_tools-shared
+  when multiple module find_package calls re-include the system
+  hdf5-targets.cmake. Same class of issue as VTK 9.6.2.
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-3
 - Mirror of the InsightToolkit5-5.4.6-2 bundled-Eigen Quaternion.h fix:
   strip the invalid `typename std::is_nothrow_move_*<T>::value` keyword
