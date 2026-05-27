@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -152,6 +152,11 @@ sed -i 's/Riemannian::loadFromXML/loadFromXML/' \
 sed -i '1i #include <cmath>' \
     extras/plugins/processing/signal-processing/src/box-algorithms/CBoxAlgorithmEntropyMeasure.cpp
 
+# GCC 16 / C++20: std::none_of moved out of <algorithm> transitive — needs
+# explicit include in this file.
+sed -i '1i #include <algorithm>' \
+    extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmErpPlot.cpp
+
 # VRPN: OpenViBE vrpn-simulator and vrpn-to-openvibe use vrpn_Button_Server
 # which lives in libvrpnserver, not libvrpn — add it to the vrpn interface target
 sed -i 's/target_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${QUAT_LIBRARY})/find_library(VRPNSERVER_LIBRARY NAMES vrpnserver)\ntarget_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${VRPNSERVER_LIBRARY} ${QUAT_LIBRARY})/' \
@@ -226,6 +231,10 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-7
+- Add #include <algorithm> to CBoxAlgorithmErpPlot.cpp:
+  GCC 16 / C++20 no longer brings std::none_of in transitively.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-6
 - Remove extras/applications/examples/openvibe-to-tcpip in %%prep:

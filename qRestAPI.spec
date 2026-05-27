@@ -15,7 +15,7 @@
 
 Name:           qRestAPI
 Version:        0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Qt-based REST API client library
 
 License:        Apache-2.0
@@ -52,6 +52,11 @@ symlink needed to link against qRestAPI from other Qt6 applications.
 %prep
 %autosetup -n qRestAPI-%{commit} -p1
 
+# qRestAPI has no SONAME versioning (links with -soname,libqRestAPI.so plain),
+# so it functionally behaves like an unversioned shared library. The %files
+# section ships only libqRestAPI.so (no .so.N variant). Consumers should
+# treat the API as pinned via build-time finding (find_package).
+
 %build
 %cmake -G Ninja \
     -DBUILD_SHARED_LIBS:BOOL=ON \
@@ -61,22 +66,45 @@ symlink needed to link against qRestAPI from other Qt6 applications.
 %cmake_build
 
 %install
-%cmake_install
+# Upstream's CMakeLists has zero install() rules — the library and headers
+# are just produced in the build tree. Hand-install everything.
+install -d %{buildroot}%{_libdir}
+install -d %{buildroot}%{_includedir}/qRestAPI
+install -d %{buildroot}%{_libdir}/cmake/qRestAPI
+
+# Shared lib (no SONAME — upstream links with -soname,libqRestAPI.so plain).
+install -m 0755 %{__cmake_builddir}/libqRestAPI.so %{buildroot}%{_libdir}/libqRestAPI.so
+
+# Headers from the source tree plus the generated export header
+for h in qRestAPI.h qRestAPI_p.h qRestResult.h qGirderAPI.h qMidasAPI.h; do
+    [ -f "$h" ] && install -m 0644 "$h" %{buildroot}%{_includedir}/qRestAPI/
+done
+install -m 0644 %{__cmake_builddir}/qRestAPI_Export.h %{buildroot}%{_includedir}/qRestAPI/
+
+# Generated cmake config (file name is GenerateqRestAPIConfig.cmake-produced
+# qRestAPIConfig.cmake — globs are forgiving here).
+for f in %{__cmake_builddir}/qRestAPIConfig*.cmake %{__cmake_builddir}/UseqRestAPI.cmake; do
+    [ -f "$f" ] && install -m 0644 "$f" %{buildroot}%{_libdir}/cmake/qRestAPI/
+done
 
 %files
-%license LICENSE_Apache_20.txt
+%license LICENSE
 %doc README.md
-%{_libdir}/libqRestAPI.so.*
+%{_libdir}/libqRestAPI.so
 
 %files devel
-%{_includedir}/qRestAPI*.h
-%{_includedir}/qRestResult.h
-%{_includedir}/qGirderAPI.h
-%{_includedir}/qMidasAPI.h
-%{_libdir}/libqRestAPI.so
-%{_libdir}/cmake/qRestAPI
+%{_includedir}/qRestAPI/
+%dir %{_libdir}/cmake/qRestAPI
+%{_libdir}/cmake/qRestAPI/*.cmake
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.2.20251018git88c02c5d
+- Hand-install lib + headers + cmake config: upstream's CMakeLists
+  has zero install() rules. Library has no SONAME versioning
+  (built with -soname,libqRestAPI.so plain), so %files ships only
+  libqRestAPI.so without .so.N variants.
+- License file is LICENSE (not LICENSE_Apache_20.txt).
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.1.20251018git88c02c5d
 - Initial COPR package. Pinned to the commit 3D Slicer 5.10 expects.
 - Built against Qt6 (qRestAPI_QT_VERSION=6).

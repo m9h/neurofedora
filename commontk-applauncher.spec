@@ -14,7 +14,7 @@
 
 Name:           commontk-applauncher
 Version:        %{upstream_ver}
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CommonTK launcher for Slicer-style applications
 
 License:        Apache-2.0
@@ -24,6 +24,9 @@ Source0:        %{url}/archive/%{commit}/CTKAppLauncher-%{shortcommit}.tar.gz
 BuildRequires:  cmake >= 3.5
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
+# %prep does git init + tag so ctkVersionSource.cmake (which runs
+# git describe) is happy
+BuildRequires:  git-core
 BuildRequires:  cmake(Qt6Core)
 BuildRequires:  cmake(Qt6Widgets)
 BuildRequires:  cmake(Qt6Test)
@@ -57,6 +60,17 @@ linking against libCTKAppLauncher.
 %prep
 %autosetup -n AppLauncher-%{commit} -p1
 
+# Upstream's CMake/ctkVersionSource.cmake runs `git describe` to derive
+# the version string at configure time and aborts hard if the source
+# isn't a git tree. Tarball extracts aren't git — fake the minimum by
+# initialising a throw-away repo and tagging it with our version.
+git init -q
+git config user.email rpmbuild@invalid
+git config user.name 'RPM Build'
+git add -A
+git commit -q -m 'snapshot' --no-gpg-sign
+git tag -a "v%{upstream_ver}" -m 'snapshot tag for ctkVersionSource'
+
 %build
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -84,6 +98,10 @@ linking against libCTKAppLauncher.
 %{_libdir}/cmake/CTKAppLauncher
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.2.20251018gita37ad37c
+- Initialise a throwaway git repo in %%prep so ctkVersionSource.cmake
+  can git-describe a version (upstream aborts hard otherwise).
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.1.20251018gita37ad37c
 - Initial COPR package. Pinned to the commit 3D Slicer 5.10 expects.
 - Build the launcher lib (CTKAppLauncher_INSTALL_LauncherLibrary=ON) so
