@@ -1,5 +1,5 @@
 Name:           python-babelviscofdtd
-Version:        1.2.3
+Version:        1.2.6
 Release:        1%{?dist}
 Summary:        GPU/CPU 3D FDTD solution of viscoelastic equation
 
@@ -51,10 +51,18 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 %files -n python3-babelviscofdtd
 %license LICENSE
 %doc README.md
+# The cython-built .so extensions live INSIDE BabelViscoFDTD/ (per the
+# upstream layout), so the directory listing covers them. Don't list
+# top-level _FDTDStaggered*.so — they don't exist there.
 %{python3_sitearch}/BabelViscoFDTD
-%{python3_sitearch}/_FDTDStaggered3D_with_relaxation_*.so
 %{python3_sitearch}/babelviscofdtd-%{version}.dist-info
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-1
+- Bump to 1.2.6 (upstream pyproject.toml metadata version; the v1.2.3
+  GitHub tag actually contains 1.2.6 in setup.cfg).
+- Drop erroneous top-level _FDTDStaggered*.so glob from %%files —
+  the cython extensions are inside BabelViscoFDTD/ (already covered).
 * Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.6-1
 - Initial package
