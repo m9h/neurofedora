@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -132,9 +132,21 @@ done
 sed -i 's/set(OV_EIGEN_FLAGS "-msse2")/if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|i686")\n\tset(OV_EIGEN_FLAGS "-msse2")\nelse()\n\tset(OV_EIGEN_FLAGS "")\nendif()/' \
     sdk/CMakeLists.txt extras/CMakeLists.txt
 
-# Boost 1.87+ (F44+): io_service removed, use io_context; resolver::query removed
+# Boost 1.87+ (F44+): io_service removed, use io_context; resolver::query removed;
+# deadline_timer removed, use steady_timer.
 sed -i 's/boost::asio::io_service/boost::asio::io_context/g' \
-    extras/modules/tcptagging/include/tcptagging/CStimulusSender.h
+    extras/modules/tcptagging/include/tcptagging/CStimulusSender.h \
+    extras/contrib/plugins/server-extensions/tcp-tagging/ovasCTagStream.h \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.h \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
+# Same rename for the m_ioService member-init / type variants
+sed -i 's/io_service/io_context/g' \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
+# deadline_timer → steady_timer (API differs slightly — expires_from_now() still works
+# via the boost::asio::chrono adapter; let the build tell us if there are residuals)
+sed -i 's/boost::asio::deadline_timer/boost::asio::steady_timer/g' \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.h \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
 # Replace the query+resolve+connect block with modern Boost.Asio API
 # resolver.resolve() returns results_type, use boost::asio::connect() instead of socket.connect(*iter)
 sed -i '/const boost::asio::ip::tcp::resolver::query query/,/m_oStimulusSocket.connect(\*endpointIterator, error);/c\\t\t\tauto endpoints = resolver.resolve(sAddress, sStimulusPort);\n\t\t\tboost::asio::connect(m_oStimulusSocket, endpoints, error);' \
@@ -231,6 +243,13 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-8
+- Extend Boost 1.87 io_service→io_context sed to two more files surfaced
+  by build 10517287: extras/contrib/plugins/server-extensions/tcp-tagging/
+  ovasCTagStream.h and extras/contrib/plugins/server-drivers/mbt-smarting/
+  src/ovasCSmartingAmp.{h,cpp}. The latter also uses deadline_timer (also
+  removed in 1.87) — rename to steady_timer.
+
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-7
 - Add #include <algorithm> to CBoxAlgorithmErpPlot.cpp:

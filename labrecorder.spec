@@ -1,6 +1,6 @@
 Name:           labrecorder
 Version:        1.16.4
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Default recording program for the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -32,12 +32,16 @@ into a single file (XDF format), with time synchronization between streams.
 # find_package(LSL) — which loads LSLConfig.cmake but NOT LSLCMake.cmake.
 # In the upstream dev tree the macros file is included implicitly via the
 # parent liblsl CMakeLists.txt; standalone builds need an explicit include.
-# Append `include(LSLCMake)` AFTER the find_package(LSL ...) endif() block
-# (find_package adds the lsl cmake dir to CMAKE_MODULE_PATH so the include
-# can find LSLCMake.cmake).
-# Previous sed (range with /endif()/a) was matching the wrong endif().
-# Use Python instead — find the exact line "endif()" that immediately
-# follows the find_package(LSL ...) line.
+#
+# The -3 attempt did `include(LSLCMake)` after find_package(LSL), assuming
+# find_package adds the lsl cmake dir to CMAKE_MODULE_PATH — it does NOT
+# (LSLConfig.cmake is an auto-generated target-export file that only
+# defines LSL::lsl, doesn't touch CMAKE_MODULE_PATH). Result: build 10517252
+# failed at configure time with "could not find requested file: LSLCMake".
+#
+# Fix: append the LSL cmake dir to CMAKE_MODULE_PATH ourselves, then include.
+# After find_package(LSL), cmake sets ${LSL_DIR} to /usr/lib64/cmake/lsl
+# (the dir containing the resolved LSLConfig.cmake).
 python3 -c '
 import re
 with open("CMakeLists.txt") as f:
@@ -47,9 +51,11 @@ m = re.search(r"find_package\(LSL REQUIRED.*?endif\(\)\n", text, re.DOTALL)
 if m is None:
     raise SystemExit("could not find find_package(LSL ...) endif() block")
 insert_at = m.end()
-patch = ("\n# Bring in installLSLApp() and friends (not auto-loaded by\n"
-         "# LSLConfig.cmake). find_package(LSL) above puts the cmake dir\n"
-         "# on CMAKE_MODULE_PATH; include() resolves from there.\n"
+patch = ("\n# Bring in installLSLApp() and friends from LSLCMake.cmake.\n"
+         "# LSLConfig.cmake (auto-generated) does NOT touch CMAKE_MODULE_PATH,\n"
+         "# so include() cannot resolve LSLCMake by short name unless we\n"
+         "# append the cmake dir ourselves. ${LSL_DIR} is set by find_package.\n"
+         "list(APPEND CMAKE_MODULE_PATH \"${LSL_DIR}\")\n"
          "include(LSLCMake)\n")
 new_text = text[:insert_at] + patch + text[insert_at:]
 with open("CMakeLists.txt", "w") as f:
@@ -122,6 +128,12 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %{_sysconfdir}/labrecorder/*.cfg
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-4
+- Append ${LSL_DIR} to CMAKE_MODULE_PATH before include(LSLCMake) — the
+  -3 attempt assumed find_package(LSL) extended CMAKE_MODULE_PATH but
+  LSLConfig.cmake is an auto-generated target-export file that only
+  defines LSL::lsl; it never touches the module path. Result: -3 build
+  10517252 failed with "include could not find requested file: LSLCMake".
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-3
 - Rewrite the include(LSLCMake) injection in Python: the previous

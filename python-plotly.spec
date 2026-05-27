@@ -1,6 +1,6 @@
 Name:           python-plotly
 Version:        6.7.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        An open-source interactive data visualization library for Python
 
@@ -33,6 +33,15 @@ Summary:        %{summary}
 %prep
 %autosetup -p1 -n plotly.py-%{version}
 
+# Fix ambiguous shebang in vendored png.py — Fedora's brp-mangle-shebangs
+# rejects `#!/usr/bin/env python` (the literal `python` binary doesn't ship
+# in Fedora; must be python3 or python2). plotly bundles a copy of png.py
+# from pypng with the original shebang intact.
+find . -name '*.py' -exec sed -i \
+    -e '1s@^#!.*python[[:space:]]*$@#!/usr/bin/python3@' \
+    -e '1s@^#!/usr/bin/env python[[:space:]]*$@#!/usr/bin/python3@' \
+    {} +
+
 
 %generate_buildrequires
 # Drop all extras: their deps (anywidget, colorcet, kaleido, polars,
@@ -60,6 +69,11 @@ Summary:        %{summary}
 
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-3
+- Fix ambiguous shebang in vendored _plotly_utils/png.py — plotly bundles
+  pypng with #!/usr/bin/env python which brp-mangle-shebangs rejects on
+  Fedora (python without a version suffix is verboten). Rewrite all .py
+  shebangs to /usr/bin/python3 in %%prep before brp runs.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-2
 - Fix %%autosetup -n: upstream tarball expands to plotly.py-%{version},
