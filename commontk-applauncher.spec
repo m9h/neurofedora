@@ -14,7 +14,7 @@
 
 Name:           commontk-applauncher
 Version:        %{upstream_ver}
-Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CommonTK launcher for Slicer-style applications
 
 License:        Apache-2.0
@@ -72,38 +72,59 @@ git commit -q -m 'snapshot' --no-gpg-sign
 git tag -a "v%{upstream_ver}" -m 'snapshot tag for ctkVersionSource'
 
 %build
+# Upstream installs to non-standard paths by default: /usr/CMake/, /usr/./,
+# and /usr/lib/ (not arch lib64). Set the *_INSTALL_*_DIR vars explicitly
+# to land everything in Fedora-policy locations.
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCTKAppLauncher_QT_VERSION:STRING=6 \
     -DBUILD_TESTING:BOOL=OFF \
     -DCTKAppLauncher_INSTALL_LauncherLibrary:BOOL=ON \
+    -DCTK_INSTALL_BIN_DIR:STRING=bin \
+    -DCTK_INSTALL_LIB_DIR:STRING=%{_lib} \
+    -DCTK_INSTALL_INCLUDE_DIR:STRING=include/CTKAppLauncher \
+    -DCTK_INSTALL_CMAKE_DIR:STRING=%{_lib}/cmake/CTKAppLauncher \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON
 %cmake_build
 
 %install
 %cmake_install
 
+# Upstream sometimes still places the top-level Config.cmake at /usr/./;
+# move it into the proper cmake dir if present.
+mkdir -p %{buildroot}%{_libdir}/cmake/CTKAppLauncher
+if [ -f %{buildroot}%{_prefix}/CTKAppLauncherLibConfig.cmake ]; then
+    mv %{buildroot}%{_prefix}/CTKAppLauncherLibConfig.cmake \
+       %{buildroot}%{_libdir}/cmake/CTKAppLauncher/
+fi
+# .ini.in template — move out of bin to share
+mkdir -p %{buildroot}%{_datadir}/CTKAppLauncher
+if [ -f %{buildroot}%{_bindir}/CTKAppLauncherSettings.ini.in ]; then
+    mv %{buildroot}%{_bindir}/CTKAppLauncherSettings.ini.in \
+       %{buildroot}%{_datadir}/CTKAppLauncher/
+fi
+
 %files
-%license LICENSE
+%license LICENSE_Apache_20
 %doc README.md
 %{_bindir}/CTKAppLauncher
-%{_libdir}/libCTKAppLauncher.so.*
+%{_datadir}/CTKAppLauncher/
 
 %files devel
-%{_includedir}/ctkAppLauncher*.h
-%{_libdir}/libCTKAppLauncher.so
-%{_datadir}/CTKAppLauncher
-# upstream installs cmake config files into share/ or lib/cmake depending
-# on the layout; pick one with a wildcard if both end up present.
-%{_libdir}/cmake/CTKAppLauncher
+%{_includedir}/CTKAppLauncher/
+# upstream builds a STATIC archive (libCTKAppLauncherLib.a), not .so.
+%{_libdir}/libCTKAppLauncherLib.a
+%dir %{_libdir}/cmake/CTKAppLauncher
+%{_libdir}/cmake/CTKAppLauncher/*.cmake
 
 %changelog
 
-* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.3.20251018gita37ad37c
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.4.20251018gita37ad37c
 - Set CTK_INSTALL_*_DIR vars to Fedora-policy paths (was /usr/CMake/).
 - Move CTKAppLauncherSettings.ini.in into %%{_datadir}/CTKAppLauncher/.
 - License file is LICENSE_Apache_20 (not LICENSE).
 - Library is the STATIC libCTKAppLauncherLib.a — keep in -devel.
+
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.2.20251018gita37ad37c
 - Initialise a throwaway git repo in %%prep so ctkVersionSource.cmake
