@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -89,6 +89,7 @@ BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  ctk-devel
 BuildRequires:  vtkAddon-devel
 BuildRequires:  qRestAPI-devel
+BuildRequires:  python-pythonqt-devel
 BuildRequires:  commontk-applauncher-devel
 BuildRequires:  python-simpleitk
 
