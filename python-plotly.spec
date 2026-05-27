@@ -35,8 +35,10 @@ Summary:        %{summary}
 
 
 %generate_buildrequires
-# Keep only those extras which you actually want to package or use during tests
-%pyproject_buildrequires -x dev,dev-build,dev-core,dev-optional,express,kaleido
+# Drop all extras: their deps (anywidget, colorcet, kaleido, polars,
+# plotly-geo) are not packaged in Fedora. Base plotly itself only needs
+# the deps from pyproject.toml [project].
+%pyproject_buildrequires
 
 
 %build

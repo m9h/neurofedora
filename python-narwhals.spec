@@ -35,8 +35,10 @@ Summary:        %{summary}
 
 
 %generate_buildrequires
-# Keep only those extras which you actually want to package or use during tests
-%pyproject_buildrequires -x cudf,dask,duckdb,ibis,modin,pandas,polars,pyarrow,pyspark,pyspark-connect,sql,sqlframe
+# Only enable extras whose deps are actually packaged in Fedora.
+# Dropped: cudf (NVIDIA), duckdb, ibis, modin, polars, pyspark, pyspark-connect,
+# sql, sqlframe — none of these python3-<x> exist in Fedora F44/rawhide.
+%pyproject_buildrequires -x dask,pandas,pyarrow
 
 
 %build
