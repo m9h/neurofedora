@@ -29,7 +29,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -173,6 +173,15 @@ extension modules out of tree.
 # in case it bites.
 sed -i 's/Slicer_REQUIRED_PYTHON_VERSION "3\.[0-9]*\.[0-9]*")/Slicer_REQUIRED_PYTHON_VERSION "3.12.0")/' CMakeLists.txt 2>/dev/null || :
 
+# Allow VTK 9.6. Slicer 5.10.0 hard-codes the whitelist to (2|4|5);
+# main branch already accepts 6. Our COPR ships VTK 9.6.2 so widen the
+# regex and the STRINGS list. Use `@` as the sed delimiter — `|` is the
+# alternation character inside the pattern and would collide.
+sed -i 's@MATCHES "^(2|4|5)\$"@MATCHES "^(2|4|5|6)\$"@' CMakeLists.txt
+sed -i 's@PROPERTY STRINGS "2" "4" "5"@PROPERTY STRINGS "2" "4" "5" "6"@' CMakeLists.txt
+sed -i 's@VTK minor version (2, 4 or 5)@VTK minor version (2, 4, 5 or 6)@' CMakeLists.txt
+sed -i 's@must be 2, 4 or 5\.@must be 2, 4, 5 or 6.@' CMakeLists.txt
+
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
 export CFLAGS="%{optflags} -Wno-error -std=gnu17"
@@ -271,6 +280,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-3
+- Switch sed delimiter to @ (was |, which collided with the |
+  alternator inside the VTK version regex — sed errored silently
+  and the patch never applied in -2).
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-2
 - Sed-patch CMakeLists.txt:441 to allow Slicer_VTK_VERSION_MINOR=6
