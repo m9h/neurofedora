@@ -11,7 +11,7 @@
 
 Name:           morpheus
 Version:        2.3.9
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
@@ -183,14 +183,23 @@ for lib in \
     fi
 done
 
-# Strip build-tree RPATH from the bundled libs and re-set the binaries'
-# RPATH to the private install dir. cmake embeds rpaths pointing at the
+# Strip build-tree RPATH from the bundled libs and re-set everyone to
+# the install-time private dir. cmake embeds rpaths pointing at the
 # build tree (e.g. ".../redhat-linux-build/xmlutils") in BOTH the libs
-# AND the binaries; Fedora's check-rpaths rejects any build-tree path,
-# so we strip from libs and replace the binaries' rpath with the
-# install-time location.
+# AND the binaries; Fedora's check-rpaths rejects any build-tree path.
+#
+# The bundled libs reference EACH OTHER at runtime (libMorpheusMLconv.so
+# dlopens libXMLUtils.so etc.), so just stripping their RPATH leaves them
+# unable to find siblings — even though the morpheus BINARY's RPATH
+# points at /usr/lib64/morpheus, the loader uses each LIB's own RPATH
+# (not the binary's) when resolving that lib's deps. Set $ORIGIN so
+# each lib looks in its own directory.
+#
+# Bug surfaced 2026-05-26 by the test harness's qa-2 ldd scan:
+# 'morpheus missing: libXMLUtils.so (1 affected binary)' — the affected
+# binary was libMorpheusMLconv.so, not /usr/bin/morpheus directly.
 for solib in %{buildroot}%{_libdir}/morpheus/*.so; do
-    [ -f "$solib" ] && patchelf --remove-rpath "$solib"
+    [ -f "$solib" ] && patchelf --set-rpath '$ORIGIN' "$solib"
 done
 for bin in %{buildroot}%{_bindir}/morpheus %{buildroot}%{_bindir}/morpheus-gui; do
     [ -x "$bin" ] && patchelf --set-rpath %{_libdir}/morpheus "$bin"
@@ -213,6 +222,18 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-8
+- Set RUNPATH=$ORIGIN on every bundled .so in %%{_libdir}/morpheus/
+  (was: --remove-rpath, which left siblings unable to find each other).
+  The bundled libs reference each other at runtime — libMorpheusMLconv.so
+  dlopens libXMLUtils.so — and each lib's OWN RUNPATH (not the parent
+  binary's) drives that resolution. Surfaced 2026-05-26 by the
+  neurofedora-tests qa-2 ldd scan as Bug 5 in
+  [[copr-packaging-bugs-2026-05-23]]:
+    morpheus missing: libXMLUtils.so (1 affected binary)
+  with the actual affected binary being libMorpheusMLconv.so, not
+  /usr/bin/morpheus.
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-7
 - Strip build-tree RPATH from the bundled libs in %%{_libdir}/morpheus/
   before shipping. cmake embeds RPATHs into BOTH the binaries (which
