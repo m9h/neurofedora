@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -225,6 +225,7 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_USE_EXTERNAL_VTK_freetype:BOOL=OFF \
     -DVTK_MODULE_USE_EXTERNAL_vtkfreetype:BOOL=OFF \
     -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=WANT \
+    -DHDF5_IS_PARALLEL:BOOL=FALSE \
     -DVTK_MODULE_ENABLE_VTK_fides:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_IOADIOS2:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_IOOpenVDB:STRING=NO \
@@ -328,6 +329,12 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-5
+- Pre-define HDF5_IS_PARALLEL=FALSE so VTK's `USE_VARIABLES` check
+  passes whether the EXTERNAL or INTERNAL hdf5 path is taken — the
+  dual-form _USE_EXTERNAL_* flags in -4 didn't actually flip the path
+  on rawhide; this is the belt-and-suspenders satisfying-the-check.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-4
 - Set BOTH cmake cache-var forms for the bundling flag (CamelCase user-facing
   + lowercase library-form). -3 set only the lowercase; rawhide still used
