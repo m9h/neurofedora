@@ -85,7 +85,13 @@ case "$MODE" in
 --ldd)
     detail="$OUTDIR/ldd-not-found.log"   # one line per (pkg, bin, libname)
     summary="$OUTDIR/ldd-missing-libs.tsv"  # per-package deduped missing libs
-    : > "$detail" "$summary"
+    # NOTE: `: > "$detail" "$summary"` only truncates $detail — the second
+    # filename is passed as an argument to `:` (a no-op), not as another
+    # redirection target. Must truncate each separately. Without this,
+    # the summary file accumulates across runs and the bats output shows
+    # duplicate "missing: X" rows.
+    : > "$detail"
+    : > "$summary"
     while read -r pkg; do
         # All ELF files shipped by this package
         bins=$(rpm -ql "$pkg" 2>/dev/null \
