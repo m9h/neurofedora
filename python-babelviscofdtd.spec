@@ -1,6 +1,6 @@
 Name:           python-babelviscofdtd
 Version:        1.2.6
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        GPU/CPU 3D FDTD solution of viscoelastic equation
 
 License:        BSD-3-Clause
@@ -55,9 +55,16 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 # upstream layout), so the directory listing covers them. Don't list
 # top-level _FDTDStaggered*.so — they don't exist there.
 %{python3_sitearch}/BabelViscoFDTD
-%{python3_sitearch}/babelviscofdtd-%{version}.dist-info
+# The dist-info version drifts because Source0 fetches main.tar.gz (not a tag);
+# the wheel build uses whatever pyproject.toml says in that snapshot. Glob it.
+%{python3_sitearch}/babelviscofdtd-*.dist-info
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-2
+- Glob the .dist-info path: Source0 fetches main.tar.gz which
+  drifts between pyproject.toml versions, so a literal version
+  in %%files breaks reproducibility.
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-1
 - Bump to 1.2.6 (upstream pyproject.toml metadata version; the v1.2.3

@@ -1,6 +1,6 @@
 Name:           sigviewer
 Version:        0.7.1
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Viewing and inspection of biosignals (EEG, EMG, ECG)
 License:        GPL-3.0-or-later
 URL:            https://github.com/cbrnr/sigviewer
@@ -64,17 +64,21 @@ sed -i 's|"\${DEPS_DIR}/include"|"%{_includedir}"|g'             CMakeLists.txt
 %install
 %cmake_install
 
-# Fallback: upstream's CMakeLists.txt may not have a top-level install(TARGETS
-# sigviewer ...) rule, in which case %cmake_install doesn't place the binary
-# at %{_bindir}/sigviewer. If so, find it in the cmake build dir and install
-# it manually.
+# Fallback. Upstream CMakeLists may lack install(TARGETS sigviewer ...);
+# in that case cmake_install does not place the binary at the right path.
+# Locate and install manually if needed.
+# (NB: apostrophes removed from comments here because the %cmake_install
+# macro emits a line-continuation that swallows the next lines literally;
+# bash then treats an open apostrophe in a comment as quote-start and
+# eats everything until the matching close.)
+:
 if [ ! -f %{buildroot}%{_bindir}/sigviewer ]; then
     bin=$(find %{__cmake_builddir} -maxdepth 3 -type f -executable -name sigviewer | head -1)
     if [ -n "$bin" ]; then
         mkdir -p %{buildroot}%{_bindir}
         install -m 0755 "$bin" %{buildroot}%{_bindir}/sigviewer
     else
-        echo "ERROR: sigviewer binary not found in build tree" >&2
+        echo "ERROR sigviewer binary not found in build tree" >&2
         find %{__cmake_builddir} -maxdepth 4 -type f -executable -name 'sigviewer*' >&2
         exit 1
     fi
@@ -102,6 +106,14 @@ fi
 %{_datadir}/icons/hicolor/scalable/apps/sigviewer.svg
 
 %changelog
+
+* Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-5
+- Strip apostrophes from %%install comments. The %%cmake_install
+  macro emits a line-continuation; bash then treats apostrophes
+  in following comment lines as quote-starts that consume the
+  rest of the fallback block as one literal argument to cmake.
+- Add a no-op : before the fallback to terminate any leftover
+  line-continuation from the macro expansion.
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-4
 - Add binary-find fallback after %%cmake_install: upstream's
