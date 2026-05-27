@@ -17,8 +17,16 @@
 # Parallel-install layout under %{_prefix}/lib/slicer-%{version}/ to leave
 # room for slicer 6.x someday.
 
-%global slicer_ver  5.10.0
-%global slicer_inst %{_prefix}/lib/slicer-%{slicer_ver}
+# NOTE: Slicer 5.10.0 release is Qt5-only (find_package(Qt5) hardcoded in
+# CMake/SlicerBlockFindQtAndCheckVersion.cmake). Qt6 support landed only
+# after the 5.10.0 tag on main. Until 5.11.0 ships, "stable 3dslicer"
+# tracks a pinned main-branch commit that has the Qt6 conditional.
+# Different commit from slicer-preview so stable users get less churn.
+%global slicer_commit 208adb862bc329e6370ae400fef1b18e9ac54cbd
+%global slicer_shortcommit %(c=%{slicer_commit}; echo ${c:0:8})
+%global slicer_snapdate 20260517
+%global slicer_ver  5.11.0~pre.%{slicer_snapdate}git%{slicer_shortcommit}
+%global slicer_inst %{_prefix}/lib/slicer
 
 # Slicer ships ~600 MB of shared libs + bundled Python — debuginfo balloons
 # to several GB. Disable.
@@ -29,12 +37,12 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
 URL:            https://slicer.org/
-Source0:        https://github.com/Slicer/Slicer/archive/refs/tags/v%{version}.tar.gz#/Slicer-%{version}.tar.gz
+Source0:        https://github.com/Slicer/Slicer/archive/%{slicer_commit}/Slicer-%{slicer_shortcommit}.tar.gz
 
 # Profile environment hook (sets $Slicer_HOME, prepends bin to PATH)
 Source1:        slicer.sh
@@ -166,21 +174,11 @@ Headers, cmake configuration, and devel symlinks for building Slicer
 extension modules out of tree.
 
 %prep
-%autosetup -p1 -n Slicer-%{version}
+%autosetup -p1 -n Slicer-%{slicer_commit}
 
-# Fix any hard-coded Python version pin: Slicer_REQUIRED_PYTHON_VERSION
-# defaults to 3.12.10 but the check should be >=, not == — sanity-patch
-# in case it bites.
-sed -i 's/Slicer_REQUIRED_PYTHON_VERSION "3\.[0-9]*\.[0-9]*")/Slicer_REQUIRED_PYTHON_VERSION "3.12.0")/' CMakeLists.txt 2>/dev/null || :
-
-# Allow VTK 9.6. Slicer 5.10.0 hard-codes the whitelist to (2|4|5);
-# main branch already accepts 6. Our COPR ships VTK 9.6.2 so widen the
-# regex and the STRINGS list. Use `@` as the sed delimiter — `|` is the
-# alternation character inside the pattern and would collide.
-sed -i 's@MATCHES "^(2|4|5)\$"@MATCHES "^(2|4|5|6)\$"@' CMakeLists.txt
-sed -i 's@PROPERTY STRINGS "2" "4" "5"@PROPERTY STRINGS "2" "4" "5" "6"@' CMakeLists.txt
-sed -i 's@VTK minor version (2, 4 or 5)@VTK minor version (2, 4, 5 or 6)@' CMakeLists.txt
-sed -i 's@must be 2, 4 or 5\.@must be 2, 4, 5 or 6.@' CMakeLists.txt
+# Slicer main HEAD already supports Qt6 and VTK 9.6 natively — no sed
+# patches needed for those. Python version: defaults to 3.12.10 floor;
+# Fedora 44 ships 3.14 which satisfies >= 3.12.10 fine.
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
@@ -269,6 +267,8 @@ install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/slicer.sh
 # /usr/bin/slicer wrapper
 install -d %{buildroot}%{_bindir}
 ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
+# Drop the leftover Source0 reference to v%{version} since 5.10.0 tag is unused now
+# (Source0 fetches from main HEAD by commit SHA).
 
 %files
 %license License.txt
@@ -284,6 +284,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-5
+- MAJOR PIVOT: switch stable channel to Slicer main HEAD (commit
+  208adb86, 2026-05-17). Slicer 5.10.0 release tag is Qt5-only;
+  Qt6 + VTK 9.6 + ITK 5.4 system-package support only landed on
+  main after the v5.10.0 tag. Tracking a pinned main commit gets
+  us a buildable stable today; we'll re-anchor to 5.11.0 when
+  upstream tags it.
+- Install layout simplified to /usr/lib/slicer (no version suffix)
+  since main HEAD is the only Qt6-ready branch and stable+preview
+  effectively share one tree until 5.11.0.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-4
 - Set Qt6_DIR explicitly: SlicerBlockFindQtAndCheckVersion.cmake
