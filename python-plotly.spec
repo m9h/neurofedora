@@ -1,6 +1,6 @@
 Name:           python-plotly
 Version:        6.7.0
-Release:        %autorelease
+Release:        2%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        An open-source interactive data visualization library for Python
 
@@ -31,7 +31,7 @@ Summary:        %{summary}
 
 
 %prep
-%autosetup -p1 -n plotly-%{version}
+%autosetup -p1 -n plotly.py-%{version}
 
 
 %generate_buildrequires
@@ -60,6 +60,10 @@ Summary:        %{summary}
 
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-2
+- Fix %%autosetup -n: upstream tarball expands to plotly.py-%{version},
+  not plotly-%{version}.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-
 - Drop all -x extras: anywidget, colorcet, kaleido, polars not in Fedora.

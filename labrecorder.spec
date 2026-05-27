@@ -1,6 +1,6 @@
 Name:           labrecorder
 Version:        1.16.4
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Default recording program for the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -32,13 +32,29 @@ into a single file (XDF format), with time synchronization between streams.
 # find_package(LSL) — which loads LSLConfig.cmake but NOT LSLCMake.cmake.
 # In the upstream dev tree the macros file is included implicitly via the
 # parent liblsl CMakeLists.txt; standalone builds need an explicit include.
-# Inject `include(LSLCMake)` right after the find_package(LSL ...) block.
-sed -i '/find_package(LSL REQUIRED/,/^endif()/{
-    /^endif()/a\
-\
-# Bring in installLSLApp() and friends (not auto-loaded by LSLConfig.cmake).\
-include(LSLCMake)
-}' CMakeLists.txt
+# Append `include(LSLCMake)` AFTER the find_package(LSL ...) endif() block
+# (find_package adds the lsl cmake dir to CMAKE_MODULE_PATH so the include
+# can find LSLCMake.cmake).
+# Previous sed (range with /endif()/a) was matching the wrong endif().
+# Use Python instead — find the exact line "endif()" that immediately
+# follows the find_package(LSL ...) line.
+python3 -c '
+import re
+with open("CMakeLists.txt") as f:
+    text = f.read()
+# Find the find_package(LSL REQUIRED ... endif() block
+m = re.search(r"find_package\(LSL REQUIRED.*?endif\(\)\n", text, re.DOTALL)
+if m is None:
+    raise SystemExit("could not find find_package(LSL ...) endif() block")
+insert_at = m.end()
+patch = ("\n# Bring in installLSLApp() and friends (not auto-loaded by\n"
+         "# LSLConfig.cmake). find_package(LSL) above puts the cmake dir\n"
+         "# on CMAKE_MODULE_PATH; include() resolves from there.\n"
+         "include(LSLCMake)\n")
+new_text = text[:insert_at] + patch + text[insert_at:]
+with open("CMakeLists.txt", "w") as f:
+    f.write(new_text)
+'
 
 %build
 # LSLAPPS_LabRecorder=ON ensures we build the main app.
@@ -106,6 +122,11 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %{_sysconfdir}/labrecorder/*.cfg
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-3
+- Rewrite the include(LSLCMake) injection in Python: the previous
+  sed range matched the WRONG endif() and inserted the include
+  before find_package(LSL), so LSLCMake.cmake couldn't be found.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-2
 - Inject include(LSLCMake) after find_package(LSL): standalone builds need
