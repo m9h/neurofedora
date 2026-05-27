@@ -1,6 +1,6 @@
 Name:           cmdstan
 Version:        2.38.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A command-line interface to the STAN library
 
 License:        BSD
@@ -10,7 +10,10 @@ Source0:        https://github.com/stan-dev/cmdstan/releases/download/v%{version
 #https://github.com/stan-dev/cmdstan/archive/v2.20.0.tar.gz
 BuildRequires:  gcc-c++
 BuildRequires:  boost-devel
-BuildRequires:  eigen3-devel
+# eigen3-devel intentionally NOT used: Stan Math's eigen_plugins.h relies on
+# Eigen 3.4 macros (EIGEN_EMPTY_STRUCT_CTOR) and indexing semantics that
+# Fedora's eigen3 5.0.1 (F44+) breaks. Bundled Stan eigen_3.4.0 is kept.
+Provides:       bundled(eigen3) = 3.4.0
 BuildRequires:  sundials-devel
 BuildRequires:  tbb-devel
 BuildRequires:  chrpath
@@ -41,9 +44,9 @@ sed -i 'N;s|, *\n *true)|)|;P;D' src/cmdstan/stansummary.cpp
 sed -i 'N;s|, *\n *false)|)|;P;D' src/cmdstan/stansummary.cpp
 
 %build
-# Use system libraries where possible
+# Use system libraries where possible. Keep Eigen bundled (3.4.0): system
+# eigen3 on F44+ is 5.0.1 and breaks Stan Math's eigen_plugins.h.
 cat <<EOF > make/local
-EIGEN = /usr/include/eigen3
 BOOST = /usr/include
 RAPIDJSON = /usr/include
 CLI11 = /usr/include
@@ -83,9 +86,11 @@ install -m0755 bin/diagnose $RPM_BUILD_ROOT%{_bindir}
 install -m0755 -d $RPM_BUILD_ROOT%{_datadir}/%{name}
 cp -r make src stan $RPM_BUILD_ROOT%{_datadir}/%{name}/
 
-# Remove bundled libs from the installed tree to ensure system ones are used
-# We keep the makefiles but remove the source code
-find $RPM_BUILD_ROOT%{_datadir}/%{name}/stan/lib/stan_math/lib -maxdepth 1 -type d -not -path '*/lib' -exec rm -rf {} +
+# Remove bundled libs from the installed tree to ensure system ones are used,
+# EXCEPT for eigen_* which we keep (system eigen3 5.x is API-incompatible with
+# Stan Math's eigen_plugins.h, see Provides: bundled(eigen3) above).
+find $RPM_BUILD_ROOT%{_datadir}/%{name}/stan/lib/stan_math/lib -maxdepth 1 -type d \
+    -not -path '*/lib' -not -name 'eigen_*' -exec rm -rf {} +
 rm -rf $RPM_BUILD_ROOT%{_datadir}/%{name}/stan/lib/rapidjson_1.1.0
 
 # Provide a default make/local in the installed tree
@@ -106,6 +111,13 @@ find $RPM_BUILD_ROOT%{_bindir} -type f -exec chrpath --delete {} \; || :
 %{_datadir}/%{name}
 
 %changelog
+* Sat May 23 2026 Morgan G Hough <morgan.hough@gmail.com> - 2.38.0-2
+- Keep bundled Stan eigen_3.4.0 instead of forcing system eigen3: Fedora 44+
+  ships eigen3 5.0.1 which breaks Stan Math's eigen_plugins.h
+  (EIGEN_EMPTY_STRUCT_CTOR macro + Eigen::all ambiguity, F44 FTBFS build 10504837)
+- Drop eigen3-devel BuildRequires (no longer needed)
+- Add Provides: bundled(eigen3) = 3.4.0
+
 * Thu Feb 19 2026 Morgan G Hough <morgan.hough@gmail.com> - 2.38.0-1
 - Update to 2.38.0
 
