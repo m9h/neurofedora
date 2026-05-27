@@ -29,7 +29,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -271,6 +271,10 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-2
+- Sed-patch CMakeLists.txt:441 to allow Slicer_VTK_VERSION_MINOR=6
+  (Slicer 5.10.0 only whitelists 2/4/5; main branch already accepts 6).
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.10.0-1
 - Initial RPM package for 3D Slicer 5.10.0.
 - Built with Slicer_SUPERBUILD=OFF — all externals from system / COPR.
