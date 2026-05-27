@@ -1,0 +1,6 @@
+# Per-model build trees written by ctest -S drivers.
+build-*/
+
+# Generated at configure time by each neurofedora-<pkg>.cmake driver
+# (configure_file COPYONLY from the top-level CTestConfig.cmake).
+tests-*/CTestConfig.cmake

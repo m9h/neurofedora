@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -183,13 +183,26 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %install
 %cmake_install
 
+# Bundled HDF5 helper binaries (h5cc, h5c++, h5dump, h5ls, ...) must not escape
+# into /usr/bin — the system hdf5-devel already owns those paths. We bundle
+# HDF5 only to dodge ITK6's multi-include cmake conflict, not to expose its
+# CLI tools.
+rm -f %{buildroot}%{_bindir}/h5*
+
+# Make itkTestDriver parallel-installable with InsightToolkit5-devel.
+# ITKTargets-*.cmake exposes the binary as an imported cmake target whose
+# IMPORTED_LOCATION points at /usr/bin/itkTestDriver — update both ends so
+# ITK6 consumers continue to resolve the target correctly.
+mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver-6.0
+sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
+    %{buildroot}%{_libdir}/cmake/ITK-6.0/ITKTargets-*.cmake
+
 %files
 %license LICENSE
 %doc README.md
 %{_libdir}/ITK-6.0/libITK*.so.1
 %{_libdir}/ITK-6.0/libitk*.so.1
-%{_bindir}/h5*
-%{_bindir}/itkTestDriver
+%{_bindir}/itkTestDriver-6.0
 %{_libdir}/ITK-6.0/libhdf5.settings
 %{_libdir}/ITK-6.0/pkgconfig/*.pc
 %{_datadir}/ITK-6.0/
@@ -205,6 +218,15 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-5
+- Resolve parallel-install file conflicts with InsightToolkit5-devel and
+  hdf5-devel (surfaced by neurofedora CDash dashboard).
+  * Drop bundled HDF5 helper binaries (h5cc/h5c++/h5dump/...) from /usr/bin
+    so they no longer collide with hdf5-devel. The bundled HDF5 is internal
+    to ITK6; its CLI tools were never the intent.
+  * Rename /usr/bin/itkTestDriver -> /usr/bin/itkTestDriver-6.0 and patch
+    ITKTargets-*.cmake so the imported cmake target still resolves. ITK5
+    keeps its unversioned /usr/bin/itkTestDriver; both ITKs now coexist.
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-4
 - Bundle HDF5 (-DITK_USE_SYSTEM_HDF5:BOOL=OFF) to sidestep the
