@@ -14,7 +14,7 @@
 
 Name:           commontk-applauncher
 Version:        %{upstream_ver}
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CommonTK launcher for Slicer-style applications
 
 License:        Apache-2.0
@@ -98,6 +98,12 @@ git tag -a "v%{upstream_ver}" -m 'snapshot tag for ctkVersionSource'
 %{_libdir}/cmake/CTKAppLauncher
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.3.20251018gita37ad37c
+- Set CTK_INSTALL_*_DIR vars to Fedora-policy paths (was /usr/CMake/).
+- Move CTKAppLauncherSettings.ini.in into %%{_datadir}/CTKAppLauncher/.
+- License file is LICENSE_Apache_20 (not LICENSE).
+- Library is the STATIC libCTKAppLauncherLib.a — keep in -devel.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.2.20251018gita37ad37c
 - Initialise a throwaway git repo in %%prep so ctkVersionSource.cmake
