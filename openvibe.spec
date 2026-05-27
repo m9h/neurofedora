@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -93,6 +93,12 @@ system, toolkit, visualization-toolkit).
 tar -xf %{SOURCE1} --strip-components=1 -C sdk
 tar -xf %{SOURCE2} --strip-components=1 -C designer
 tar -xf %{SOURCE3} --strip-components=1 -C extras
+
+# Disable extras/applications/examples/openvibe-to-tcpip: uses the removed
+# boost::asio::ip::tcp::resolver::query API (gone in Boost 1.84+; F44+
+# ships >= 1.86). The example isn't shipped in any binary subpackage —
+# just blow away its CMakeLists so OV_ADD_PROJECTS skips it.
+rm -rf extras/applications/examples/openvibe-to-tcpip
 
 # Remove install(CODE ... create_symlink ...) blocks — they use absolute paths
 # that bypass DESTDIR, trying to create symlinks in /usr/ instead of $DESTDIR/usr/.
@@ -220,6 +226,10 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-6
+- Remove extras/applications/examples/openvibe-to-tcpip in %%prep:
+  uses boost::asio::ip::tcp::resolver::query removed in Boost 1.84+.
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-5
 - Fix install: remove create_symlink install(CODE) blocks that bypass DESTDIR
   (they create symlinks in /usr/ instead of $DESTDIR/usr/, causing permission errors)

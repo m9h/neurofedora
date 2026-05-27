@@ -58,4 +58,7 @@ Summary:        %{summary}
 
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-
+- Drop all -x extras: anywidget, colorcet, kaleido, polars not in Fedora.
 %autochangelog

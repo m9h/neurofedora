@@ -1,6 +1,6 @@
 Name:           labrecorder
 Version:        1.16.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Default recording program for the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -27,6 +27,18 @@ into a single file (XDF format), with time synchronization between streams.
 
 %prep
 %autosetup -p1 -n App-LabRecorder-%{version}
+
+# Upstream calls installLSLApp() (from LSLCMake.cmake) but only does
+# find_package(LSL) — which loads LSLConfig.cmake but NOT LSLCMake.cmake.
+# In the upstream dev tree the macros file is included implicitly via the
+# parent liblsl CMakeLists.txt; standalone builds need an explicit include.
+# Inject `include(LSLCMake)` right after the find_package(LSL ...) block.
+sed -i '/find_package(LSL REQUIRED/,/^endif()/{
+    /^endif()/a\
+\
+# Bring in installLSLApp() and friends (not auto-loaded by LSLConfig.cmake).\
+include(LSLCMake)
+}' CMakeLists.txt
 
 %build
 # LSLAPPS_LabRecorder=ON ensures we build the main app.
@@ -94,5 +106,10 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %{_sysconfdir}/labrecorder/*.cfg
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-2
+- Inject include(LSLCMake) after find_package(LSL): standalone builds need
+  the macros file loaded explicitly (only auto-loaded by the parent liblsl
+  tree). Provides installLSLApp/installLSLAuxFiles used at CMakeLists.txt:99.
 * Wed Jan 07 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-1
 - Initial RPM package for LabRecorder 1.16.4
