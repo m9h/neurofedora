@@ -14,7 +14,7 @@
 
 Name:           commontk-applauncher
 Version:        %{upstream_ver}
-Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CommonTK launcher for Slicer-style applications
 
 License:        Apache-2.0
@@ -90,13 +90,13 @@ git tag -a "v%{upstream_ver}" -m 'snapshot tag for ctkVersionSource'
 %install
 %cmake_install
 
-# Upstream sometimes still places the top-level Config.cmake at /usr/./;
-# move it into the proper cmake dir if present.
+# Upstream places assorted top-level *Config.cmake at /usr/./ (both
+# CTKAppLauncherConfig.cmake and CTKAppLauncherLibConfig.cmake). Sweep
+# anything at the bare /usr/ root into the canonical cmake dir.
 mkdir -p %{buildroot}%{_libdir}/cmake/CTKAppLauncher
-if [ -f %{buildroot}%{_prefix}/CTKAppLauncherLibConfig.cmake ]; then
-    mv %{buildroot}%{_prefix}/CTKAppLauncherLibConfig.cmake \
-       %{buildroot}%{_libdir}/cmake/CTKAppLauncher/
-fi
+for f in %{buildroot}%{_prefix}/*Config*.cmake; do
+    [ -f "$f" ] && mv "$f" %{buildroot}%{_libdir}/cmake/CTKAppLauncher/
+done
 # .ini.in template — move out of bin to share
 mkdir -p %{buildroot}%{_datadir}/CTKAppLauncher
 if [ -f %{buildroot}%{_bindir}/CTKAppLauncherSettings.ini.in ]; then
@@ -118,6 +118,11 @@ fi
 %{_libdir}/cmake/CTKAppLauncher/*.cmake
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.5.20251018gita37ad37c
+- Glob ALL /usr/*Config*.cmake into lib64/cmake/CTKAppLauncher/
+  (upstream drops both CTKAppLauncherConfig.cmake AND -LibConfig.cmake
+  at the bare /usr root).
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.4.20251018gita37ad37c
 - Set CTK_INSTALL_*_DIR vars to Fedora-policy paths (was /usr/CMake/).
