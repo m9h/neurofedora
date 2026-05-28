@@ -1,6 +1,6 @@
 Name:           labrecorder
 Version:        1.16.4
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Default recording program for the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -75,29 +75,15 @@ with open("CMakeLists.txt", "w") as f:
 %install
 %cmake_install
 
-# 1. Create directories
-mkdir -p %{buildroot}%{_bindir}
-mkdir -p %{buildroot}%{_libdir}
-mkdir -p %{buildroot}%{_sysconfdir}/labrecorder
+# installLSLApp() / installLSLAuxFiles() from liblsl >= 1.17.7-2 place
+# binaries in %{_bindir}, libxdfwriter.so in %{_libdir}, and aux files
+# (LabRecorder.cfg, LICENSE, README.md) in %{_datadir}/LabRecorder/.
+# Strip the duplicate LICENSE/README — we ship them via %license/%doc
+# from the source tree instead.
+rm -f %{buildroot}%{_datadir}/LabRecorder/LICENSE
+rm -f %{buildroot}%{_datadir}/LabRecorder/README.md
 
-# 2. Move Binaries to /usr/bin
-mv %{buildroot}/usr/LabRecorder/LabRecorder %{buildroot}%{_bindir}/
-mv %{buildroot}/usr/LabRecorder/LabRecorderCLI %{buildroot}%{_bindir}/
-
-# 3. Move Libraries (libxdfwriter.so) to /usr/lib64
-# Using a wildcard *.so* handles symlinks (so.1, so.1.0) automatically
-mv %{buildroot}/usr/LabRecorder/*.so* %{buildroot}%{_libdir}/
-
-# 4. Move Configuration to /etc/labrecorder
-# (Check if the source installed a .cfg; if not, we rely on defaults)
-if [ -f %{buildroot}/usr/LabRecorder/LabRecorder.cfg ]; then
-    mv %{buildroot}/usr/LabRecorder/LabRecorder.cfg %{buildroot}%{_sysconfdir}/labrecorder/
-fi
-
-# 5. Cleanup the non-standard install dir
-rm -rf %{buildroot}/usr/LabRecorder
-
-# 6. Create Desktop Entry
+# Create Desktop Entry
 mkdir -p %{buildroot}%{_datadir}/applications
 cat > %{buildroot}%{_datadir}/applications/%{name}.desktop <<EOF
 [Desktop Entry]
@@ -121,13 +107,23 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %doc README.md
 %{_bindir}/LabRecorder
 %{_bindir}/LabRecorderCLI
+%{_bindir}/testxdfwriter
 %{_libdir}/libxdfwriter.so*
 %{_datadir}/applications/%{name}.desktop
-# Conditionally own the config dir if we put stuff there
-%dir %{_sysconfdir}/labrecorder
-%{_sysconfdir}/labrecorder/*.cfg
+%dir %{_datadir}/LabRecorder
+%{_datadir}/LabRecorder/LabRecorder.cfg
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-5
+- Drop the manual /usr/LabRecorder/ → /usr/{bin,lib64,etc} mv block.
+  With liblsl 1.17.7-2 shipping LSLCMake.cmake, installLSLApp() now
+  resolves and places binaries and libs in standard paths directly;
+  the rescue moves became stale (and broke -4 install: "mv: cannot
+  stat '/usr/LabRecorder/LabRecorder'"). Move LabRecorder.cfg to
+  %%{_datadir}/LabRecorder/ (where installLSLAuxFiles puts it) and
+  strip duplicate LICENSE/README that the same helper installs.
+  Add /usr/bin/testxdfwriter to %%files.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-4
 - Append ${LSL_DIR} to CMAKE_MODULE_PATH before include(LSLCMake) — the
   -3 attempt assumed find_package(LSL) extended CMAKE_MODULE_PATH but
