@@ -285,6 +285,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-6
+- Rebuild against python-pythonqt 4.0.1 (Qt6 build via the
+  patched-v4.0.1 commontk branch, commit 7ef4c5ee). Previous
+  pythonqt patched-9 was Qt5-only and incompatible with Slicer's
+  Qt6 cmake config.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-5
 - MAJOR PIVOT: switch stable channel to Slicer main HEAD (commit

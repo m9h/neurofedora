@@ -1,0 +1,56 @@
+From: Morgan Hough <morgan.hough@gmail.com>
+Date: Thu, 28 May 2026 00:00:00 +0000
+Subject: [PATCH] generator: cap TypeInfo::resolveType recursion depth
+
+Qt 6.11 introduces cyclic type alias chains (most reproducibly via the
+QtCore template wrappers used by QExplicitlySharedDataPointer and the
+new q23::invoke_r alias). TypeInfo::resolveType has no cycle detection,
+so it eventually exhausts the stack and segfaults — the crash GDB
+points at:
+
+  #0  QString::size() at qstring.h:277
+  #1  comparesEqual() at qstring.h:902
+  ...
+  #N  TypeInfo::resolveType (recursing) codemodel.cpp:160
+
+Cap the recursion at 64 levels (more than any real C++ type alias
+chain) via a thread_local counter. On overflow, return the
+partially-resolved type — the generator just emits an "unresolved"
+wrapper for that one symbol instead of crashing the whole run.
+
+This unblocks PythonQt against Qt 6.11+ system headers on Fedora.
+
+--- a/generator/parser/codemodel.cpp
++++ b/generator/parser/codemodel.cpp
+@@ -141,6 +141,16 @@ TypeInfo TypeInfo::combine(const TypeInfo& __lhs, const TypeInfo& __rhs)
+
+ TypeInfo TypeInfo::resolveType(TypeInfo const& __type, CodeModelItem __scope)
+ {
++  // Qt 6.11 introduces cyclic type alias chains that send this recursion
++  // off forever (eventually exhausting the stack and segfaulting). Cap
++  // the depth via a thread-local counter and degrade gracefully on
++  // overflow: returning the partially-resolved type just means the
++  // generator emits an "unresolved" wrapper for that one symbol.
++  static thread_local int __depth = 0;
++  if (__depth >= 64) {
++    return __type;
++  }
++
+   CodeModel* __model = __scope->model();
+   Q_ASSERT(__model != 0);
+
+@@ -156,8 +166,12 @@ TypeInfo TypeInfo::resolveType(TypeInfo const& __type, CodeModelItem __scope)
+     otherType.setQualifiedName(__item->qualifiedName());
+   }
+
+-  if (TypeAliasModelItem __alias = __item.dynamicCast<_TypeAliasModelItem>())
+-    return resolveType(TypeInfo::combine(__alias->type(), otherType), __scope);
++  if (TypeAliasModelItem __alias = __item.dynamicCast<_TypeAliasModelItem>()) {
++    ++__depth;
++    TypeInfo __result = resolveType(TypeInfo::combine(__alias->type(), otherType), __scope);
++    --__depth;
++    return __result;
++  }
+
+   return otherType;
+ }

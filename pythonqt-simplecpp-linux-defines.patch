@@ -1,0 +1,57 @@
+From: Morgan Hough <morgan.hough@gmail.com>
+Date: Thu, 28 May 2026 00:00:00 +0000
+Subject: [PATCH] generator: expand simplecpp DUI defines for modern Linux/gcc/Qt6
+
+The upstream simplecpp DUI setup only defines __cplusplus=1, __STDC__,
+and (on x86_64) __x86_64__. That was enough for Qt5 / Qt 6.10, but Qt
+6.11+ fires #error directives when the preprocessor doesn't define
+enough of gcc's built-in macros: qcompilerdetection.h (compiler,
+unicode, C++17), qsystemdetection.h (Linux), qtypes.h (SIZE_MAX),
+qstdlibdetection.h (_GLIBCXX_RELEASE). Each gated header region
+eventually crashes the AST builder with a segfault.
+
+Expand the DUI defines to match gcc 15 / glibc / libstdc++ on x86_64
+Linux.
+
+--- a/generator/main.cpp
++++ b/generator/main.cpp
+@@ -225,10 +225,37 @@
+   for (const QString& framework : frameworkPaths) {
+     dui.addFrameworkPath(QDir::toNativeSeparators(framework).toStdString());
+   }
+-  dui.defines.push_back("__cplusplus=1");
+-  dui.defines.push_back("__STDC__");
++  // C++ standard + C99/C++ stdlib markers — Qt6 requires C++17, and
++  // qstdlibdetection.h needs to see libstdc++'s marker.
++  dui.defines.push_back("__cplusplus=201703L");
++  dui.defines.push_back("__STDC__=1");
++  dui.defines.push_back("__STDC_HOSTED__=1");
++  dui.defines.push_back("__STDC_UTF_16__=1");
++  dui.defines.push_back("__STDC_UTF_32__=1");
++  dui.defines.push_back("__GLIBCXX__=20260101");
++  dui.defines.push_back("_GLIBCXX_RELEASE=15");
++  dui.defines.push_back("SIZE_MAX=0xffffffffffffffffULL");
++  // GCC identity — qcompilerdetection.h refuses to compile under an
++  // unknown compiler.
++  dui.defines.push_back("__GNUC__=15");
++  dui.defines.push_back("__GNUC_MINOR__=0");
++  dui.defines.push_back("__GNUC_PATCHLEVEL__=0");
++  // Linux / unix platform identity — qsystemdetection.h.
++  dui.defines.push_back("__linux__=1");
++  dui.defines.push_back("__unix__=1");
++  dui.defines.push_back("__gnu_linux__=1");
++  dui.defines.push_back("__ELF__=1");
+ #ifdef Q_PROCESSOR_X86_64
+   dui.defines.push_back("__x86_64__");
++  dui.defines.push_back("__x86_64=1");
++  dui.defines.push_back("__LP64__=1");
++  dui.defines.push_back("_LP64=1");
++  dui.defines.push_back("__SIZEOF_INT__=4");
++  dui.defines.push_back("__SIZEOF_LONG__=8");
++  dui.defines.push_back("__SIZEOF_LONG_LONG__=8");
++  dui.defines.push_back("__SIZEOF_SIZE_T__=8");
++  dui.defines.push_back("__SIZEOF_POINTER__=8");
++  dui.defines.push_back("__SIZE_MAX__=18446744073709551615UL");
+ #endif
+   dui.std = "c++20";
+   dui.removeComments = true;
