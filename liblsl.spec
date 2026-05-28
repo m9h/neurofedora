@@ -1,6 +1,6 @@
 Name:           liblsl
 Version:        1.17.7
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Lab Streaming Layer (LSL) library
 
 License:        MIT
@@ -48,6 +48,15 @@ develop applications that use the Lab Streaming Layer.
 %cmake_install
 chrpath --delete %{buildroot}%{_bindir}/lslver
 
+# Ship LSLCMake.cmake alongside the auto-generated LSLConfig.cmake.
+# Upstream's CMakeLists never install()s this file — it is only used
+# when liblsl itself is the umbrella project. Out-of-tree apps in the
+# labstreaminglayer ecosystem (LabRecorder, SigViewer, etc.) expect
+#   find_package(LSL) ; include(LSLCMake) ; installLSLApp(<target>)
+# Placing LSLCMake.cmake in ${LSL_DIR} lets that pattern resolve.
+install -p -m 0644 cmake/LSLCMake.cmake \
+    %{buildroot}%{_libdir}/cmake/lsl/LSLCMake.cmake
+
 %check
 %ctest
 
@@ -67,6 +76,11 @@ chrpath --delete %{buildroot}%{_bindir}/lslver
 %{_libdir}/cmake/lsl/
 
 %changelog
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.7-2
+- Ship cmake/LSLCMake.cmake in liblsl-devel so out-of-tree LSL apps
+  (LabRecorder, etc.) can include(LSLCMake) after find_package(LSL)
+  and use the installLSLApp() / installLSLAuxFiles() helpers.
+
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.7-1
 - Update to liblsl 1.17.7 (upstream 2026-04-22)
 - Use system pugixml (1.17.x adds FetchContent pugixml v1.15 by default;
