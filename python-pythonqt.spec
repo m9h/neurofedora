@@ -23,12 +23,18 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.12.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.13.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
 URL:            https://github.com/commontk/PythonQt
 Source0:        %{url}/archive/%{commit}/PythonQt-%{shortcommit}.tar.gz
+
+# Cmake config shim — upstream PythonQt ships no PythonQtConfig.cmake,
+# so downstream find_package(PythonQt) fails. This template gets minimal
+# variable substitution at %install time and is dropped into
+# /usr/lib64/cmake/PythonQt/.
+Source1:        PythonQtConfig.cmake.in
 
 # Generator's simplecpp preprocessor needs expanded built-in defines to
 # parse Qt 6.11+ headers without aborting (and without crashing the
@@ -196,6 +202,14 @@ sed -i 's|return ( theWrappedObject->qHash(key, seed));|return ( ::qHash(*theWra
 %install
 %cmake_install
 
+# Install the cmake config shim so find_package(PythonQt) works from
+# CTK / Slicer / MITK consumers. Substitute @VERSION@ and @LIB@.
+install -d %{buildroot}%{_libdir}/cmake/PythonQt
+sed -e 's|@VERSION@|%{version}|g' \
+    -e 's|@LIB@|%{_lib}|g' \
+    %{SOURCE1} \
+    > %{buildroot}%{_libdir}/cmake/PythonQt/PythonQtConfig.cmake
+
 %files
 %license COPYING
 %doc README.md
@@ -204,8 +218,18 @@ sed -i 's|return ( theWrappedObject->qHash(key, seed));|return ( ::qHash(*theWra
 %files devel
 %{_includedir}/PythonQt/
 %{_libdir}/libPythonQt*.so
+%{_libdir}/cmake/PythonQt/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.13.20260329git7ef4c5ee
+- Ship a cmake config shim at /usr/lib64/cmake/PythonQt/PythonQtConfig.cmake.
+  Upstream PythonQt installs no cmake config; downstream consumers like
+  3D Slicer call find_package(PythonQt) in Config mode and abort with
+  "Could not find a package configuration file provided by PythonQt".
+  The shim exposes the imported target PythonQt::PythonQt plus the
+  legacy PYTHONQT_INSTALL_DIR / PYTHONQT_INCLUDE_DIRS / PYTHONQT_LIBRARIES
+  variables that CTK's FindPythonQt.cmake uses.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.12.20260329git7ef4c5ee
 - Inject VERSION/SOVERSION onto the PythonQt cmake target so the
   shared library installs as libPythonQt.so.4.0.1 with SONAME

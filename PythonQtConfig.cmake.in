@@ -1,0 +1,25 @@
+# PythonQtConfig.cmake — Fedora COPR (mhough/neurofedora) shim.
+#
+# Lets downstream cmake projects do `find_package(PythonQt REQUIRED)` and
+# get a usable imported target plus the legacy PYTHONQT_* variables that
+# CTK's FindPythonQt.cmake (and Slicer's CMakeLists, indirectly) expect.
+
+set(PythonQt_VERSION "@VERSION@")
+set(PYTHONQT_INSTALL_DIR "/usr")
+set(PYTHONQT_INCLUDE_DIRS "/usr/include/PythonQt")
+set(PYTHONQT_LIBRARIES "/usr/@LIB@/libPythonQt.so")
+set(PYTHONQT_LIBRARY "${PYTHONQT_LIBRARIES}")
+
+if(NOT TARGET PythonQt::PythonQt)
+    add_library(PythonQt::PythonQt SHARED IMPORTED)
+    set_target_properties(PythonQt::PythonQt PROPERTIES
+        IMPORTED_LOCATION "${PYTHONQT_LIBRARIES}"
+        INTERFACE_INCLUDE_DIRECTORIES "${PYTHONQT_INCLUDE_DIRS}"
+    )
+endif()
+
+# We do not ship the generator (it is a build-time-only tool). Empty
+# value tells downstream code to skip generator-driven wrapping steps.
+set(PYTHONQT_GENERATOR "")
+
+set(PythonQt_FOUND TRUE)
