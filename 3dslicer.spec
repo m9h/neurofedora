@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -213,10 +213,11 @@ export QT_QPA_PLATFORM=offscreen
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
-    `# Fedora ships TeemConfig.cmake under a version-suffixed dir; cmake's` \
-    `# default find_package(Teem) algorithm only checks unversioned and` \
-    `# few common version patterns, so pass Teem_DIR explicitly.` \
-    -DTeem_DIR:PATH=%{_libdir}/cmake/Teem-1.11.0 \
+    `# Fedora's teem-devel installs TeemConfig.cmake directly under` \
+    `# /usr/lib64/cmake/ (not /usr/lib64/cmake/Teem/ as the standard` \
+    `# layout would suggest), so cmake's find_package(Teem) search path` \
+    `# misses it without an explicit hint.` \
+    -DTeem_DIR:PATH=%{_libdir}/cmake \
     `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
     `# if(DEFINED Qt6_DIR) to pick Qt6 over Qt5. Without this hint it` \
     `# tries find_package(Qt5) and aborts with "Qt5 was not found".` \
@@ -290,6 +291,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-8
+- Fix Teem_DIR. Fedora's teem-devel installs TeemConfig.cmake directly
+  under /usr/lib64/cmake/ (verified via rpm -qlp teem-devel), not the
+  versioned cmake/Teem-1.11.0/ subdir that an outdated dnf repoquery
+  output suggested in -7.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-7
 - Add -DPythonQt_DIR and -DTeem_DIR explicit hints. Our COPR
   python-pythonqt-devel (-0.13) ships its cmake config at
