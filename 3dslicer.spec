@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -244,6 +244,12 @@ EOF
     `# can resolve.` \
     -DvtkAddon_DIR:PATH=%{_libdir}/cmake/vtkAddon \
     -DvtkAddon_CMAKE_DIR:PATH=%{_libdir}/cmake/vtkAddon \
+    `# SlicerExecutionModel ships its config at /usr/lib64/SlicerExecutionModel/` \
+    `# (not under cmake/), which Slicer's find_package(SlicerExecutionModel)` \
+    `# in Libs/MRML/CLI doesn't auto-discover.` \
+    -DSlicerExecutionModel_DIR:PATH=%{_libdir}/SlicerExecutionModel \
+    -DGenerateCLP_DIR:PATH=%{_libdir}/GenerateCLP \
+    -DModuleDescriptionParser_DIR:PATH=%{_libdir}/ModuleDescriptionParser \
     `# Point at our local TeemConfig.cmake shim — see %build above for why.` \
     -DTeem_DIR:PATH=$(pwd)/teem-shim \
     `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
@@ -319,6 +325,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-12
+- Hint SlicerExecutionModel + GenerateCLP + ModuleDescriptionParser
+  DIR variables. Fedora's SlicerExecutionModel-devel ships configs
+  directly under /usr/lib64/SlicerExecutionModel/, /usr/lib64/GenerateCLP/,
+  /usr/lib64/ModuleDescriptionParser/ — not the canonical
+  /usr/lib64/cmake/<pkg>/ layout, so cmake's default search misses them.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-11
 - Set vtkAddon_CMAKE_DIR directly. Slicer's top-level CMakeLists.txt
   references ${vtkAddon_CMAKE_DIR} at line 898 without calling
