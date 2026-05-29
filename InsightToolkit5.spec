@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -247,12 +247,13 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_ITKReview:BOOL=ON \
     -DModule_ITKDeprecated:BOOL=ON \
     `# 3D Slicer's Libs/ITKFactoryRegistration requires MGHIO + IOScanco +` \
-    `# ITKIOTransformMatlab. MGHIO and IOScanco are REMOTE modules (sources` \
-    `# pre-staged in %prep from Source7/Source8). ITKIOTransformMatlab is` \
-    `# a built-in ITK module.` \
+    `# ITKIOTransformMatlab + ITKIODCMTK. MGHIO and IOScanco are REMOTE` \
+    `# modules (sources pre-staged in %prep from Source7/Source8).` \
+    `# ITKIOTransformMatlab and ITKIODCMTK are built-in but EXCLUDE_FROM_DEFAULT.` \
     -DModule_MGHIO:BOOL=ON \
     -DModule_IOScanco:BOOL=ON \
     -DModule_ITKIOTransformMatlab:BOOL=ON \
+    -DModule_ITKIODCMTK:BOOL=ON \
     -DITK_FORBID_DOWNLOADS:BOOL=ON \
 %if 0%{?fedora}
     -DITK_USE_SYSTEM_MINC:BOOL=ON \
@@ -329,6 +330,10 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-5
+- Enable Module_ITKIODCMTK. Built-in but EXCLUDE_FROM_DEFAULT in ITK
+  5.4. Surfaced by 3dslicer-9 retry after MGHIO/IOScanco were resolved.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-4
 - Fix MGHIO + IOScanco for 3D Slicer. MGHIO and IOScanco are ITK *remote*
   modules (not built-in), so Module_MGHIO/Module_IOScanco only have effect
