@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -32,6 +32,14 @@ Source5:        https://github.com/InsightSoftwareConsortium/ITKSimpleITKFilters
 # LabelErodeDilate remote module: required by SimpleITK
 %global labelerodedilate_commit 22d8846dbe4368312aa3aa95ecfe3542ab894e15
 Source6:        https://github.com/InsightSoftwareConsortium/ITKLabelErodeDilate/archive/%{labelerodedilate_commit}/ITKLabelErodeDilate-%{labelerodedilate_commit}.tar.gz
+# MGHIO remote module: 3D Slicer needs MGH/MGZ (Freesurfer) image format I/O
+# (pinned commit from ITK 5.4.6's MGHIO.remote.cmake)
+%global mghio_commit 0adac35fa22945c7a5f3a63dd8d01454577c24d3
+Source7:        https://github.com/InsightSoftwareConsortium/itkMGHImageIO/archive/%{mghio_commit}/itkMGHImageIO-0adac35f.tar.gz
+# IOScanco remote module: 3D Slicer needs Scanco microCT .isq image I/O
+# (pinned commit from ITK 5.4.6's IOScanco.remote.cmake)
+%global ioscanco_commit 10b80f69048e79ab3069e89635822a6851099278
+Source8:        https://github.com/KitwareMedical/ITKIOScanco/archive/%{ioscanco_commit}/ITKIOScanco-10b80f69.tar.gz
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch: %{ix86}
@@ -195,6 +203,14 @@ mkdir -p Modules/Remote/LabelErodeDilate
 tar -xzf %{SOURCE6} --strip-components=1 \
     -C Modules/Remote/LabelErodeDilate
 
+mkdir -p Modules/Remote/MGHIO
+tar -xzf %{SOURCE7} --strip-components=1 \
+    -C Modules/Remote/MGHIO
+
+mkdir -p Modules/Remote/IOScanco
+tar -xzf %{SOURCE8} --strip-components=1 \
+    -C Modules/Remote/IOScanco
+
 %build
 # Relax compiler checks for compatibility with GCC 14+ and force local include
 # path to avoid system header conflicts
@@ -230,11 +246,13 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_ITKIOPhilipsREC:BOOL=ON \
     -DModule_ITKReview:BOOL=ON \
     -DModule_ITKDeprecated:BOOL=ON \
-    `# 3D Slicer's Libs/ITKFactoryRegistration requires MGHIO + Scanco + Matlab` \
-    `# transform IO modules; without them cmake fails with "No such module: MGHIO".` \
-    -DModule_ITKIOMGH:BOOL=ON \
-    -DModule_ITKIOTransformMatlab:BOOL=ON \
+    `# 3D Slicer's Libs/ITKFactoryRegistration requires MGHIO + IOScanco +` \
+    `# ITKIOTransformMatlab. MGHIO and IOScanco are REMOTE modules (sources` \
+    `# pre-staged in %prep from Source7/Source8). ITKIOTransformMatlab is` \
+    `# a built-in ITK module.` \
+    -DModule_MGHIO:BOOL=ON \
     -DModule_IOScanco:BOOL=ON \
+    -DModule_ITKIOTransformMatlab:BOOL=ON \
     -DITK_FORBID_DOWNLOADS:BOOL=ON \
 %if 0%{?fedora}
     -DITK_USE_SYSTEM_MINC:BOOL=ON \
@@ -311,6 +329,16 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-4
+- Fix MGHIO + IOScanco for 3D Slicer. MGHIO and IOScanco are ITK *remote*
+  modules (not built-in), so Module_MGHIO/Module_IOScanco only have effect
+  if the module sources are present under Modules/Remote/ — they would
+  normally be Git-fetched at cmake time but our ITK_FORBID_DOWNLOADS=ON
+  policy blocks that. Add Source7 (itkMGHImageIO@0adac35f) and Source8
+  (ITKIOScanco@10b80f69), pre-staged in %prep. Also drop the misspelled
+  -DModule_ITKIOMGH (the correct name is Module_MGHIO; -3's flag was
+  silently ignored, per cmake's "unused variables" warning).
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-3
 - Enable Module_ITKIOMGH, Module_ITKIOTransformMatlab, Module_IOScanco.
   3D Slicer's Libs/ITKFactoryRegistration calls find_package(ITK COMPONENTS
