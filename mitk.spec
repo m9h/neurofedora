@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -163,6 +163,16 @@ grep -q '^#include <limits>' Modules/Core/include/mitkLexicalCast.h || \
 # Remove bundled libraries that we use from system
 # (Keep CppMicroServices - it's a modified fork we must bundle)
 
+# VTK 9.6 (F44 system VTK overrides our COPR 9.5.2): removed
+# vtkCutter::GetCellTypeDimensions(unsigned char*) — deprecated in 9.4
+# with replacement hint "Use vtkCellTypes::GetDimension(type) instead."
+# Replace the static buffer-fill with an inline loop using the new API,
+# and pull in <vtkCellTypes.h> for the declaration.
+sed -i 's|vtkCutter::GetCellTypeDimensions(cellTypeDimensions);|for (int __i = 0; __i < VTK_NUMBER_OF_CELL_TYPES; ++__i) cellTypeDimensions[__i] = vtkCellTypes::GetDimension(__i);|' \
+    Modules/MapperExt/src/vtkPointSetSlicer.cxx
+grep -q '^#include "vtkCellTypes.h"\|^#include <vtkCellTypes.h>' Modules/MapperExt/src/vtkPointSetSlicer.cxx || \
+    sed -i '0,/^#include "vtkCutter.h"/s||#include "vtkCellTypes.h"\n#include "vtkCutter.h"|' Modules/MapperExt/src/vtkPointSetSlicer.cxx
+
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
@@ -223,6 +233,14 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-8
+- Fix VTK 9.6 FTBFS in Modules/MapperExt/src/vtkPointSetSlicer.cxx:280
+  ("'GetCellTypeDimensions' is not a member of 'vtkCutter'"). F44's
+  system VTK 9.6.2 outranks COPR's 9.5.2, so MITK now compiles
+  against 9.6 which removed the static helper. Replace with the
+  documented successor: vtkCellTypes::GetDimension(type) in an
+  inline loop, and include vtkCellTypes.h. Surfaced by build 10506601.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-6
 - Fix Boost 1.87+ FTBFS in Modules/Core/include/mitkLexicalCast.h:37 —
   boost::detail::lcast_get_precision<T>() was removed. Replace with
