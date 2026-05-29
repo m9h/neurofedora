@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -218,6 +218,18 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %install
 %cmake_install
 
+# CTK's own install rules don't pick up the CMake helper templates
+# (*.cpp.in / *.py / *.cmake.in inside CMake/). They live in source-tree
+# CMAKE_MODULE_PATH for superbuild consumers, but downstream consumers
+# like 3D Slicer expect them at ${CTK_CMAKE_DIR}=/usr/lib64/cmake/ctk/.
+# Install the ones that Slicer references.
+install -p -m 0644 CMake/ctkMacroWrapPythonQtModuleInit.cpp.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+install -p -m 0644 CMake/ctkWrapPythonQt.py \
+    %{buildroot}%{_libdir}/cmake/ctk/
+install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+
 %files
 %doc README.md
 %license NOTICE LICENSE
@@ -256,6 +268,15 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.8.20260126gitfd37b874
+- Explicitly install CMake/ctkMacroWrapPythonQtModuleInit.cpp.in,
+  ctkWrapPythonQt.py, and ctk_compile_python_scripts.cmake.in. CTK
+  upstream's CMakeLists has no install() rule for these (they live
+  in CMake/ source dir and are accessed via CMAKE_MODULE_PATH in
+  superbuild consumers). Downstream consumers like 3D Slicer expect
+  them at \${CTK_CMAKE_DIR}=/usr/lib64/cmake/ctk/ — without them
+  Slicer's Libs/MRML/Widgets fails at ctkMacroBuildLibWrapper.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.7.20260126gitfd37b874
 - Add ctk-python subpackage to ship the new Python/PythonQt-related
   files surfaced by -0.6 (libCTKScriptingPython{Core,Widgets}.so* and
