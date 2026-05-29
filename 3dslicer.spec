@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -237,6 +237,10 @@ EOF
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
+    `# vtkAddon ships vtkMacroKitPythonWrap.cmake; Libs/vtkTeem and others` \
+    `# include(vtkMacroKitPythonWrap) after the top-level CMakeLists adds` \
+    `# ${vtkAddon_CMAKE_DIR} to CMAKE_MODULE_PATH.` \
+    -DvtkAddon_DIR:PATH=%{_libdir}/cmake/vtkAddon \
     `# Point at our local TeemConfig.cmake shim — see %build above for why.` \
     -DTeem_DIR:PATH=$(pwd)/teem-shim \
     `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
@@ -312,6 +316,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-10
+- Hint vtkAddon_DIR explicitly. Slicer's top-level CMakeLists puts
+  ${vtkAddon_CMAKE_DIR} on CMAKE_MODULE_PATH so Libs/vtkTeem's
+  include(vtkMacroKitPythonWrap) can find the macro that vtkAddon-devel
+  ships at /usr/lib64/cmake/vtkAddon/. Without the hint, find_package
+  silently doesn't set vtkAddon_CMAKE_DIR and the include fails.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-9
 - Ship a Teem cmake shim in %%build. Fedora's teem-devel has a
   packaging bug (TODO: file Bugzilla): the shipped TeemConfig.cmake
