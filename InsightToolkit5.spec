@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -230,6 +230,11 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_ITKIOPhilipsREC:BOOL=ON \
     -DModule_ITKReview:BOOL=ON \
     -DModule_ITKDeprecated:BOOL=ON \
+    `# 3D Slicer's Libs/ITKFactoryRegistration requires MGHIO + Scanco + Matlab` \
+    `# transform IO modules; without them cmake fails with "No such module: MGHIO".` \
+    -DModule_ITKIOMGH:BOOL=ON \
+    -DModule_ITKIOTransformMatlab:BOOL=ON \
+    -DModule_IOScanco:BOOL=ON \
     -DITK_FORBID_DOWNLOADS:BOOL=ON \
 %if 0%{?fedora}
     -DITK_USE_SYSTEM_MINC:BOOL=ON \
@@ -306,6 +311,11 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-3
+- Enable Module_ITKIOMGH, Module_ITKIOTransformMatlab, Module_IOScanco.
+  3D Slicer's Libs/ITKFactoryRegistration calls find_package(ITK COMPONENTS
+  MGHIO ITKIOTransformMatlab IOScanco ...) and aborts if any are missing.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-2
 - Strip the invalid `typename std::is_nothrow_move_*<T>::value` keyword from
   bundled itkeigen/Eigen/src/Geometry/Quaternion.h (GCC 16 now enforces what

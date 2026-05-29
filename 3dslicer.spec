@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -187,6 +187,30 @@ export CFLAGS="%{optflags} -Wno-error -std=gnu17"
 # Required for the bundled qt-keyword build harness
 export QT_QPA_PLATFORM=offscreen
 
+# Workaround for Fedora teem-devel packaging bug: the shipped
+# TeemConfig.cmake computes Teem_USE_FILE = /usr/lib64/lib/TeemUse.cmake
+# (one parent dir up from the config file, then down into lib/) — but the
+# config actually lives in /usr/lib64/cmake/, so the file resolves wrong.
+# Build our own corrected shim in a private dir and point Teem_DIR there.
+mkdir -p teem-shim
+cat > teem-shim/TeemConfig.cmake <<'EOF'
+# Slicer-build shim — corrects path computation that Fedora teem-devel
+# (bz# pending) gets wrong because TeemConfig.cmake is installed in
+# /usr/lib64/cmake/ instead of /usr/lib64/cmake/Teem/.
+set(Teem_USE_FILE "%{_libdir}/cmake/TeemUse.cmake")
+set(Teem_BUILD_SETTINGS_FILE "%{_libdir}/cmake/TeemBuildSettings.cmake")
+set(Teem_EXECUTABLE_DIRS "%{_bindir}")
+set(Teem_LIBRARY_DIRS "%{_libdir}")
+set(Teem_INCLUDE_DIRS "%{_includedir}")
+set(Teem_LIBRARIES "teem")
+set(Teem_REQUIRED_C_FLAGS "")
+set(Teem_VERSION_MAJOR "1")
+set(Teem_VERSION_MINOR "12")
+set(Teem_VERSION_PATCH "0")
+set(Teem_BUILD_SHARED_LIBS "ON")
+set(Teem_TOOLS "")
+EOF
+
 %cmake -G Ninja \
     `# THE flag — drop superbuild` \
     -DSlicer_SUPERBUILD:BOOL=OFF \
@@ -213,11 +237,8 @@ export QT_QPA_PLATFORM=offscreen
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
-    `# Fedora's teem-devel installs TeemConfig.cmake directly under` \
-    `# /usr/lib64/cmake/ (not /usr/lib64/cmake/Teem/ as the standard` \
-    `# layout would suggest), so cmake's find_package(Teem) search path` \
-    `# misses it without an explicit hint.` \
-    -DTeem_DIR:PATH=%{_libdir}/cmake \
+    `# Point at our local TeemConfig.cmake shim — see %build above for why.` \
+    -DTeem_DIR:PATH=$(pwd)/teem-shim \
     `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
     `# if(DEFINED Qt6_DIR) to pick Qt6 over Qt5. Without this hint it` \
     `# tries find_package(Qt5) and aborts with "Qt5 was not found".` \
@@ -291,6 +312,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-9
+- Ship a Teem cmake shim in %%build. Fedora's teem-devel has a
+  packaging bug (TODO: file Bugzilla): the shipped TeemConfig.cmake
+  computes Teem_USE_FILE = /usr/lib64/lib/TeemUse.cmake (one level
+  up from cmake/ then down into lib/), but the file actually lives
+  beside TeemConfig.cmake in /usr/lib64/cmake/. Generate a corrected
+  shim locally and point Teem_DIR at it.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-8
 - Fix Teem_DIR. Fedora's teem-devel installs TeemConfig.cmake directly
   under /usr/lib64/cmake/ (verified via rpm -qlp teem-devel), not the
