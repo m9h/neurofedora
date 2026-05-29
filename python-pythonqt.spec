@@ -23,7 +23,7 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.13.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.14.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
@@ -221,6 +221,14 @@ sed -e 's|@VERSION@|%{version}|g' \
 %{_libdir}/cmake/PythonQt/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.14.20260329git7ef4c5ee
+- Also set legacy uppercase variables in PythonQtConfig.cmake.
+  CTK's ctkMacroWrapPythonQt.cmake uses PYTHONQT_FOUND (uppercase)
+  and PYTHONQT_INCLUDE_DIR (uppercase, singular) — the older Find-
+  module convention. -0.13 only set the modern PythonQt_FOUND and
+  PYTHONQT_INCLUDE_DIRS plural, so Slicer's build via CTK aborted
+  with "PythonQt package is required to build qMRMLWidgetsPythonQt".
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.13.20260329git7ef4c5ee
 - Ship a cmake config shim at /usr/lib64/cmake/PythonQt/PythonQtConfig.cmake.
   Upstream PythonQt installs no cmake config; downstream consumers like

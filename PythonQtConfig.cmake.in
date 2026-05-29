@@ -7,6 +7,9 @@
 set(PythonQt_VERSION "@VERSION@")
 set(PYTHONQT_INSTALL_DIR "/usr")
 set(PYTHONQT_INCLUDE_DIRS "/usr/include/PythonQt")
+# Singular form is the legacy convention CTK's ctkMacroWrapPythonQt
+# uses (line 191: include_directories(... ${PYTHONQT_INCLUDE_DIR})).
+set(PYTHONQT_INCLUDE_DIR "${PYTHONQT_INCLUDE_DIRS}")
 set(PYTHONQT_LIBRARIES "/usr/@LIB@/libPythonQt.so")
 set(PYTHONQT_LIBRARY "${PYTHONQT_LIBRARIES}")
 
@@ -23,3 +26,6 @@ endif()
 set(PYTHONQT_GENERATOR "")
 
 set(PythonQt_FOUND TRUE)
+# CTK's ctkMacroWrapPythonQt.cmake checks the legacy uppercase form
+# (line 188: if(NOT PYTHONQT_FOUND)). Set both.
+set(PYTHONQT_FOUND TRUE)
