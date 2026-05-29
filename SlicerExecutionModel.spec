@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -192,6 +192,13 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.5.20260301git3bd8e038
+- Rebump (skip -0.3, -0.4 that built but silently regressed and
+  shipped without SlicerExecutionModelConfig.cmake — discovered when
+  3D Slicer's find_package(SlicerExecutionModel) in Libs/MRML/CLI
+  failed against the COPR-shipped -0.4 binary). No spec changes from
+  -0.2 which was last known good.
+
 * Wed Mar 04 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.2.20260301git3bd8e038
 - Fix install-tree CMake config generation for all components
 - Add GenerateCLP and top-level SEM install configs (upstream TODO)
