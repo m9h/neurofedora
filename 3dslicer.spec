@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -237,10 +237,13 @@ EOF
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
-    `# vtkAddon ships vtkMacroKitPythonWrap.cmake; Libs/vtkTeem and others` \
-    `# include(vtkMacroKitPythonWrap) after the top-level CMakeLists adds` \
-    `# ${vtkAddon_CMAKE_DIR} to CMAKE_MODULE_PATH.` \
+    `# Slicer's top-level CMakeLists references ${vtkAddon_CMAKE_DIR}` \
+    `# directly (no find_package(vtkAddon) call); the superbuild normally` \
+    `# sets it. Set both DIR variables so the variable is populated for the` \
+    `# CMAKE_MODULE_PATH insertion and downstream include(vtkMacroKitPythonWrap)` \
+    `# can resolve.` \
     -DvtkAddon_DIR:PATH=%{_libdir}/cmake/vtkAddon \
+    -DvtkAddon_CMAKE_DIR:PATH=%{_libdir}/cmake/vtkAddon \
     `# Point at our local TeemConfig.cmake shim — see %build above for why.` \
     -DTeem_DIR:PATH=$(pwd)/teem-shim \
     `# Qt6 detection: SlicerBlockFindQtAndCheckVersion.cmake checks` \
@@ -316,6 +319,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-11
+- Set vtkAddon_CMAKE_DIR directly. Slicer's top-level CMakeLists.txt
+  references ${vtkAddon_CMAKE_DIR} at line 898 without calling
+  find_package(vtkAddon) first — the superbuild normally pre-populates
+  it. -10's vtkAddon_DIR hint wasn't enough on its own.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-10
 - Hint vtkAddon_DIR explicitly. Slicer's top-level CMakeLists puts
   ${vtkAddon_CMAKE_DIR} on CMAKE_MODULE_PATH so Libs/vtkTeem's
