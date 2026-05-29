@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.11.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -280,6 +280,12 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.11.20250820git311f4792
+- Rebuild against VTK 9.6.2-5. -0.10 built against 9.5.x and the
+  resulting vtkvmtk C extension is ABI-incompatible with the current
+  9.6.2 in the chroot — `from vmtk import vmtkscripts` fails at
+  `from vmtk import vtkvmtk` (caught by the test harness pipeline test).
+
 * Mon May 25 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.10.20250820git311f4792
 - Post-install `mv` of any sitelib/vmtk/ contents into sitearch/vmtk/.
   Setting the three known cmake install-dir variables to sitearch wasn't
