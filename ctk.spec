@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -129,6 +129,16 @@ Requires:       %{name}%{?_isa} = %{version}-%{release}
 %description    itk %{_description}
 ITK image processing core components for CTK.
 
+%package        python
+Summary:        CTK Python (PythonQt) bindings
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-widgets%{?_isa} = %{version}-%{release}
+Requires:       python-pythonqt%{?_isa}
+
+%description    python %{_description}
+PythonQt-based Python bindings for CTK Core and Widgets, used by
+3D Slicer for its scripted module / extension system.
+
 %package        devel
 Summary:        Development files for CTK
 Requires:       %{name}%{?_isa} = %{version}-%{release}
@@ -136,6 +146,7 @@ Requires:       %{name}-widgets%{?_isa} = %{version}-%{release}
 Requires:       %{name}-dicom%{?_isa} = %{version}-%{release}
 Requires:       %{name}-vtk%{?_isa} = %{version}-%{release}
 Requires:       %{name}-itk%{?_isa} = %{version}-%{release}
+Requires:       %{name}-python%{?_isa} = %{version}-%{release}
 Requires:       dcmtk-devel%{?_isa}
 Requires:       qt6-qtbase-devel%{?_isa}
 Requires:       qt6-qtscxml-devel%{?_isa}
@@ -225,6 +236,13 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %files itk
 %{_libdir}/libCTKImageProcessingITK*.so.%{soname_version}{,.*}
 
+%files python
+%{_libdir}/libCTKScriptingPython*.so.%{soname_version}{,.*}
+# CTK builds Python stubs under /usr/bin/Python/ (upstream layout — not ideal,
+# but moving them breaks find_package(CTK) for Slicer).
+/usr/bin/Python/ctk/
+/usr/bin/Python/qt/
+
 %files devel
 %{_includedir}/ctk-%{soname_version}/
 %{_libdir}/libCTKCore.so
@@ -233,10 +251,18 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/libCTKDICOMWidgets.so
 %{_libdir}/libCTKVisualizationVTK*.so
 %{_libdir}/libCTKImageProcessingITK*.so
+%{_libdir}/libCTKScriptingPython*.so
 %{_qt6_plugindir}/designer/libCTK*.so
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.7.20260126gitfd37b874
+- Add ctk-python subpackage to ship the new Python/PythonQt-related
+  files surfaced by -0.6 (libCTKScriptingPython{Core,Widgets}.so* and
+  the /usr/bin/Python/{ctk,qt}/__init__.py stubs that CTK's build
+  installs when PythonQt support is on). Also list the unversioned
+  .so symlinks under ctk-devel and add a -python dependency.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.6.20260126gitfd37b874
 - Re-enable PythonQt support now that python-pythonqt-devel (Qt6) is
   available in COPR. Flip CTK_LIB_Scripting/Python/Core,
