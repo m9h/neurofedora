@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -30,6 +30,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.16
 BuildRequires:  ninja-build
 BuildRequires:  python3-devel
+BuildRequires:  python-pythonqt-devel
 
 # Qt6 — COPR VTK 9.5 is Qt6-based, so CTK must also use Qt6
 BuildRequires:  qt6-qtbase-devel
@@ -189,9 +190,11 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DCTK_ENABLE_PluginFramework=OFF \
     -DCTK_LIB_Visualization/VTK/Widgets=ON \
     -DCTK_LIB_ImageProcessing/ITK/Core=ON \
-    -DCTK_LIB_Scripting/Python/Core=OFF \
-    -DCTK_LIB_Scripting/Python/Widgets=OFF \
-    -DCTK_WRAP_PYTHONQT_LIGHT=OFF \
+    -DCTK_LIB_Scripting/Python/Core=ON \
+    -DCTK_LIB_Scripting/Python/Widgets=ON \
+    -DCTK_WRAP_PYTHONQT_LIGHT=ON \
+    -DPYTHONQT_INSTALL_DIR=%{_prefix} \
+    -DPythonQt_DIR=%{_libdir}/cmake/PythonQt \
     -DCTK_USE_SYSTEM_VTK=ON \
     -DCTK_USE_SYSTEM_ITK=ON \
     -DCTK_USE_SYSTEM_DCMTK=ON \
@@ -234,6 +237,15 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.6.20260126gitfd37b874
+- Re-enable PythonQt support now that python-pythonqt-devel (Qt6) is
+  available in COPR. Flip CTK_LIB_Scripting/Python/Core,
+  CTK_LIB_Scripting/Python/Widgets, CTK_WRAP_PYTHONQT_LIGHT back to ON.
+  3D Slicer's Libs/MRML/Widgets calls ctkMacroWrapPythonQt, which
+  configures ctkMacroWrapPythonQtModuleInit.cpp.in — a file CTK only
+  installs when its own PythonQt support is enabled. Without it, the
+  Slicer configure aborts at qMRMLWidgetsPythonQt wrapping.
+
 * Tue Mar 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.4.20260126gitfd37b874
 - Fix build: add qt6-qtscxml-devel (provides Qt6::StateMachine for CTKCore)
 - Add qt6-qttools-static (Qt6::UiTools)
