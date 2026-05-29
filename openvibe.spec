@@ -5,7 +5,7 @@
 
 Name:           openvibe
 Version:        3.7.0
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Brain-Computer Interface platform for EEG/MEG signal processing
 
 License:        AGPL-3.0-or-later
@@ -142,10 +142,19 @@ sed -i 's/boost::asio::io_service/boost::asio::io_context/g' \
 # Same rename for the m_ioService member-init / type variants
 sed -i 's/io_service/io_context/g' \
     extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
-# deadline_timer → steady_timer (API differs slightly — expires_from_now() still works
-# via the boost::asio::chrono adapter; let the build tell us if there are residuals)
+# deadline_timer → steady_timer
 sed -i 's/boost::asio::deadline_timer/boost::asio::steady_timer/g' \
     extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.h \
+    extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
+
+# Residual Boost 1.87 API fallout in ovasCSmartingAmp.cpp surfaced by -8
+# build 10522031:
+#   - io_context::reset() was deprecated in 1.66, removed in 1.87 → restart()
+#   - steady_timer takes std::chrono durations, not boost::posix_time;
+#     expires_from_now() also removed → expires_after()
+sed -i \
+    -e 's/m_io\.reset()/m_io.restart()/g' \
+    -e 's/expires_from_now(boost::posix_time::milliseconds(/expires_after(std::chrono::milliseconds(/g' \
     extras/contrib/plugins/server-drivers/mbt-smarting/src/ovasCSmartingAmp.cpp
 # Replace the query+resolve+connect block with modern Boost.Asio API
 # resolver.resolve() returns results_type, use boost::asio::connect() instead of socket.connect(*iter)
@@ -243,6 +252,15 @@ chmod +x %{buildroot}%{_datadir}/openvibe/plugins/simple-visualization/p300-magi
 %{_libdir}/*.a
 
 %changelog
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-9
+- Finish the Boost 1.87 mbt-smarting cleanup that -8 left half-done.
+  ovasCSmartingAmp.cpp still calls io_context::reset() (removed in 1.87,
+  rename to restart()) and steady_timer::expires_from_now() with a
+  boost::posix_time::milliseconds argument (steady_timer takes
+  std::chrono durations and the expires_from_now() spelling was also
+  removed, use expires_after(std::chrono::milliseconds(...))).
+  Failure surfaced in build 10522031.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-8
 - Extend Boost 1.87 io_service→io_context sed to two more files surfaced
   by build 10517287: extras/contrib/plugins/server-extensions/tcp-tagging/
