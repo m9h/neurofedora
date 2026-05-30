@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -239,6 +239,13 @@ EOF
     `# the same dir; CMake treats them as distinct packages so both _DIR` \
     `# variables need pointing.` \
     -DCTKAppLauncherLib_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
+    `# Tarball builds have no .git/.svn — SlicerMacroExtractRepositoryInfo` \
+    `# leaves the Slicer_REVISION / Slicer_WC_LAST_CHANGED_DATE /` \
+    `# Slicer_WC_URL variables unset, which SlicerPackageAndUploadTarget` \
+    `# then rejects. Pre-define them from spec globals.` \
+    -DSlicer_REVISION:STRING=%{slicer_shortcommit} \
+    -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-05-17 \
+    -DSlicer_WC_URL:STRING=https://github.com/Slicer/Slicer/commit/%{slicer_commit} \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
     `# Slicer's top-level CMakeLists references ${vtkAddon_CMAKE_DIR}` \
@@ -329,6 +336,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-14
+- Pre-define Slicer_REVISION, Slicer_WC_LAST_CHANGED_DATE, Slicer_WC_URL.
+  Tarball builds have no .git/.svn, so SlicerMacroExtractRepositoryInfo
+  leaves these vars unset and SlicerPackageAndUploadTarget aborts with
+  "Variable Slicer_WC_LAST_CHANGED_DATE is expected to be defined".
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-13
 - Hint CTKAppLauncherLib_DIR. The CTKAppLauncher-devel package ships
   both CTKAppLauncherConfig.cmake and CTKAppLauncherLibConfig.cmake in
