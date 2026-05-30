@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        19%{?dist}
+Release:        20%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -144,6 +144,7 @@ BuildRequires:  libXcursor-devel
 BuildRequires:  hdf5-devel
 BuildRequires:  boost-devel
 BuildRequires:  gdcm-devel
+BuildRequires:  cli11-devel
 
 # Python ecosystem (Slicer bundles its own Python, but cmake checks for these)
 BuildRequires:  python3-pip
@@ -382,6 +383,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-20
+- Add cli11-devel BR. VTK 9.6's cmake config now calls
+  find_package(CLI11) — surfaced by 3dslicer-19 since the ITK6 switch
+  pulled a fresh build chroot.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-19
 - Drop BR on nonexistent InsightToolkit6-vtk-devel. ITK6 bundles
   ITKVtkGlue into the main -devel package (no separate subpackage
