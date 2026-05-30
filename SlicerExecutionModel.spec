@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -173,6 +173,14 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %install
 %cmake_install
 
+# Upstream's GenerateCLP/CMakeLists.txt doesn't install GenerateCLP.cmake,
+# but UseGenerateCLP.cmake's last line does
+#   include(${GenerateCLP_CMAKE_DIR}/GenerateCLP.cmake)
+# so downstream cmake calls (e.g. 3D Slicer's SEMMacroBuildCLI) abort with
+# "include could not find requested file: /usr/lib64/GenerateCLP/GenerateCLP.cmake".
+install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
+    %{buildroot}%{_libdir}/GenerateCLP/
+
 %files
 %license License.txt tclap/COPYING
 %doc README.md NOTICE
@@ -192,6 +200,13 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.6.20260301git3bd8e038
+- Install GenerateCLP/GenerateCLP.cmake explicitly. Upstream's
+  GenerateCLP/CMakeLists.txt has no install() rule for it, but
+  UseGenerateCLP.cmake's last line includes it via
+  ${GenerateCLP_CMAKE_DIR}/GenerateCLP.cmake. Downstream cmake calls
+  to SEMMacroBuildCLI (e.g. 3D Slicer's Modules/CLI/*) abort without it.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.5.20260301git3bd8e038
 - Rebump (skip -0.3, -0.4 that built but silently regressed and
   shipped without SlicerExecutionModelConfig.cmake — discovered when
