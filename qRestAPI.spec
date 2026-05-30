@@ -15,7 +15,7 @@
 
 Name:           qRestAPI
 Version:        0
-Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Qt-based REST API client library
 
 License:        Apache-2.0
@@ -90,13 +90,21 @@ done
 # Upstream's CMakeLists only generates BUILD-tree configs (paths point at
 # /builddir/build/BUILD/qRestAPI-0-build/qRestAPI-<commit>/redhat-linux-build/).
 # Rewrite those paths to install-tree locations so 3D Slicer's
-# find_package(qRestAPI) gets working values.
-BUILDROOT_RE="/builddir/build/BUILD/qRestAPI-0-build/qRestAPI-[a-f0-9]*/redhat-linux-build"
-sed -i \
-    -e "s|\"${BUILDROOT_RE}/qRestAPIExports.cmake\"|\"%{_libdir}/cmake/qRestAPI/qRestAPIExports.cmake\"|g" \
-    -e "s|\"${BUILDROOT_RE}/UseqRestAPI.cmake\"|\"%{_libdir}/cmake/qRestAPI/UseqRestAPI.cmake\"|g" \
-    -e "s|\"${BUILDROOT_RE}\"|\"%{_libdir}\"|g" \
-    %{buildroot}%{_libdir}/cmake/qRestAPI/qRestAPIConfig.cmake
+# find_package(qRestAPI) gets working values. Same applies to
+# qRestAPIExports.cmake which carries hardcoded paths in
+# INTERFACE_INCLUDE_DIRECTORIES and IMPORTED_LOCATION_NOCONFIG.
+BUILDDIR_RE="/builddir/build/BUILD/qRestAPI-0-build/qRestAPI-[a-f0-9]*/redhat-linux-build"
+SRCDIR_RE="/builddir/build/BUILD/qRestAPI-0-build/qRestAPI-[a-f0-9]*"
+for f in qRestAPIConfig.cmake qRestAPIExports.cmake; do
+    sed -i \
+        -e "s|${BUILDDIR_RE}/libqRestAPI\.so|%{_libdir}/libqRestAPI.so|g" \
+        -e "s|${BUILDDIR_RE}/qRestAPIExports\.cmake|%{_libdir}/cmake/qRestAPI/qRestAPIExports.cmake|g" \
+        -e "s|${BUILDDIR_RE}/UseqRestAPI\.cmake|%{_libdir}/cmake/qRestAPI/UseqRestAPI.cmake|g" \
+        -e "s|${BUILDDIR_RE};${SRCDIR_RE}|%{_includedir}/qRestAPI|g" \
+        -e "s|${BUILDDIR_RE}|%{_libdir}|g" \
+        -e "s|${SRCDIR_RE}|%{_includedir}/qRestAPI|g" \
+        %{buildroot}%{_libdir}/cmake/qRestAPI/$f
+done
 
 %files
 %license LICENSE
@@ -109,6 +117,13 @@ sed -i \
 %{_libdir}/cmake/qRestAPI/*.cmake
 
 %changelog
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.5.20251018git88c02c5d
+- Also sed-rewrite hardcoded paths in qRestAPIExports.cmake (not just
+  Config). The Exports file carries the build-tree paths in
+  INTERFACE_INCLUDE_DIRECTORIES and IMPORTED_LOCATION_NOCONFIG,
+  surfaced by 3dslicer-17 generate-step with 'Imported target
+  qRestAPI includes non-existent path /builddir/.../redhat-linux-build'.
 
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.4.20251018git88c02c5d
 - Actually fix the path rewrite. -0.3's sed used %%{__cmake_builddir}
