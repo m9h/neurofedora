@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        17%{?dist}
+Release:        18%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -83,8 +83,8 @@ BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  qt6-qttools-devel
 
 # COPR deps
-BuildRequires:  InsightToolkit5-devel >= 5.4.6
-BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.6
+BuildRequires:  InsightToolkit6-devel >= 6.0.0~b02
+BuildRequires:  InsightToolkit6-vtk-devel >= 6.0.0~b02
 BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  ctk-devel
 BuildRequires:  vtkAddon-devel
@@ -198,6 +198,22 @@ for f in Libs/vtkTeem/CMakeLists.txt \
     sed -i 's|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/\*\.(h\|hxx)")|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx")|' "$f"
 done
 
+# Slicer expects an itkNamespace.h header that its SuperBuild normally
+# patches into ITK's source tree. Since we don't superbuild, the file
+# is just missing. Stub it locally in each Libs/<dir> that includes it,
+# so the #include resolves. The actual contents only need to be a
+# placeholder — the surrounding code uses `namespace itk { ... }` blocks
+# directly without needing anything from this header.
+cat > Libs/ITKFactoryRegistration/itkNamespace.h <<'EOF'
+// Stub for Fedora packaging. Slicer SuperBuild normally patches this
+// file into ITK's source; we don't superbuild.
+#ifndef itkNamespace_h
+#define itkNamespace_h
+namespace itk {}
+#endif
+EOF
+cp -p Libs/ITKFactoryRegistration/itkNamespace.h Libs/vtkITK/itkNamespace.h
+
 # Slicer source bug #2: 4 Libs/*/CMakeLists.txt reference
 # ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file} in install(FILES ...)
 # but never `set(configure_header_file ...)` so the var is empty and install
@@ -259,7 +275,7 @@ EOF
     -DSlicer_USE_SYSTEM_python_SimpleITK:BOOL=ON \
     \
     `# Find_package paths` \
-    -DITK_DIR:PATH=%{_prefix}/lib/cmake/ITK-5.4 \
+    -DITK_DIR:PATH=%{_libdir}/cmake/ITK-6.0 \
     -DVTK_DIR:PATH=%{_libdir}/cmake/vtk \
     -DCTK_DIR:PATH=%{_libdir}/cmake/CTK \
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
@@ -365,6 +381,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-18
+- Switch from InsightToolkit5 to InsightToolkit6 (6.0.0~b02). The
+  Slicer main HEAD branch is the Qt6-modernization branch; it
+  presumes the corresponding ITK-6 modernization too.
+- Stub Libs/ITKFactoryRegistration/itkNamespace.h and
+  Libs/vtkITK/itkNamespace.h. Slicer's SuperBuild normally patches
+  this file into ITK's source tree; since we don't superbuild,
+  the file is just missing and compile fails at the first vtkITK
+  / ITKFactoryRegistration translation unit. Stub it as an empty
+  `namespace itk {}` so the include resolves.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-17
 - Fix Slicer source bug #2: 4 Libs/*/CMakeLists.txt reference
   ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file} in install(FILES ...)
