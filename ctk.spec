@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -230,6 +230,16 @@ install -p -m 0644 CMake/ctkWrapPythonQt.py \
 install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
     %{buildroot}%{_libdir}/cmake/ctk/
 
+# CTK's Config doesn't find_dependency() its link-time deps. When a
+# downstream consumer (e.g. 3D Slicer) calls find_package(CTK) without
+# having pre-called find_package(DCMTK) and find_package(ITK), the
+# CTKExports.cmake step aborts at the generate phase with messages like
+# "The link interface of target CTKDICOMCore contains: DCMTK::ofstd
+#  but the target was not found." Inject the missing find_dependency
+# calls at the top of CTKConfig.cmake.
+sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependency(DCMTK)\nfind_dependency(ITK 5.4)\n\ninclude|}' \
+    %{buildroot}%{_libdir}/cmake/ctk/CTKConfig.cmake
+
 %files
 %doc README.md
 %license NOTICE LICENSE
@@ -268,6 +278,16 @@ install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.9.20260126gitfd37b874
+- Inject find_dependency(DCMTK) and find_dependency(ITK 5.4) at the
+  top of CTKConfig.cmake. CTK's upstream Config doesn't auto-load its
+  link-time deps, so find_package(CTK) by downstream consumers
+  (e.g. 3D Slicer) aborts at the generate phase with
+  "DCMTK::ofstd / ITKInternalEigen3::Eigen ... target was not found."
+  CTKConfig even has a comment acknowledging this: "Ideally projects
+  like DCMTK or PythonQt should provide both Config and Use files."
+  Surfaced by 3dslicer-17.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.8.20260126gitfd37b874
 - Explicitly install CMake/ctkMacroWrapPythonQtModuleInit.cpp.in,
   ctkWrapPythonQt.py, and ctk_compile_python_scripts.cmake.in. CTK
