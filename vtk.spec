@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -248,6 +248,8 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     `# Required by ParaView 6.1.1 (CMakeLists.txt:568 hard-fails without them).` \
     -DVTK_MODULE_ENABLE_VTK_WebCore:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_WebGLExporter:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_WebPython:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_cli11:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
@@ -332,6 +334,17 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-7
+- Add VTK_MODULE_ENABLE_VTK_WebPython + VTK_MODULE_ENABLE_VTK_cli11.
+  ParaView 6.1.1 surfaced these as a second set of required modules
+  in build 10526865 (after -6 satisfied WebCore + WebGLExporter):
+    * VTK::cli11 is a DEPENDS of paraview's VTKExtensions/Core
+    * VTK::WebPython is required when PARAVIEW_ENABLE_WEB &&
+      PARAVIEW_USE_PYTHON (both on for neurofedora).
+  IOGDAL and AcceleratorsVTKmFilters are handled on the paraview
+  side (disable GDAL + Viskores plugin) rather than adding gdal-devel
+  + vtk-m to VTK's BRs.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-6
 - Enable VTK_MODULE_ENABLE_VTK_WebCore + VTK_MODULE_ENABLE_VTK_WebGLExporter.
   ParaView 6.1.1 hard-fails at CMakeLists.txt:568 if these aren't built
