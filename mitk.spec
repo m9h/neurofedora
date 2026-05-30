@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -278,16 +278,37 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %install
 %cmake_install
 
+# mitkInstallRules.cmake (loaded unconditionally) drops a Qt6 WebEngine
+# runtime bundle into %{_bindir}: plugins/, translations/, resources/,
+# and QtWebEngineProcess. These collide with system qt6-qtwebengine
+# packages and aren't needed for a library-only build. Remove them.
+rm -rf %{buildroot}%{_bindir}/plugins
+rm -rf %{buildroot}%{_bindir}/translations
+rm -rf %{buildroot}%{_bindir}/resources
+rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
+
 %files
 %license LICENSE
 %doc README.md
-%{_libdir}/libMitk*.so.*
+# MITK modules ship without SOVERSION upstream — only libMitk*.so exists,
+# no .so.<n> symlink chain. Ship the unversioned libs in the main package.
+%{_libdir}/libMitk*.so
 
 %files devel
 %{_includedir}/mitk/
-%{_libdir}/libMitk*.so
+%{_libdir}/libqtsingleapplication.a
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-13
+- Realign %%files to what actually lands. -12's cmake patch installed
+  49 MITK module libraries but they're unversioned (MITK doesn't set
+  SOVERSION); spec was still requesting %%{_libdir}/libMitk*.so.* which
+  doesn't exist. Ship the unversioned %%{_libdir}/libMitk*.so in main,
+  headers + libqtsingleapplication.a in -devel.
+- Strip Qt6 WebEngine bundle that mitkInstallRules.cmake drops in
+  %%{_bindir} (plugins/, translations/, resources/, QtWebEngineProcess) —
+  these collide with system qt6-qtwebengine packages.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-12
 - Drop install(EXPORT) — MITK's mitk_create_module uses raw paths in
   target_include_directories without BUILD_INTERFACE / INSTALL_INTERFACE
