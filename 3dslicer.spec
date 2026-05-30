@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        16%{?dist}
+Release:        17%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -187,17 +187,27 @@ extension modules out of tree.
 # RPM we rely on the system tbb package; no need to bundle.
 echo 'return()' > CMake/SlicerBlockInstallTBB.cmake
 
-# Slicer source bug: 4 Libs/*/CMakeLists.txt use POSIX-regex alternation
+# Slicer source bug #1: 4 Libs/*/CMakeLists.txt use POSIX-regex alternation
 # in cmake glob patterns: `file(GLOB headers "...*.(h|hxx)")`. cmake's
-# file(GLOB) doesn't support alternation — globs return empty and the
-# downstream install(FILES) call gets only the directory path, aborting
-# with "install FILES given directory ... to install." Rewrite to two
-# valid glob patterns separated by a space.
+# file(GLOB) doesn't support alternation — globs return empty. Rewrite to
+# two valid glob patterns separated by a space.
 for f in Libs/vtkTeem/CMakeLists.txt \
          Libs/vtkSegmentationCore/CMakeLists.txt \
          Libs/vtkITK/CMakeLists.txt \
          Libs/ITKFactoryRegistration/CMakeLists.txt; do
     sed -i 's|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/\*\.(h\|hxx)")|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx")|' "$f"
+done
+
+# Slicer source bug #2: 4 Libs/*/CMakeLists.txt reference
+# ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file} in install(FILES ...)
+# but never `set(configure_header_file ...)` so the var is empty and install
+# gets a trailing-slash directory path, aborting with "install FILES given
+# directory ... to install." Drop the unresolved reference.
+for f in Libs/vtkTeem/CMakeLists.txt \
+         Libs/MRML/CLI/CMakeLists.txt \
+         Libs/RemoteIO/CMakeLists.txt \
+         Libs/MRML/Logic/CMakeLists.txt; do
+    sed -i 's| ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file}||' "$f"
 done
 
 %build
@@ -355,6 +365,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-17
+- Fix Slicer source bug #2: 4 Libs/*/CMakeLists.txt reference
+  ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file} in install(FILES ...)
+  without ever setting configure_header_file, leaving a trailing-slash
+  directory in the install list. Drop the unresolved reference. Hits
+  vtkTeem, MRML/CLI, RemoteIO, MRML/Logic (the 4 files reporting the
+  "install FILES given directory" error since -10).
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-16
 - Fix 4 broken glob patterns in Libs/*/CMakeLists.txt that use POSIX-
   regex alternation `*.(h|hxx)` — cmake file(GLOB) doesn't support
