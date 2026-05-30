@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -190,6 +190,13 @@ cat >> Modules/Core/CMakeLists.txt <<'EOF'
 target_link_libraries(MitkCore PRIVATE MGHIO IOScanco ITKIODCMTK)
 EOF
 
+# VTK 9.6: vtkVectorOperators.h was removed; the operators were merged
+# into vtkVector.h. Two MITK gizmo sources still include the old header.
+# Surfaced by build 10525366 (-9 advanced past the link error).
+sed -i 's|#include <vtkVectorOperators\.h>|#include <vtkVector.h>|' \
+    Modules/Gizmo/src/mitkGizmoInteractor.cpp \
+    Modules/Gizmo/src/mitkGizmoMapper2D.cpp
+
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
@@ -250,6 +257,13 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-10
+- Fix VTK 9.6 FTBFS in Modules/Gizmo/src/mitkGizmo{Interactor,Mapper2D}.cpp:
+  vtkVectorOperators.h was removed in VTK 9.6 (the operator overloads
+  were merged into vtkVector.h). Replace the include. Surfaced by
+  build 10525366 (mitk-9 cleared link errors and reached step 1012/1149
+  before this hit).
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-9
 - Link MGHIO, IOScanco and ITKIODCMTK into MitkCore. Build 10525253
   cleared the vtkCutter::GetCellTypeDimensions error from -8 but then
