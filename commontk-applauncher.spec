@@ -14,7 +14,7 @@
 
 Name:           commontk-applauncher
 Version:        %{upstream_ver}
-Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CommonTK launcher for Slicer-style applications
 
 License:        Apache-2.0
@@ -112,6 +112,17 @@ for cfg in CTKAppLauncherConfig.cmake CTKAppLauncherLibConfig.cmake; do
         -e 's|"${PACKAGE_PREFIX_DIR}/\."|"${CMAKE_CURRENT_LIST_DIR}/."|' \
         %{buildroot}%{_libdir}/cmake/CTKAppLauncher/$cfg
 done
+
+# Also flatten CTK_INSTALL_CMAKE_DIR in the Config (was set to
+# "lib64/cmake/CTKAppLauncher" — meant to be appended to PACKAGE_PREFIX_DIR
+# = /usr, but downstream code does ${CTKAppLauncher_DIR}/${CTK_INSTALL_CMAKE_DIR}
+# where CTKAppLauncher_DIR is already /usr/lib64/cmake/CTKAppLauncher, giving
+# the nested non-existent path /usr/lib64/cmake/CTKAppLauncher/lib64/cmake/
+# CTKAppLauncher/ctkAppLauncher-configure.cmake). Set to "." so the path
+# collapses correctly.
+sed -i \
+    -e 's|set(CTK_INSTALL_CMAKE_DIR "lib64/cmake/CTKAppLauncher")|set(CTK_INSTALL_CMAKE_DIR ".")|' \
+    %{buildroot}%{_libdir}/cmake/CTKAppLauncher/CTKAppLauncherConfig.cmake
 # .ini.in template — move out of bin to share
 mkdir -p %{buildroot}%{_datadir}/CTKAppLauncher
 if [ -f %{buildroot}%{_bindir}/CTKAppLauncherSettings.ini.in ]; then
@@ -133,6 +144,18 @@ fi
 %{_libdir}/cmake/CTKAppLauncher/*.cmake
 
 %changelog
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.8.20251018gita37ad37c
+- Flatten CTK_INSTALL_CMAKE_DIR in Config. It was set to the
+  Config's own install-tree relative path "lib64/cmake/CTKAppLauncher"
+  (meant to combine with PACKAGE_PREFIX_DIR=/usr) but downstream code
+  in ctkAppLauncher.cmake (lines 645+649) computes
+  \${CTKAppLauncher_DIR}/\${CTK_INSTALL_CMAKE_DIR}/ctkAppLauncher-configure.cmake
+  where CTKAppLauncher_DIR is already /usr/lib64/cmake/CTKAppLauncher,
+  producing the nested wrong path
+  /usr/lib64/cmake/CTKAppLauncher/lib64/cmake/CTKAppLauncher/...
+  Surfaced by 3dslicer-17 v2 at ninja-build time. Set to "." so the
+  path collapses to the right location.
 
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.34-0.7.20251018gita37ad37c
 - Extend the PACKAGE_PREFIX_DIR sed fix to CTKAppLauncherConfig.cmake
