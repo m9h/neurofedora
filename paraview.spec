@@ -195,18 +195,12 @@ ExcludeArch: %{ix86}
         -DOpenGL_GL_PREFERENCE=GLVND \\\
         -DPARAVIEW_BUILD_SHARED_LIBS:BOOL=ON \\\
         -DPARAVIEW_VERSIONED_INSTALL:BOOL=OFF \\\
-        `# GDAL OFF: vtk.spec doesn't BR gdal-devel and VTK::IOGDAL isn't enabled` \\\
-        `# in COPR vtk. Neuroimaging COPR doesn't need geospatial format I/O.` \\\
-        -DPARAVIEW_ENABLE_GDAL:BOOL=OFF \\\
+        -DPARAVIEW_ENABLE_GDAL:BOOL=ON \\\
         -DPARAVIEW_USE_PYTHON:BOOL=ON \\\
         -DPARAVIEW_INSTALL_DEVELOPMENT_FILES:BOOL=ON \\\
         -DVTK_PYTHON_VERSION=3 \\\
         -DPARAVIEW_BUILD_WITH_EXTERNAL:BOOL=ON \\\
         -DPARAVIEW_USE_EXTERNAL_VTK:BOOL=ON \\\
-        `# Disable Viskores (formerly VTKm) — pulls VTK::AcceleratorsVTKmFilters` \\\
-        `# which requires Viskores/VTK-m. Not yet in Fedora; once a COPR vtk-m` \\\
-        `# package lands this can be flipped back on.` \\\
-        -DPARAVIEW_USE_VISKORES:BOOL=OFF \\\
         %{?vtk_use_system_cgnslib} \\\
         %{?vtk_use_system_protobuf} \\\
         -DBUILD_EXAMPLES:BOOL=ON \\\
@@ -562,6 +556,13 @@ fi
 
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-4
+- Revert -3 workarounds — vtk-9.6.2-8 now ships every ParaView-required
+  module: VTK_AcceleratorsVTKmFilters (with bundled viskores),
+  VTK_IOGDAL (with new gdal-devel BR), VTK_WebPython, VTK_cli11.
+  Re-enable PARAVIEW_ENABLE_GDAL and let PARAVIEW_USE_VISKORES default
+  back on.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-3
 - Use the right Viskores gate: PARAVIEW_USE_VISKORES=OFF instead of
   the wrong PARAVIEW_PLUGIN_ENABLE_VTKmFilters from -2. VTKm was

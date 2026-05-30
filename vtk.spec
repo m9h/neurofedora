@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -40,6 +40,7 @@ BuildRequires:  expat-devel
 BuildRequires:  fmt-devel >= 8.1.0
 BuildRequires:  freeglut-devel
 BuildRequires:  freetype-devel
+BuildRequires:  gdal-devel
 BuildRequires:  hdf5-devel
 BuildRequires:  jsoncpp-devel
 BuildRequires:  json-devel
@@ -231,6 +232,8 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_ENABLE_VTK_IOOpenVDB:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_FiltersOpenTURNS:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_GeovisGDAL:STRING=NO \
+    -DVTK_MODULE_ENABLE_VTK_IOGDAL:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_IOOCCT:STRING=NO \
     -DVTK_MODULE_ENABLE_VTK_RenderingMatplotlib:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_RenderingVolumeAMR:STRING=YES \
@@ -334,6 +337,15 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-8
+- Enable VTK_MODULE_ENABLE_VTK_IOGDAL + VTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters
+  + add gdal-devel BR. ParaView 6.1.1's plugin scan walks Plugins/*/paraview.plugin
+  files unconditionally regardless of plugin CONDITION, so VTKmFilters'
+  REQUIRES_MODULES VTK::AcceleratorsVTKmFilters lands in the required list even
+  with PARAVIEW_USE_VISKORES=OFF. Same for VTK::IOGDAL via Remoting/Application.
+  The paraview-side disables in -1 do not actually suppress the requirements,
+  so satisfy them at the VTK layer instead. Viskores remains bundled.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-7
 - Add VTK_MODULE_ENABLE_VTK_WebPython + VTK_MODULE_ENABLE_VTK_cli11.
   ParaView 6.1.1 surfaced these as a second set of required modules
