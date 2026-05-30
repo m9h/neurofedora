@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -209,16 +209,17 @@ sed -i 's|#include <vtkVectorOperators\.h>|#include <vtkVector.h>|' \
 cat >> CMakeLists.txt <<'EOF'
 
 # ---- Fedora packaging: install module libraries + headers ----
+# No install(EXPORT) — MITK's mitk_create_module uses raw paths in
+# target_include_directories (no BUILD_INTERFACE/INSTALL_INTERFACE
+# generator expressions), which cmake rejects in an export set.
+# find_package(MITK) support would require patching every module's
+# include declaration; defer that. For now, just install the libs
+# and headers so packages downstream can link via -lMitkCore etc.
 get_property(_mitk_install_targets GLOBAL PROPERTY MITK_MODULE_TARGETS)
 if(_mitk_install_targets)
   install(TARGETS ${_mitk_install_targets}
-          EXPORT MITKTargets
           LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-  install(EXPORT MITKTargets
-          NAMESPACE MITK::
-          FILE MITKTargets.cmake
-          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MITK)
   foreach(_t ${_mitk_install_targets})
     get_target_property(_src ${_t} SOURCE_DIR)
     if(_src AND EXISTS ${_src}/include)
@@ -281,14 +282,24 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %license LICENSE
 %doc README.md
 %{_libdir}/libMitk*.so.*
-%{_libdir}/mitk/
 
 %files devel
-%{_includedir}/mitk*/
+%{_includedir}/mitk/
 %{_libdir}/libMitk*.so
-%{_libdir}/cmake/MITK*/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-12
+- Drop install(EXPORT) — MITK's mitk_create_module uses raw paths in
+  target_include_directories without BUILD_INTERFACE / INSTALL_INTERFACE
+  generator expressions, which cmake rejects in an export set (-11
+  failed with "INTERFACE_INCLUDE_DIRECTORIES contains path ... which
+  is prefixed in the build directory"). Install libs and headers
+  unconditionally; find_package(MITK) support deferred until a
+  follow-up patch upgrades every module's include declaration.
+- Update %%files to match what actually lands: drop %%{_libdir}/mitk/
+  and %%{_libdir}/cmake/MITK*/ (neither produced without EXPORT and
+  Workbench), keep libraries and headers.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-11
 - Add bulk install rules for module libraries + headers + export set.
   MITK 2025.12.2 has no install(TARGETS ...) for its module libraries —
