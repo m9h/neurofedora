@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -245,6 +245,9 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_ENABLE_VTK_IOParallelLSDyna:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=YES \
+    `# Required by ParaView 6.1.1 (CMakeLists.txt:568 hard-fails without them).` \
+    -DVTK_MODULE_ENABLE_VTK_WebCore:STRING=YES \
+    -DVTK_MODULE_ENABLE_VTK_WebGLExporter:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
     -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
@@ -329,6 +332,13 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-6
+- Enable VTK_MODULE_ENABLE_VTK_WebCore + VTK_MODULE_ENABLE_VTK_WebGLExporter.
+  ParaView 6.1.1 hard-fails at CMakeLists.txt:568 if these aren't built
+  ("Please reconfigure VTK with the following parameters..."). Surfaced
+  by paraview-6.1.1-1 build 10524649. AcceleratorsVTKmFilters (also
+  required) is handled by disabling the VTKmFilters plugin in paraview.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-5
 - Pre-define HDF5_IS_PARALLEL=FALSE so VTK's `USE_VARIABLES` check
   passes whether the EXTERNAL or INTERNAL hdf5 path is taken — the

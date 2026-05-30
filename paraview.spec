@@ -7,7 +7,7 @@
 
 %global pv_maj 6
 %global pv_min 1
-%global pv_patch 0
+%global pv_patch 1
 %global pv_majmin %{pv_maj}.%{pv_min}
 #global rcsuf RC2
 %{?rcsuf:%global relsuf .%{rcsuf}}
@@ -201,6 +201,10 @@ ExcludeArch: %{ix86}
         -DVTK_PYTHON_VERSION=3 \\\
         -DPARAVIEW_BUILD_WITH_EXTERNAL:BOOL=ON \\\
         -DPARAVIEW_USE_EXTERNAL_VTK:BOOL=ON \\\
+        `# Disable VTKmFilters plugin: requires VTK::AcceleratorsVTKmFilters which` \\\
+        `# in turn requires VTK-m. VTK-m is not in Fedora — needs separate COPR` \\\
+        `# packaging before this can be enabled.` \\\
+        -DPARAVIEW_PLUGIN_ENABLE_VTKmFilters:BOOL=OFF \\\
         %{?vtk_use_system_cgnslib} \\\
         %{?vtk_use_system_protobuf} \\\
         -DBUILD_EXAMPLES:BOOL=ON \\\
@@ -556,6 +560,18 @@ fi
 
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-2
+- Disable PARAVIEW_PLUGIN_ENABLE_VTKmFilters: requires
+  VTK::AcceleratorsVTKmFilters which depends on VTK-m, not packaged
+  for Fedora yet. The other two modules ParaView 6.1.1 demands at
+  CMakeLists.txt:568 (VTK_WebCore + VTK_WebGLExporter) are now
+  enabled by COPR vtk-9.6.2-6.
+
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-1
+- Bump to upstream 6.1.1 (released 2026-05-22).
+- Builds against COPR vtk-9.6.2-5 plus new COPR vtk-mpi (vtk-mpich-devel
+  + vtk-openmpi-devel) which unblock the openmpi/mpich subpackages.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.0-1
 - Adopt Fedora dist-git ParaView spec (maintainer: Orion Poplawski)
   for neurofedora COPR; rebased on upstream 6.1.0 release.
