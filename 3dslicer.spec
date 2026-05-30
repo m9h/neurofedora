@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        15%{?dist}
+Release:        16%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -186,6 +186,19 @@ extension modules out of tree.
 # on Fedora — Fedora's tbb-2022.3 ships libtbbmalloc.so.2.17. As an
 # RPM we rely on the system tbb package; no need to bundle.
 echo 'return()' > CMake/SlicerBlockInstallTBB.cmake
+
+# Slicer source bug: 4 Libs/*/CMakeLists.txt use POSIX-regex alternation
+# in cmake glob patterns: `file(GLOB headers "...*.(h|hxx)")`. cmake's
+# file(GLOB) doesn't support alternation — globs return empty and the
+# downstream install(FILES) call gets only the directory path, aborting
+# with "install FILES given directory ... to install." Rewrite to two
+# valid glob patterns separated by a space.
+for f in Libs/vtkTeem/CMakeLists.txt \
+         Libs/vtkSegmentationCore/CMakeLists.txt \
+         Libs/vtkITK/CMakeLists.txt \
+         Libs/ITKFactoryRegistration/CMakeLists.txt; do
+    sed -i 's|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/\*\.(h\|hxx)")|file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/*.h" "${CMAKE_CURRENT_SOURCE_DIR}/*.hxx")|' "$f"
+done
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
@@ -342,6 +355,15 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-16
+- Fix 4 broken glob patterns in Libs/*/CMakeLists.txt that use POSIX-
+  regex alternation `*.(h|hxx)` — cmake file(GLOB) doesn't support
+  alternation, so the glob returns empty, and the downstream
+  install(FILES ...) call gets only the trailing directory path,
+  aborting with "install FILES given directory ... to install."
+  Rewrite to two valid glob patterns: `*.h" "${...}/*.hxx`. Hits
+  vtkTeem, vtkSegmentationCore, vtkITK, ITKFactoryRegistration.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-15
 - Short-circuit SlicerBlockInstallTBB.cmake. The file expects to
   bundle libtbb.so.12 + libtbbmalloc.so.2.5 + libtbbmalloc_proxy.so.2.5
