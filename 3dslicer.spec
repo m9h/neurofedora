@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -235,6 +235,10 @@ EOF
     -DCTK_DIR:PATH=%{_libdir}/cmake/CTK \
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
+    `# CTKAppLauncherLib and CTKAppLauncher both have their configs in` \
+    `# the same dir; CMake treats them as distinct packages so both _DIR` \
+    `# variables need pointing.` \
+    -DCTKAppLauncherLib_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
     `# Slicer's top-level CMakeLists references ${vtkAddon_CMAKE_DIR}` \
@@ -325,6 +329,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-13
+- Hint CTKAppLauncherLib_DIR. The CTKAppLauncher-devel package ships
+  both CTKAppLauncherConfig.cmake and CTKAppLauncherLibConfig.cmake in
+  /usr/lib64/cmake/CTKAppLauncher/ but cmake treats them as distinct
+  packages requiring distinct _DIR hints.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-12
 - Hint SlicerExecutionModel + GenerateCLP + ModuleDescriptionParser
   DIR variables. Fedora's SlicerExecutionModel-devel ships configs

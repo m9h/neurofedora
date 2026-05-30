@@ -15,7 +15,7 @@
 
 Name:           qRestAPI
 Version:        0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Qt-based REST API client library
 
 License:        Apache-2.0
@@ -83,9 +83,19 @@ install -m 0644 %{__cmake_builddir}/qRestAPI_Export.h %{buildroot}%{_includedir}
 
 # Generated cmake config (file name is GenerateqRestAPIConfig.cmake-produced
 # qRestAPIConfig.cmake — globs are forgiving here).
-for f in %{__cmake_builddir}/qRestAPIConfig*.cmake %{__cmake_builddir}/UseqRestAPI.cmake; do
+for f in %{__cmake_builddir}/qRestAPIConfig*.cmake %{__cmake_builddir}/UseqRestAPI.cmake %{__cmake_builddir}/qRestAPIExports*.cmake; do
     [ -f "$f" ] && install -m 0644 "$f" %{buildroot}%{_libdir}/cmake/qRestAPI/
 done
+
+# Upstream's CMakeLists only generates BUILD-tree configs (paths point at
+# /builddir/.../redhat-linux-build/). Rewrite those paths to install-tree
+# locations so 3D Slicer's find_package(qRestAPI) gets working values.
+sed -i \
+    -e 's|"%{__cmake_builddir}/qRestAPIExports.cmake"|"%{_libdir}/cmake/qRestAPI/qRestAPIExports.cmake"|g' \
+    -e 's|"%{__cmake_builddir}/UseqRestAPI.cmake"|"%{_libdir}/cmake/qRestAPI/UseqRestAPI.cmake"|g' \
+    -e 's|set(qRestAPI_LIBRARY_DIRS "%{__cmake_builddir}")|set(qRestAPI_LIBRARY_DIRS "%{_libdir}")|g' \
+    -e 's|set(qRestAPI_INCLUDE_DIRS "")|set(qRestAPI_INCLUDE_DIRS "%{_includedir}/qRestAPI")|g' \
+    %{buildroot}%{_libdir}/cmake/qRestAPI/qRestAPIConfig.cmake
 
 %files
 %license LICENSE
@@ -98,6 +108,13 @@ done
 %{_libdir}/cmake/qRestAPI/*.cmake
 
 %changelog
+
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.3.20251018git88c02c5d
+- Rewrite hardcoded /builddir/.../redhat-linux-build/ paths in the
+  shipped qRestAPIConfig.cmake to install-tree locations. Upstream's
+  GenerateqRestAPIConfig.cmake only emits the build-tree variant, so
+  the install carried the build path into the binary RPM. Also install
+  qRestAPIExports.cmake which the Config references.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.2.20251018git88c02c5d
 - Hand-install lib + headers + cmake config: upstream's CMakeLists
