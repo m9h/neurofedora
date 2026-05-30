@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -173,6 +173,23 @@ sed -i 's|vtkCutter::GetCellTypeDimensions(cellTypeDimensions);|for (int __i = 0
 grep -q '^#include "vtkCellTypes.h"\|^#include <vtkCellTypes.h>' Modules/MapperExt/src/vtkPointSetSlicer.cxx || \
     sed -i '0,/^#include "vtkCutter.h"/s||#include "vtkCellTypes.h"\n#include "vtkCutter.h"|' Modules/MapperExt/src/vtkPointSetSlicer.cxx
 
+# MitkCore enables ITK_IO_FACTORY_REGISTER_MANAGER, which generates a
+# header listing every IO factory in ITK_MODULES_ENABLED. Our COPR
+# InsightToolkit5 ships MGHIO, IOScanco and ITKIODCMTK (needed by
+# 3D Slicer), so mitkCoreActivator.cpp references e.g.
+#   itk::MGHImageIOFactoryRegister__Private()
+# But MITK's PACKAGE_DEPENDS parser auto-prefixes "ITK" onto component
+# names, turning "MGHIO" into "ITKMGHIO" which isn't a real ITK
+# component — so the libraries don't end up on the link line. Add them
+# directly, bypassing the parser. (Surfaced by build 10525253.)
+cat >> Modules/Core/CMakeLists.txt <<'EOF'
+
+# Fedora packaging patch: link IO factories autoinited by
+# ITK_IO_FACTORY_REGISTER_MANAGER but missing from MitkCore's
+# PACKAGE_DEPENDS due to the ITK-prefix parser limitation.
+target_link_libraries(MitkCore PRIVATE MGHIO IOScanco ITKIODCMTK)
+EOF
+
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
@@ -233,6 +250,16 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-9
+- Link MGHIO, IOScanco and ITKIODCMTK into MitkCore. Build 10525253
+  cleared the vtkCutter::GetCellTypeDimensions error from -8 but then
+  hit undefined references to itk::{MGH,Scanco,DCMTK}ImageIOFactoryRegister
+  __Private(). MITK's ITK_IO_FACTORY_REGISTER_MANAGER autoinit pulls
+  these from ITK_MODULES_ENABLED, but MITK's PACKAGE_DEPENDS parser
+  auto-prefixes "ITK" onto component names — so MGHIO/IOScanco get
+  rewritten as ITKMGHIO/ITKIOScanco (which don't exist) and never
+  reach the link line. Add the link directly after mitk_create_module().
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-8
 - Fix VTK 9.6 FTBFS in Modules/MapperExt/src/vtkPointSetSlicer.cxx:280
   ("'GetCellTypeDimensions' is not a member of 'vtkCutter'"). F44's
