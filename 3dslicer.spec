@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        18%{?dist}
+Release:        19%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -84,7 +84,8 @@ BuildRequires:  qt6-qttools-devel
 
 # COPR deps
 BuildRequires:  InsightToolkit6-devel >= 6.0.0~b02
-BuildRequires:  InsightToolkit6-vtk-devel >= 6.0.0~b02
+# ITK6 bundles ITKVtkGlue into the main -devel package (no separate
+# -vtk-devel subpackage like ITK5 had).
 BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  ctk-devel
 BuildRequires:  vtkAddon-devel
@@ -381,6 +382,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-19
+- Drop BR on nonexistent InsightToolkit6-vtk-devel. ITK6 bundles
+  ITKVtkGlue into the main -devel package (no separate subpackage
+  like ITK5 had). Surfaced by -18's dnf resolve failure.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-18
 - Switch from InsightToolkit5 to InsightToolkit6 (6.0.0~b02). The
   Slicer main HEAD branch is the Qt6-modernization branch; it
