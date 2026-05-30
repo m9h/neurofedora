@@ -15,7 +15,7 @@
 
 Name:           qRestAPI
 Version:        0
-Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Qt-based REST API client library
 
 License:        Apache-2.0
@@ -88,13 +88,14 @@ for f in %{__cmake_builddir}/qRestAPIConfig*.cmake %{__cmake_builddir}/UseqRestA
 done
 
 # Upstream's CMakeLists only generates BUILD-tree configs (paths point at
-# /builddir/.../redhat-linux-build/). Rewrite those paths to install-tree
-# locations so 3D Slicer's find_package(qRestAPI) gets working values.
+# /builddir/build/BUILD/qRestAPI-0-build/qRestAPI-<commit>/redhat-linux-build/).
+# Rewrite those paths to install-tree locations so 3D Slicer's
+# find_package(qRestAPI) gets working values.
+BUILDROOT_RE="/builddir/build/BUILD/qRestAPI-0-build/qRestAPI-[a-f0-9]*/redhat-linux-build"
 sed -i \
-    -e 's|"%{__cmake_builddir}/qRestAPIExports.cmake"|"%{_libdir}/cmake/qRestAPI/qRestAPIExports.cmake"|g' \
-    -e 's|"%{__cmake_builddir}/UseqRestAPI.cmake"|"%{_libdir}/cmake/qRestAPI/UseqRestAPI.cmake"|g' \
-    -e 's|set(qRestAPI_LIBRARY_DIRS "%{__cmake_builddir}")|set(qRestAPI_LIBRARY_DIRS "%{_libdir}")|g' \
-    -e 's|set(qRestAPI_INCLUDE_DIRS "")|set(qRestAPI_INCLUDE_DIRS "%{_includedir}/qRestAPI")|g' \
+    -e "s|\"${BUILDROOT_RE}/qRestAPIExports.cmake\"|\"%{_libdir}/cmake/qRestAPI/qRestAPIExports.cmake\"|g" \
+    -e "s|\"${BUILDROOT_RE}/UseqRestAPI.cmake\"|\"%{_libdir}/cmake/qRestAPI/UseqRestAPI.cmake\"|g" \
+    -e "s|\"${BUILDROOT_RE}\"|\"%{_libdir}\"|g" \
     %{buildroot}%{_libdir}/cmake/qRestAPI/qRestAPIConfig.cmake
 
 %files
@@ -109,12 +110,16 @@ sed -i \
 
 %changelog
 
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.4.20251018git88c02c5d
+- Actually fix the path rewrite. -0.3's sed used %%{__cmake_builddir}
+  (the relative subdir name) but the cmake config has the absolute
+  /builddir/build/BUILD/... prefix. Match that via a glob with a
+  regex-style commit placeholder.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.3.20251018git88c02c5d
 - Rewrite hardcoded /builddir/.../redhat-linux-build/ paths in the
-  shipped qRestAPIConfig.cmake to install-tree locations. Upstream's
-  GenerateqRestAPIConfig.cmake only emits the build-tree variant, so
-  the install carried the build path into the binary RPM. Also install
-  qRestAPIExports.cmake which the Config references.
+  shipped qRestAPIConfig.cmake to install-tree locations (broken — the
+  sed pattern didn't match the absolute build path).
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.2.20251018git88c02c5d
 - Hand-install lib + headers + cmake config: upstream's CMakeLists
