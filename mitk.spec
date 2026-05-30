@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2025.12.2
-Release:        10%{?dist}
+Release:        11%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -197,6 +197,38 @@ sed -i 's|#include <vtkVectorOperators\.h>|#include <vtkVector.h>|' \
     Modules/Gizmo/src/mitkGizmoInteractor.cpp \
     Modules/Gizmo/src/mitkGizmoMapper2D.cpp
 
+# MITK 2025.12.2's CMake has NO install(TARGETS ...) for module libraries.
+# Upstream only installs the Workbench bundle via MITK_INSTALL_TARGETS
+# (EXECUTABLES Workbench GLOB_PLUGINS), but we build with BUILD_WORKBENCH
+# off (BlueBerry/CTK aren't available for Qt6 on Fedora), so cmake_install
+# produces only stray Qt6 WebEngine bundles — no libMitk*.so are copied.
+# Append a bulk install at the end of root CMakeLists.txt using the
+# MITK_MODULE_TARGETS global property that mitk_create_module already
+# populates. Surfaced by build 10525956: compile OK, %files saw empty
+# buildroot.
+cat >> CMakeLists.txt <<'EOF'
+
+# ---- Fedora packaging: install module libraries + headers ----
+get_property(_mitk_install_targets GLOBAL PROPERTY MITK_MODULE_TARGETS)
+if(_mitk_install_targets)
+  install(TARGETS ${_mitk_install_targets}
+          EXPORT MITKTargets
+          LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  install(EXPORT MITKTargets
+          NAMESPACE MITK::
+          FILE MITKTargets.cmake
+          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/MITK)
+  foreach(_t ${_mitk_install_targets})
+    get_target_property(_src ${_t} SOURCE_DIR)
+    if(_src AND EXISTS ${_src}/include)
+      install(DIRECTORY ${_src}/include/
+              DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/mitk)
+    endif()
+  endforeach()
+endif()
+EOF
+
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
 export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
@@ -257,6 +289,18 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %{_libdir}/cmake/MITK*/
 
 %changelog
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-11
+- Add bulk install rules for module libraries + headers + export set.
+  MITK 2025.12.2 has no install(TARGETS ...) for its module libraries —
+  only the Workbench bundle gets installed via MITK_INSTALL_TARGETS,
+  which we don't use (BUILD_WORKBENCH=OFF; BlueBerry/CTK unavailable
+  for Qt6 on Fedora). Append a CMakeLists.txt snippet that iterates
+  the MITK_MODULE_TARGETS global property (populated by
+  mitk_create_module) and installs each library, its include/ tree,
+  and a unified MITKTargets.cmake export set. Surfaced by build
+  10525956: compile + cmake_install ran clean but %files saw an
+  empty buildroot.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-10
 - Fix VTK 9.6 FTBFS in Modules/Gizmo/src/mitkGizmo{Interactor,Mapper2D}.cpp:
   vtkVectorOperators.h was removed in VTK 9.6 (the operator overloads
