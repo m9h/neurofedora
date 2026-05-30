@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        14%{?dist}
+Release:        15%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -180,6 +180,12 @@ extension modules out of tree.
 # Slicer main HEAD already supports Qt6 and VTK 9.6 natively — no sed
 # patches needed for those. Python version: defaults to 3.12.10 floor;
 # Fedora 44 ships 3.14 which satisfies >= 3.12.10 fine.
+
+# Short-circuit SlicerBlockInstallTBB. This file expects to bundle
+# specific TBB SONAME versions (libtbbmalloc.so.2.5) that don't exist
+# on Fedora — Fedora's tbb-2022.3 ships libtbbmalloc.so.2.17. As an
+# RPM we rely on the system tbb package; no need to bundle.
+echo 'return()' > CMake/SlicerBlockInstallTBB.cmake
 
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
@@ -336,6 +342,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-15
+- Short-circuit SlicerBlockInstallTBB.cmake. The file expects to
+  bundle libtbb.so.12 + libtbbmalloc.so.2.5 + libtbbmalloc_proxy.so.2.5
+  into Slicer's install dir, but Fedora's tbb-2022.3 ships .so.2.17
+  not .so.2.5 — and we package as RPM so we want system TBB anyway,
+  not a bundled copy. Replace the file with bare `return()`.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-14
 - Pre-define Slicer_REVISION, Slicer_WC_LAST_CHANGED_DATE, Slicer_WC_URL.
   Tarball builds have no .git/.svn, so SlicerMacroExtractRepositoryInfo
