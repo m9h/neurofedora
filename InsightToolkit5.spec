@@ -174,7 +174,7 @@ Example source code, CMakeLists.txt, and test data for building
 applications with ITK 5. Useful as starting points for new projects.
 
 %prep
-%autosetup -n InsightToolkit-%{version}
+%autosetup -p1 -n InsightToolkit-%{version}
 
 # Fix missing include for uint8_t in itkFloatingPointExceptions.h (required for GCC 14+)
 sed -i 's/#include "itkMacro.h"/#include "itkMacro.h"\n#include <cstdint>/' Modules/Core/Common/include/itkFloatingPointExceptions.h
