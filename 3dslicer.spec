@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        23%{?dist}
+Release:        24%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -232,7 +232,12 @@ for f in Libs/vtkTeem/CMakeLists.txt \
 done
 
 %build
-export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive"
+# Libs/vtkITK includes gdcmDict.h directly but only pulls GDCM transitively via
+# find_package(ITK ... ITKIOGDCM) + include(${ITK_USE_FILE}); with our system
+# GDCM (ITK built ITK_USE_SYSTEM_GDCM=ON) that use-file does not propagate the
+# /usr/include/gdcm path to the vtkITK target, so add it to the global include
+# search path. gdcm-devel is already BuildRequired.
+export CXXFLAGS="%{optflags} -std=c++17 -Wno-error -include cstdint -fpermissive -I%{_includedir}/gdcm"
 export CFLAGS="%{optflags} -Wno-error -std=gnu17"
 # Required for the bundled qt-keyword build harness
 export QT_QPA_PLATFORM=offscreen
@@ -386,6 +391,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-24
+- Add -I%%{_includedir}/gdcm to CXXFLAGS. -23 cleared the link error and
+  reached step 41/2843, then failed compiling Libs/vtkITK
+  (vtkITKArchetypeImageSeriesVectorReaderSeries.cxx) with "gdcmDict.h: No
+  such file or directory". vtkITK includes the GDCM header directly but only
+  gets GDCM transitively via include(${ITK_USE_FILE}), which does not carry
+  the system /usr/include/gdcm path to that target.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-23
 - Rebuild against SlicerExecutionModel-0.9, which installs
   libModuleDescriptionParser.so into the standard %%{_libdir}. -22 reached
