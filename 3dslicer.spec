@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        24%{?dist}
+Release:        25%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -391,6 +391,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-25
+- Rebuild against vtk 9.6.2-10. -24 regressed at configure (CMakeLists.txt:996
+  find_package(VTK)): ViskoresTargets.cmake referenced
+  /usr/lib64/libviskores_cont_testing-.so.1.1.0 which vtk 9.6.2-9 stripped.
+  vtk-10 ships the Viskores testing libs, so find_package(VTK) resolves again.
+  The -I/usr/include/gdcm CXXFLAGS fix from -24 (vtkITK gdcmDict.h) carries
+  forward untested — configure died before reaching the compile phase.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-24
 - Add -I%%{_includedir}/gdcm to CXXFLAGS. -23 cleared the link error and
   reached step 41/2843, then failed compiling Libs/vtkITK
