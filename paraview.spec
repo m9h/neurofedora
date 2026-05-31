@@ -13,16 +13,21 @@
 %{?rcsuf:%global relsuf .%{rcsuf}}
 %{?rcsuf:%global versuf -%{rcsuf}}
 
-# COPR neurofedora: disable MPI flavors of paraview entirely.
-# paraview-mpich + paraview-openmpi pull vtk-mpich-devel + vtk-openmpi-devel,
-# which on F44 come from the system vtk-9.6.2-2 and don't have the Web /
-# cli11 / WebPython / IOGDAL / AcceleratorsVTKmFilters modules we added
-# in COPR vtk-9.6.2-10. paraview config fails because the MPI flavors'
-# find_package(VTK) loads the system MPI variant's cmake, which lacks
-# those modules. Re-enable once VTK ships matching mpich/openmpi
-# subpackages from COPR.
+%if 0%{?flatpak}
 %bcond_with mpich
 %bcond_with openmpi
+%else
+%bcond_without mpich
+%if 0%{?fedora} >= 40
+%ifarch %{ix86}
+%bcond_with openmpi
+%else
+%bcond_without openmpi
+%endif
+%else
+%bcond_without openmpi
+%endif
+%endif
 
 # cgnslib is too old on EL8
 %if 0%{?el8}
@@ -211,6 +216,10 @@ ExcludeArch: %{ix86}
         -DQtTesting_INSTALL_CMAKE_DIR=lib/%{name}/CMake \\\
         -DPARAVIEW_USE_MPI:BOOL=ON \\\
         -DICET_BUILD_TESTING:BOOL=ON \\\
+        `# COPR vtk-mpi-9.6.2-4 skips VTK Web modules (require VTK_WRAP_PYTHON` \\\
+        `# which is intentionally off for MPI variants). Disable Web here so` \\\
+        `# paraview's MPI configure doesn't demand them.` \\\
+        -DPARAVIEW_ENABLE_WEB:BOOL=OFF \\\
 %if %{with VisitBridge} \
         -DPARAVIEW_ENABLE_VISITBRIDGE=ON \\\
 %endif \
@@ -549,6 +558,13 @@ fi
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-6
+- Re-enable paraview-mpich + paraview-openmpi subpackages now that
+  COPR vtk-mpi-9.6.2-4 ships matching cli11 / IOGDAL /
+  AcceleratorsVTKmFilters. The MPI vtk variants skip Python wrap
+  per Fedora convention, so set PARAVIEW_ENABLE_WEB=OFF in MPI
+  options to avoid demanding VTK::Python-dependent Web modules.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-5
 - Disable paraview-mpich + paraview-openmpi subpackages. With those
   enabled, the build pulls vtk-mpich-devel + vtk-openmpi-devel which

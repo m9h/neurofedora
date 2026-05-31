@@ -28,7 +28,7 @@
 # is built by SPECS/vtk.spec (already shipping 9.6.2-5 in this COPR).
 Name:           vtk-mpi
 Version:        9.6.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Visualization Toolkit - MPI-parallel variants
 
 License:        BSD-3-Clause
@@ -207,12 +207,11 @@ do
       -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_RenderingParallel:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_RenderingParallelLIC:STRING=YES \
-      `# Required by ParaView 6.1.1 — must match vtk-9.6.2-10's enables` \
-      `# so the MPI flavors of paraview can pull these modules from` \
-      `# vtk-mpich-devel / vtk-openmpi-devel instead of the main vtk-devel.` \
-      -DVTK_MODULE_ENABLE_VTK_WebCore:STRING=YES \
-      -DVTK_MODULE_ENABLE_VTK_WebGLExporter:STRING=YES \
-      -DVTK_MODULE_ENABLE_VTK_WebPython:STRING=YES \
+      `# Required by ParaView 6.1.1 MPI flavors. Skip the Web modules` \
+      `# (WebCore / WebGLExporter / WebPython) — they all require` \
+      `# VTK::Python which is intentionally off for MPI variants per` \
+      `# Fedora packaging convention. paraview.spec compensates by` \
+      `# setting PARAVIEW_ENABLE_WEB=OFF for the MPI flavors.` \
       -DVTK_MODULE_ENABLE_VTK_cli11:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_IOGDAL:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters:STRING=YES \
@@ -324,6 +323,14 @@ done
 %endif
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-4
+- Drop the three Web module enables from -3. They all depend on
+  VTK::Python which is intentionally off for MPI variants
+  (VTK_WRAP_PYTHON=OFF). Build 10528746 failed in 60s with
+  "VTK::WebCore requires the disabled module VTK::Python".
+  paraview.spec must set PARAVIEW_ENABLE_WEB=OFF in MPI options
+  to compensate. Keep cli11 / IOGDAL / AcceleratorsVTKmFilters.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-3
 - Match vtk-9.6.2-10's module set so the MPI flavors of ParaView can
   pull WebCore / WebGLExporter / WebPython / cli11 / IOGDAL /
