@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        8%{?dist}
+Release:        9%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -299,6 +299,10 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
 # Remove the FindHDF5 cmake patch — this fix is already in cmake itself
 rm -f %{buildroot}%{_libdir}/cmake/vtk/patches/99/FindHDF5.cmake
 
+# Strip Viskores testing libraries — bundled with VISKORES_ENABLE_TESTING
+# but only useful for Viskores's own test suite, not downstream consumers.
+rm -f %{buildroot}%{_libdir}/libviskores_cont_testing-*
+
 # Strip RPATHs from installed binaries
 find %{buildroot}%{_bindir} -type f -exec chrpath --delete {} \; 2>/dev/null || true
 
@@ -314,6 +318,10 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_datadir}/licenses/VTK/
 %doc README.md
 %{_libdir}/libvtk*.so.*
+# Bundled Viskores libraries — required by VTK_AcceleratorsVTKmFilters.
+# Naming is libviskores_<name>-.so.* (the trailing dash before .so is from
+# VTK_CUSTOM_LIBRARY_SUFFIX="" interacting with Viskores's hyphenated suffix).
+%{_libdir}/libviskores*.so.*
 # Qt libs are in the -qt subpackage
 %exclude %{_libdir}/libvtkGUISupportQt*.so.*
 %exclude %{_libdir}/libvtkRenderingQt*.so.*
@@ -323,6 +331,8 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_includedir}/vtk/
 %{_libdir}/cmake/vtk/
 %{_libdir}/libvtk*.so
+%{_libdir}/libviskores*.so
+%{_libdir}/pkgconfig/viskores.pc
 %{_bindir}/vtk*
 
 %files -n python3-%{name}
@@ -337,6 +347,13 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-9
+- Package the bundled Viskores libraries surfaced by -8's compile run:
+  /usr/lib64/libviskores_<name>-.so.* go in main, .so + viskores.pc
+  in -devel. Strip libviskores_cont_testing-* (Viskores test suite only).
+  Build 10527106 hit "Installed (but unpackaged) file(s) found" with
+  ~70 viskores libs after the AcceleratorsVTKmFilters module landed.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-8
 - Enable VTK_MODULE_ENABLE_VTK_IOGDAL + VTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters
   + add gdal-devel BR. ParaView 6.1.1's plugin scan walks Plugins/*/paraview.plugin
