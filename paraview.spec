@@ -13,23 +13,16 @@
 %{?rcsuf:%global relsuf .%{rcsuf}}
 %{?rcsuf:%global versuf -%{rcsuf}}
 
-# No MPI (yet) in flatpaks
-%if 0%{?flatpak}
+# COPR neurofedora: disable MPI flavors of paraview entirely.
+# paraview-mpich + paraview-openmpi pull vtk-mpich-devel + vtk-openmpi-devel,
+# which on F44 come from the system vtk-9.6.2-2 and don't have the Web /
+# cli11 / WebPython / IOGDAL / AcceleratorsVTKmFilters modules we added
+# in COPR vtk-9.6.2-10. paraview config fails because the MPI flavors'
+# find_package(VTK) loads the system MPI variant's cmake, which lacks
+# those modules. Re-enable once VTK ships matching mpich/openmpi
+# subpackages from COPR.
 %bcond_with mpich
 %bcond_with openmpi
-%else
-%bcond_without mpich
-# No openmpi on i668 with openmpi 5 in Fedora 40+
-%if 0%{?fedora} >= 40
-%ifarch %{ix86}
-%bcond_with openmpi
-%else
-%bcond_without openmpi
-%endif
-%else
-%bcond_without openmpi
-%endif
-%endif
 
 # cgnslib is too old on EL8
 %if 0%{?el8}
@@ -556,6 +549,18 @@ fi
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-5
+- Disable paraview-mpich + paraview-openmpi subpackages. With those
+  enabled, the build pulls vtk-mpich-devel + vtk-openmpi-devel which
+  on F44 come from the system vtk-9.6.2-2 packages — they don't have
+  the Web / cli11 / WebPython / IOGDAL / AcceleratorsVTKmFilters
+  modules we enabled in COPR vtk-9.6.2-10. Build 10527922 failed in
+  ~2 min at MPI-flavor configure with the same CMakeLists.txt:568
+  error, but now demanding even MORE modules (PythonInterpreter +
+  WrappingPythonCore) because the system vtk-mpi is older. Re-enable
+  the MPI flavors once VTK ships matching mpich/openmpi subpackages
+  from COPR.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-4
 - Revert -3 workarounds — vtk-9.6.2-8 now ships every ParaView-required
   module: VTK_AcceleratorsVTKmFilters (with bundled viskores),
