@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -28,6 +28,9 @@ BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  InsightToolkit5-devel
 BuildRequires:  expat-devel
+# find_package(ITK) loads ITKVtkGlue -> vtk-config, and VTK 9.6's cmake
+# config now does find_package(CLI11) for all consumers at configure time.
+BuildRequires:  cli11-devel
 
 # Bundled tclap (header-only library, Slicer-modified version)
 Provides:       bundled(tclap)
@@ -209,6 +212,12 @@ rm -f %{buildroot}%{_bindir}/GenerateCLPLauncher
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.8.20260301git3bd8e038
+- Add cli11-devel BR. VTK 9.6's cmake config now does find_package(CLI11)
+  for every consumer; SEM reaches it via find_package(ITK) -> ITKVtkGlue
+  -> vtk-config. -0.6 predated the VTK 9.6 bump so didn't hit it. (The
+  -0.7 launcher fix below never published — folded in here.)
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.7.20260301git3bd8e038
 - Drop the broken GenerateCLPLauncher and run GenerateCLP directly.
   The launcher (a CTKAppLauncher wrapper) shipped without a settings
