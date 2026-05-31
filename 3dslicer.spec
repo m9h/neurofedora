@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        25%{?dist}
+Release:        26%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -87,7 +87,9 @@ BuildRequires:  qt6-qttools-devel
 # slicer-v5.4.6-2026-04-20 and does find_package(ITK 5.1 REQUIRED). Our
 # InsightToolkit5 (5.4.6) carries the MGHIO/IOScanco remote modules Slicer
 # needs. ITK6 was a wrong turn (no itkNamespace.h gain; HDF5/MGHIO regressions).
-BuildRequires:  InsightToolkit5-devel >= 5.4.6
+# >= 5.4.6-7 carries the Slicer/ITK-fork backport patches (5D NRRD / NrrdImageIO
+# AxesReorder API) that vtkITKImageSequenceReader requires to compile.
+BuildRequires:  InsightToolkit5-devel >= 5.4.6-7
 BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  ctk-devel
@@ -391,6 +393,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-26
+- Rebuild against InsightToolkit5 5.4.6-7, which now carries the Slicer/ITK-fork
+  backport patches (5D NRRD / NrrdImageIO AxesReorder API). This unblocks the
+  vtkITKImageSequenceReader compile that -25 would have hit (-25 was cancelled
+  pre-emptively). Pin BR to InsightToolkit5-devel >= 5.4.6-7.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-25
 - Rebuild against vtk 9.6.2-10. -24 regressed at configure (CMakeLists.txt:996
   find_package(VTK)): ViskoresTargets.cmake referenced
