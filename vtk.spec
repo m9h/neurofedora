@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        9%{?dist}
+Release:        10%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -299,10 +299,6 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
 # Remove the FindHDF5 cmake patch — this fix is already in cmake itself
 rm -f %{buildroot}%{_libdir}/cmake/vtk/patches/99/FindHDF5.cmake
 
-# Strip Viskores testing libraries — bundled with VISKORES_ENABLE_TESTING
-# but only useful for Viskores's own test suite, not downstream consumers.
-rm -f %{buildroot}%{_libdir}/libviskores_cont_testing-*
-
 # Strip RPATHs from installed binaries
 find %{buildroot}%{_bindir} -type f -exec chrpath --delete {} \; 2>/dev/null || true
 
@@ -347,6 +343,16 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-10
+- Stop stripping libviskores_cont_testing-*. ViskoresTargets.cmake
+  (installed by VTK's cmake config) exports a viskores::cont_testing
+  imported target referencing libviskores_cont_testing-.so.1.1.0, so
+  removing the file breaks every downstream find_package(VTK) at
+  imported-target validation. Build 10527588 caught this: paraview
+  config failed in 90s with "imported target ... references the file
+  ... but this file does not exist". The libviskores*.so.* glob
+  already packages the testing libs into main.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-9
 - Package the bundled Viskores libraries surfaced by -8's compile run:
   /usr/lib64/libviskores_<name>-.so.* go in main, .so + viskores.pc
