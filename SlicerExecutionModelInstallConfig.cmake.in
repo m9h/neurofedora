@@ -1,0 +1,36 @@
+# SlicerExecutionModel install-tree config
+# Set paths relative to this file's location (lib/SlicerExecutionModel/)
+get_filename_component(_sem_config_dir "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(_sem_prefix "${_sem_config_dir}/../.." ABSOLUTE)
+
+set(SlicerExecutionModel_USE_UTF8 @SlicerExecutionModel_USE_UTF8@)
+
+set(SlicerExecutionModel_INCLUDE_DIRS
+  "${_sem_prefix}/include/ModuleDescriptionParser"
+  "${_sem_prefix}/include/tclap"
+  )
+set(SlicerExecutionModel_LIBRARIES ModuleDescriptionParser)
+set(SlicerExecutionModel_USE_FILE "${_sem_config_dir}/UseSlicerExecutionModel.cmake")
+set(SlicerExecutionModel_CMAKE_DIR "${_sem_config_dir}/CMake")
+
+set(SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY bin)
+set(SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
+set(SlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
+set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION bin)
+set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION @SEM_INSTALL_LIB_DIR@)
+set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION @SEM_INSTALL_LIB_DIR@)
+set(SlicerExecutionModel_DEFAULT_CLI_TARGETS_FOLDER_PREFIX "")
+set(SlicerExecutionModel_DEFAULT_CLI_LIBRARY_WRAPPER_CXX
+  "${_sem_config_dir}/CMake/SEMCommandLineLibraryWrapper.cxx")
+
+set(SlicerExecutionModel_LIBRARY_DIRS "${_sem_prefix}/@SEM_INSTALL_LIB_DIR@/SlicerExecutionModel")
+
+# Sub-package directories
+set(ModuleDescriptionParser_DIR "${_sem_prefix}/@SEM_INSTALL_LIB_DIR@/ModuleDescriptionParser")
+set(GenerateCLP_DIR "${_sem_prefix}/@SEM_INSTALL_LIB_DIR@/GenerateCLP")
+set(TCLAP_DIR "${_sem_prefix}/@SEM_INSTALL_LIB_DIR@/tclap")
+
+# Find sub-packages
+find_package(ModuleDescriptionParser REQUIRED)
+find_package(GenerateCLP REQUIRED)
+find_package(TCLAP REQUIRED)

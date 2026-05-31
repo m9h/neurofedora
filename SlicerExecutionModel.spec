@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -160,7 +160,8 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-    -DCMAKE_SKIP_INSTALL_RPATH=ON \
+    -DCMAKE_INSTALL_RPATH=%{_libdir}/%{name} \
+    -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=OFF \
     -DSlicerExecutionModel_INSTALL_BIN_DIR=%{_bindir} \
     -DSlicerExecutionModel_INSTALL_LIB_DIR=%{_libdir}/%{name} \
     -DSlicerExecutionModel_INSTALL_NO_DEVELOPMENT=OFF \
@@ -181,6 +182,15 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
     %{buildroot}%{_libdir}/GenerateCLP/
 
+# Drop GenerateCLPLauncher: it's a CTKAppLauncher wrapper that, with no
+# *LauncherSettings.ini shipped, resolves the real binary via the baked-in
+# default <launcherDir>/../GenerateCLP = /usr/GenerateCLP (nonexistent),
+# breaking downstream CLP generation (3D Slicer Modules/CLI). The launcher
+# only existed to inject LD_LIBRARY_PATH for the private
+# libModuleDescriptionParser.so; with GenerateCLP now carrying an rpath to
+# %{_libdir}/%{name}, it runs standalone and the launcher is dead weight.
+rm -f %{buildroot}%{_bindir}/GenerateCLPLauncher
+
 %files
 %license License.txt tclap/COPYING
 %doc README.md NOTICE
@@ -188,7 +198,6 @@ install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
 
 %files devel
 %{_bindir}/GenerateCLP
-%{_bindir}/GenerateCLPLauncher
 %{_includedir}/ModuleDescriptionParser/
 %{_includedir}/tclap/
 %dir %{_libdir}/%{name}
@@ -200,6 +209,19 @@ install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.7.20260301git3bd8e038
+- Drop the broken GenerateCLPLauncher and run GenerateCLP directly.
+  The launcher (a CTKAppLauncher wrapper) shipped without a settings
+  .ini, so it resolved the real binary via the baked-in default
+  <launcherDir>/../GenerateCLP = /usr/GenerateCLP and failed
+  ("Error converting executable file /usr/bin/../GenerateCLP to real
+  path"), breaking 3D Slicer's Modules/CLI CLP-header generation at
+  build time. The install config's find_program preferred the launcher
+  over GenerateCLP. Now: reorder NAMES to prefer GenerateCLP, give
+  GenerateCLP an rpath to %%{_libdir}/SlicerExecutionModel so it loads
+  the private libModuleDescriptionParser.so standalone, and stop
+  shipping the launcher. Surfaced by 3dslicer-21.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.6.20260301git3bd8e038
 - Install GenerateCLP/GenerateCLP.cmake explicitly. Upstream's
   GenerateCLP/CMakeLists.txt has no install() rule for it, but
