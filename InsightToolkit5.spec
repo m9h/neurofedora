@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -92,6 +92,10 @@ BuildRequires:  jsoncpp-devel
 BuildRequires:  freetype-devel
 BuildRequires:  libxml2-devel
 BuildRequires:  double-conversion-devel
+# VTK 9.6.2 added CLI11 as a module dependency; its cmake config
+# find_package(CLI11)s at configure time, so any find_package(VTK) consumer
+# (here: Modules/Bridge/VtkGlue) now needs CLI11 present in the buildroot.
+BuildRequires:  cli11-devel
 BuildRequires:  cmake(Qt6)
 BuildRequires:  cmake(Qt6Quick)
 BuildRequires:  cmake(Qt6OpenGL)
@@ -342,6 +346,11 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-7
+- Add cli11-devel BuildRequires: VTK 9.6.2 added CLI11 as a module dependency,
+  so VTK's cmake config now find_package(CLI11)s at configure time and any
+  find_package(VTK) consumer (Modules/Bridge/VtkGlue) needs it in the buildroot.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-6
 - Backport two accepted-upstream ITK commits that 3D Slicer's curated
   Slicer/ITK fork carries (the full fork is pristine v5.4.6 + only 5 such
