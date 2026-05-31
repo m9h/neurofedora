@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -163,8 +163,7 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-    -DCMAKE_INSTALL_RPATH=%{_libdir}/%{name} \
-    -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=OFF \
+    -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
     -DSlicerExecutionModel_INSTALL_BIN_DIR=%{_bindir} \
     -DSlicerExecutionModel_INSTALL_LIB_DIR=%{_libdir}/%{name} \
     -DSlicerExecutionModel_INSTALL_NO_DEVELOPMENT=OFF \
@@ -190,14 +189,26 @@ install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
 # default <launcherDir>/../GenerateCLP = /usr/GenerateCLP (nonexistent),
 # breaking downstream CLP generation (3D Slicer Modules/CLI). The launcher
 # only existed to inject LD_LIBRARY_PATH for the private
-# libModuleDescriptionParser.so; with GenerateCLP now carrying an rpath to
-# %{_libdir}/%{name}, it runs standalone and the launcher is dead weight.
+# libModuleDescriptionParser.so; with that .so now installed into the standard
+# %{_libdir}, GenerateCLP runs standalone and the launcher is dead weight.
 rm -f %{buildroot}%{_bindir}/GenerateCLPLauncher
+
+# Move libModuleDescriptionParser.so out of the private %{_libdir}/%{name}
+# into the standard library path. Downstream consumers (3D Slicer's
+# SlicerBaseCLI) link it as a bare "-lModuleDescriptionParser" with no -L,
+# because UseModuleDescriptionParser.cmake.in's link_directories() line is
+# commented out upstream and ModuleDescriptionParser_LIBRARY_DIRS points at the
+# config dir, not the .so dir. Installing into %{_libdir} makes both the link
+# (default -L) and runtime (ldconfig) resolution work without rpath hacks.
+mv %{buildroot}%{_libdir}/%{name}/libModuleDescriptionParser.so \
+    %{buildroot}%{_libdir}/libModuleDescriptionParser.so
+
+%ldconfig_scriptlets
 
 %files
 %license License.txt tclap/COPYING
 %doc README.md NOTICE
-%{_libdir}/%{name}/libModuleDescriptionParser.so
+%{_libdir}/libModuleDescriptionParser.so
 
 %files devel
 %{_bindir}/GenerateCLP
@@ -212,6 +223,17 @@ rm -f %{buildroot}%{_bindir}/GenerateCLPLauncher
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.9.20260301git3bd8e038
+- Install libModuleDescriptionParser.so into the standard %%{_libdir} instead
+  of the private %%{_libdir}/SlicerExecutionModel. 3D Slicer's SlicerBaseCLI
+  links it as a bare "-lModuleDescriptionParser" with no -L (upstream's
+  UseModuleDescriptionParser.cmake.in comments out link_directories() and
+  ModuleDescriptionParser_LIBRARY_DIRS points at the config dir, not the .so
+  dir), so the -0.8 build failed with "cannot find -lModuleDescriptionParser".
+  Standard libdir makes both link-time (-L) and runtime (ldconfig) resolution
+  work; restore CMAKE_SKIP_INSTALL_RPATH=ON (the GenerateCLP rpath hack is no
+  longer needed) and add %%ldconfig_scriptlets.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.8.20260301git3bd8e038
 - Add cli11-devel BR. VTK 9.6's cmake config now does find_package(CLI11)
   for every consumer; SEM reaches it via find_package(ITK) -> ITKVtkGlue
