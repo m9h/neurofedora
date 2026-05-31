@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        21%{?dist}
+Release:        22%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -386,6 +386,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-22
+- Rebuild against SlicerExecutionModel-0.8, which drops the broken
+  GenerateCLPLauncher. -21 reached the compile phase but failed at
+  ninja step 1/2843 generating Modules/CLI/*CLP.h: GenerateCLPLauncher
+  resolved its real binary to the nonexistent /usr/GenerateCLP. SEM-0.8
+  ships GenerateCLP directly (rpath to its private libdir), so CLP
+  generation now works. No 3dslicer spec change beyond the rebuild.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-21
 - Revert to InsightToolkit5 (ITK_DIR=ITK-5.4). Confirmed from upstream
   SuperBuild/External_ITK.cmake @208adb86 that Slicer pins the Slicer/ITK
