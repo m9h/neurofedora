@@ -1,0 +1,2689 @@
+From fd851688f33a8a6dfd67ce2fd578b2e23e7a0f63 Mon Sep 17 00:00:00 2001
+From: Csaba Pinter <pinter.csaba@gmail.com>
+Date: Fri, 21 Mar 2025 06:29:11 -0400
+Subject: [PATCH] [backport] ENH: Support 5D files in NRRD IO
+
+Several modern imaging devices and processing algorithms now creates 5D data sets, including:
+- time sequence of 3D displacement fields (result of deformable registration of 4D images)
+- time sequence of 3D velocity fields (acquired by 4D MRI flow images)
+- time sequence of 3D color (RGB or RGBA) images (result of colorized volumes provided by AI segmentation)
+
+NRRD IO can now read and write all these data types, and in general any 5D arrays (2 or 3 spatial dimensions + scalar/vector pixel type + optional list axis).
+
+1. Writing
+
+Previously the NRRD writer handled one component axis, and all the other dimensions were space.
+This commit allows specifying one of the axes as list (by setting "NRRD_kinds[i]=list" metadata key).
+
+Example:
+
+File header before this commit:
+
+  dimension: 5
+  space dimension: 4
+  sizes: 4 320 320 1 5
+  space directions: none (1,0,0,0) (0,1,0,0) (0,0,1,0) (0,0,0,1)
+  kinds: RGBA-color domain domain domain domain
+  encoding: gzip
+  space origin: (0,0,0,1)
+
+File header after this commit:
+
+  dimension: 5
+  space: left-posterior-superior
+  sizes: 4 320 320 1 5
+  space directions: none (-1,0,0) (0,-1,0) (0,0,1) none
+  kinds: vector domain domain domain list
+  encoding: gzip
+  space origin: (0,0,0)
+
+2. Reading
+
+NRRD IO now allows having more than one non-spatial axis.
+The non-spatial axes of the NRRD file can be used in the ITK image as pixel components or as additional image dimensions.
+The default strategy (UseAnyRangeAxisAsPixel) implements the same behavior as before (first non-spatial NRRD axis always becomes pixel component).
+The new UseNonListRangeAxisAsPixel option allows "list" dimension (e.g., time points) to always mapped to additional image dimension.
+This new option simplifies application implementation, as time sequences are loaded the same way for scalar and vector volumes.
+
+3. Add support for axis unit in NRRD IO; Save label and unit for range axis
+
+NRRD IO did not support the "units" metadata for axes, now it is added both for reading and writing.
+Per-axis metadata (kinds, labels, units) was only saved for spatial axes, now it is added for all axes.
+For pixel components, "pixel" is used instead of axis ("NRRD_labels[pixel]" and "NRRD_units[pixel]" fields).
+
+Added many tests for reading/writing 3D, 4D, 5D images in NRRD format.
+
+Cherry-picked commit from https://github.com/InsightSoftwareConsortium/ITK/commit/10389fb01d4104039e4a8eb7f1ff3060a82f9a5d
+
+Co-authored-by: Andras Lasso <lasso@queensu.ca>
+---
+ Modules/IO/NRRD/include/itkNrrdImageIO.h      |  92 +++
+ Modules/IO/NRRD/itk-module.cmake              |  22 +-
+ Modules/IO/NRRD/src/itkNrrdImageIO.cxx        | 642 +++++++++++------
+ Modules/IO/NRRD/test/CMakeLists.txt           | 651 +++++++++---------
+ .../itkNrrd5dVectorImageReadWriteTest.cxx     | 643 +++++++++++++++++
+ .../itkNrrdVectorImageUnitLabelReadTest.cxx   | 148 ++++
+ Modules/IO/NRRD/wrapping/itkNrrdImageIO.wrap  |   5 +
+ .../Data/Input/CTCardioCropped.seq.nrrd.cid   |   1 +
+ 8 files changed, 1666 insertions(+), 538 deletions(-)
+ create mode 100644 Modules/IO/NRRD/test/itkNrrd5dVectorImageReadWriteTest.cxx
+ create mode 100644 Modules/IO/NRRD/test/itkNrrdVectorImageUnitLabelReadTest.cxx
+ create mode 100644 Testing/Data/Input/CTCardioCropped.seq.nrrd.cid
+
+diff --git a/Modules/IO/NRRD/include/itkNrrdImageIO.h b/Modules/IO/NRRD/include/itkNrrdImageIO.h
+index 56db3f694b3..881bd4d4795 100644
+--- a/Modules/IO/NRRD/include/itkNrrdImageIO.h
++++ b/Modules/IO/NRRD/include/itkNrrdImageIO.h
+@@ -27,6 +27,29 @@ struct NrrdEncoding_t;
+ 
+ namespace itk
+ {
++/** \class NrrdImageIOEnums
++ * \brief Contains all enum classes used by NrrdImageIO class.
++ * \ingroup ITKIONRRD
++ */
++class NrrdImageIOEnums
++{
++public:
++  /** \class AxesReorder
++   * \ingroup ITKIONRRD
++   * Enum type that specifies how to reorder axes in NRRD file when reading it into an ITK image.  */
++  enum class AxesReorder : uint8_t
++  {
++    UseAnyRangeAxisAsPixel = 0,
++    UseNonListRangeAxisAsPixel = 1,
++    UseScalarPixel = 2
++  };
++};
++// Define how to print enumeration
++extern ITKIONRRD_EXPORT std::ostream &
++                        operator<<(std::ostream & out, const NrrdImageIOEnums::AxesReorder value);
++
++using AxesReorderEnum = NrrdImageIOEnums::AxesReorder;
++
+ /**
+  * \class NrrdImageIO
+  *
+@@ -92,6 +115,73 @@ class ITKIONRRD_EXPORT NrrdImageIO : public ImageIOBase
+   void
+   Write(const void * buffer) override;
+ 
++  /** Set/Get the strategy for axis reordering.
++   * ITK image can be an Image object that can store scalar, RGB, CovariantVector, etc. pixels in an arbitrarily high
++   * dimensional array. If the number of components of the pixel has to be dynamic then the ITK image has to be a
++   * VectorImage object that can store multi-component pixels in an arbitrarily high dimensional array.
++   *
++   * NRRD file can contain domain (space, time) axes and range (list, RGB, covariant-vector, etc.) axes in an arbitrary
++   * order. Therefore, axes of the NRRD file may have to be reordered to be able to read the NRRD file into an ITK
++   * image. In general, NRRD domain axes are mapped to ITK image axes then all range axes are used as additional image
++   * dimensions. The only exception is that it makes sense to pick one a range axis and use that as pixel component.
++   *
++   * In early ITK versions, any kind of NRRD range axis was used as pixel component by default (this is the
++   * UseAnyRangeAxisAsPixel strategy). However, this resulted in more complicated application code (developers need to
++   * instantiate an Image or VectorImage depending on what kind of axes are in the NRRD file) and potential unnecessary
++   * reordering of axes (e.g., sequence of 3D images was always converted into a single multi-component 3D image).
++   *
++   * Therefore additional strategies were introduced to allow more control over how NRRD axes are mapped to ITK image
++   * axes and pixel component. UseNonListRangeAxisAsPixel to ensure that the image can be always read into an Image
++   * object. UseScalarPixel to ensure that the image can be always read into an Image object with a scalar pixel type.
++   *
++   * \li UseAnyRangeAxisAsPixel Use the first a range axis (i.e., non-domain axis) of the NRRD file as pixel component.
++   *     This is the default (for backward compatibility).
++   *     If the NRRD file contains a non-list type (e.g., RGB, point, covariant-vector) range axis then the first one
++   * will be used as pixel component; the image will be read into an Image object. If the NRRD file only contains
++   * list-type range axis then it will be used as pixel component; the image will be read into a VectorImage.
++   * \li UseNonListRangeAxisAsPixel Use the first non-list range axis (i.e., non-domain axis) of the NRRD file as pixel
++   * component. The image is always read into an Image object, with potentially a non-scalar pixel type.
++   * \li UseScalarPixel Pixel type is scalar. All range (i.e., non-domain) axes of the NRRD file are added as additional
++   * domain axes. The image is always read into an Image object with a scalar pixel type.
++   *
++   * Examples:
++   *
++   *   NRRD file: list domain domain domain RGB-Color (or: domain domain domain list RGB-Color)
++   *   - UseAnyRangeAxisAsPixel:     Image<RGBPixel<double>,4> with axes: domain domain domain list
++   *   - UseNonListRangeAxisAsPixel: Image<RGBPixel<double>,4> with axes: domain domain domain list
++   *   - UseScalarPixel:             Image<double,5>           with axes: domain domain domain list RGB-Color
++   *
++   *   NRRD file: list domain domain domain (or: domain domain domain list)
++   *   - UseAnyRangeAxisAsPixel:     VectorImage<double,3> with axes: domain domain domain
++   *   - UseNonListRangeAxisAsPixel: Image<double,4>       with axes: domain domain domain list
++   *   - UseScalarPixel:             Image<double,4>       with axes: domain domain domain list
++   */
++  itkSetMacro(AxesReorder, AxesReorderEnum);
++  itkGetConstMacro(AxesReorder, AxesReorderEnum);
++
++  /** Use the first a range axis (i.e., non-domain axis) of the NRRD file as pixel component. */
++  void
++  SetAxesReorderToUseAnyRangeAxisAsPixel()
++  {
++    this->SetAxesReorder(AxesReorderEnum::UseAnyRangeAxisAsPixel);
++  }
++
++  /** UseNonListRangeAxisAsPixel Use the first non-list range axis (i.e., non-domain axis) of the NRRD file as pixel
++   * component. */
++  void
++  SetAxesReorderToUseNonListRangeAxisAsPixel()
++  {
++    this->SetAxesReorder(AxesReorderEnum::UseNonListRangeAxisAsPixel);
++  }
++
++  /** UseScalarPixel Pixel type is scalar. All range (i.e., non-domain) axes of the NRRD file are added as additional
++   * domain axes. */
++  void
++  SetAxesReorderToUseScalarPixel()
++  {
++    this->SetAxesReorder(AxesReorderEnum::UseScalarPixel);
++  }
++
+ protected:
+   NrrdImageIO();
+   ~NrrdImageIO() override;
+@@ -110,6 +200,8 @@ class ITKIONRRD_EXPORT NrrdImageIO : public ImageIOBase
+   NrrdToITKComponentType(const int) const;
+ 
+   const NrrdEncoding_t * m_NrrdCompressionEncoding{ nullptr };
++
++  AxesReorderEnum m_AxesReorder{ AxesReorderEnum::UseAnyRangeAxisAsPixel };
+ };
+ } // end namespace itk
+ 
+diff --git a/Modules/IO/NRRD/itk-module.cmake b/Modules/IO/NRRD/itk-module.cmake
+index b62a9a74ce9..9566a21dcec 100644
+--- a/Modules/IO/NRRD/itk-module.cmake
++++ b/Modules/IO/NRRD/itk-module.cmake
+@@ -1,18 +1,22 @@
+-set(DOCUMENTATION
+-    "This module contains an ImageIO class to read and write the
++set(
++  DOCUMENTATION
++  "This module contains an ImageIO class to read and write the
+ <a href=\"http://teem.sourceforge.net/nrrd/format.html\">Nearly Raw Raster Data
+-(NRRD)</a> medical image format.")
++(NRRD)</a> medical image format."
++)
+ 
+ itk_module(
+   ITKIONRRD
+   ENABLE_SHARED
+   DEPENDS
+-  ITKIOImageBase
++    ITKIOImageBase
+   PRIVATE_DEPENDS
+-  ITKNrrdIO
++    ITKNrrdIO
+   TEST_DEPENDS
+-  ITKTestKernel
++    ITKImageCompose
++    ITKImageGrid
++    ITKTestKernel
+   FACTORY_NAMES
+-  ImageIO::Nrrd
+-  DESCRIPTION
+-  "${DOCUMENTATION}")
++    ImageIO::Nrrd
++  DESCRIPTION "${DOCUMENTATION}"
++)
+diff --git a/Modules/IO/NRRD/src/itkNrrdImageIO.cxx b/Modules/IO/NRRD/src/itkNrrdImageIO.cxx
+index 589913476d2..8af973e39e9 100644
+--- a/Modules/IO/NRRD/src/itkNrrdImageIO.cxx
++++ b/Modules/IO/NRRD/src/itkNrrdImageIO.cxx
+@@ -25,9 +25,127 @@
+ 
+ #include <sstream>
+ 
++namespace
++{
++// This function determines which NRRD axis should be used for pixel component in the ITK image,
++// and which NRRD axes should be used for the ITK image axes.
++// The pixel component axis is the first NRRD range axis (preferably a non-list axis).
++// The image axes are the NRRD domain axes followed by the range axes (except the one that was already used as
++// component).
++void
++GetAxisOrderForFileReading(Nrrd *                             nrrd,
++                           std::vector<unsigned int> &        imageAxes_nrrd,
++                           int &                              pixelAxisIndex,
++                           unsigned int &                     numberOfDomainAxes,
++                           bool &                             needPermutation,
++                           itk::NrrdImageIOEnums::AxesReorder axesReorder)
++{
++  imageAxes_nrrd.clear();
++
++  // domainAxis: space dimensions.
++  // rangeAxis: additional axes that are not space dimensions, such as components or time points.
++  // Examples:
++  //   domain domain domain list -> numberOfDomainAxes = 3, rangeAxisNum_nrrd = 1
++  //   list domain domain domain -> numberOfDomainAxes = 3, rangeAxisNum_nrrd = 1
++  //   RGBA-color domain domain domain list -> numberOfDomainAxes = 3, rangeAxisNum_nrrd = 2
++  //   covariant-vector domain domain domain list -> numberOfDomainAxes = 3, rangeAxisNum_nrrd = 2
++
++  unsigned int domainAxisIndices_nrrd[NRRD_DIM_MAX]{};
++  numberOfDomainAxes = nrrdDomainAxesGet(nrrd, domainAxisIndices_nrrd);
++  unsigned int rangeAxisIndices_nrrd[NRRD_DIM_MAX]{};
++  unsigned int rangeAxisNum_nrrd = nrrdRangeAxesGet(nrrd, rangeAxisIndices_nrrd);
++
++  pixelAxisIndex = -1; // No pixel component axis
++
++  if (rangeAxisNum_nrrd > 0 && (axesReorder != itk::NrrdImageIOEnums::AxesReorder::UseScalarPixel))
++  {
++    // A range axes may be used as pixel component.
++
++    // If there is a non-list-type range axis then use the first one as pixel component.
++    for (unsigned int axInd = 0; axInd < rangeAxisNum_nrrd; ++axInd)
++    {
++      if (nrrd->axis[rangeAxisIndices_nrrd[axInd]].kind != nrrdKindList)
++      {
++        pixelAxisIndex = rangeAxisIndices_nrrd[axInd];
++        break;
++      }
++    }
++    if (pixelAxisIndex < 0 && axesReorder == itk::NrrdImageIOEnums::AxesReorder::UseAnyRangeAxisAsPixel)
++    {
++      // The image only has list-type range axes. UseAnyRangeAxisAsPixel strategy allows using that as pixel component.
++      pixelAxisIndex = rangeAxisIndices_nrrd[0];
++    }
++  }
++
++  // There are multiple range axes. For pixel component, prefer the first axis that is not "list" kind.
++  // For example, if there are RGBColor and a list axes then prefer using the non-list RGBColor as component axis.
++  // List axes will be additional image dimensions.
++
++  // Add all domain axes
++  for (unsigned int domainAxisIndex = 0; domainAxisIndex < numberOfDomainAxes; ++domainAxisIndex)
++  {
++    unsigned int domainAxis_nrrd = domainAxisIndices_nrrd[domainAxisIndex];
++    imageAxes_nrrd.push_back(domainAxis_nrrd);
++  }
++  // Add all range axes that are not already added as component axis
++  for (unsigned int rangeAxisIndex = 0; rangeAxisIndex < rangeAxisNum_nrrd; ++rangeAxisIndex)
++  {
++    unsigned int rangeAxis_nrrd = rangeAxisIndices_nrrd[rangeAxisIndex];
++    if (static_cast<int>(rangeAxis_nrrd) != pixelAxisIndex)
++    {
++      imageAxes_nrrd.push_back(rangeAxis_nrrd);
++    }
++  }
++
++  needPermutation = false;
++  if (pixelAxisIndex > 0)
++  {
++    // pixel axis has to be moved to be the fastest axis
++    needPermutation = true;
++  }
++  else
++  {
++    // No need to reorder
++    // - if pixelAxisIndex == 0 (pixel components are mapped to NRRD axis 0) and image axes match NRRD axes of 1, 2, ...
++    // - if pixelAxisIndex < 0 (pixel type is not mapped to a NRRD axis) and image axes match NRRD axes of 0, 1, ...
++    unsigned int offset = (pixelAxisIndex == 0 ? 1 : 0);
++    for (unsigned int i = 0; i < imageAxes_nrrd.size(); ++i)
++    {
++      // Check if the order of axes in the NRRD file is different from the order of axes in the ITK image.
++      if (imageAxes_nrrd[i] != i + offset)
++      {
++        needPermutation = true;
++        break;
++      }
++    }
++  }
++}
++
++const std::string NRRD_KEY_PREFIX{ "NRRD_" };
++
++} // namespace
++
+ namespace itk
+ {
+-#define KEY_PREFIX "NRRD_"
++
++/** Print enum values */
++std::ostream &
++operator<<(std::ostream & out, const NrrdImageIOEnums::AxesReorder value)
++{
++  return out << [value] {
++    switch (value)
++    {
++      case NrrdImageIOEnums::AxesReorder::UseAnyRangeAxisAsPixel:
++        return "itk::NrrdImageIOEnums::AxesReorder::UseAnyRangeAxisAsPixel";
++      case NrrdImageIOEnums::AxesReorder::UseNonListRangeAxisAsPixel:
++        return "itk::NrrdImageIOEnums::AxesReorder::UseNonListRangeAxisAsPixel";
++      case NrrdImageIOEnums::AxesReorder::UseScalarPixel:
++        return "itk::NrrdImageIOEnums::AxesReorder::UseScalarPixel";
++      default:
++        return "INVALID VALUE FOR itk::NrrdImageIOEnums::AxesReorder";
++    }
++  }();
++}
+ 
+ NrrdImageIO::NrrdImageIO()
+ {
+@@ -55,10 +173,8 @@ NrrdImageIO::SupportsDimension(unsigned long dim)
+   {
+     return dim <= NRRD_DIM_MAX;
+   }
+-  else
+-  {
+-    return dim <= NRRD_DIM_MAX - 1;
+-  }
++
++  return dim <= NRRD_DIM_MAX - 1;
+ }
+ 
+ void
+@@ -209,9 +325,9 @@ NrrdImageIO::CanReadFile(const char * filename)
+   // Check the extension first to avoid opening files that do not
+   // look like nrrds.  The file must have an appropriate extension to be
+   // recognized.
+-  std::string fname = filename;
++  const std::string fname = filename;
+ 
+-  bool extensionFound = this->HasSupportedReadExtension(filename);
++  const bool extensionFound = this->HasSupportedReadExtension(filename);
+ 
+   if (!extensionFound)
+   {
+@@ -331,7 +447,7 @@ NrrdImageIO::ReadImageInformation()
+     }
+     // set type of pixel components; this is orthogonal to pixel type
+ 
+-    IOComponentEnum cmpType = this->NrrdToITKComponentType(nrrd->type);
++    const IOComponentEnum cmpType = this->NrrdToITKComponentType(nrrd->type);
+     if (IOComponentEnum::UNKNOWNCOMPONENTTYPE == cmpType)
+     {
+       itkExceptionMacro("Nrrd type " << airEnumStr(nrrdType, nrrd->type)
+@@ -339,32 +455,37 @@ NrrdImageIO::ReadImageInformation()
+     }
+     this->SetComponentType(cmpType);
+ 
+-    // Set the number of image dimensions and bail if needed
+-    unsigned int domainAxisNum, domainAxisIdx[NRRD_DIM_MAX], rangeAxisNum, rangeAxisIdx[NRRD_DIM_MAX];
+-    domainAxisNum = nrrdDomainAxesGet(nrrd, domainAxisIdx);
+-    rangeAxisNum = nrrdRangeAxesGet(nrrd, rangeAxisIdx);
+-    if (nrrd->spaceDim && nrrd->spaceDim != domainAxisNum)
++    int                       pixelAxisIndex{ -1 };
++    std::vector<unsigned int> imageAxes_nrrd;
++    bool                      needPermutation{ false };
++    unsigned int              numberOfDomainAxes{ 0 };
++    GetAxisOrderForFileReading(
++      nrrd, imageAxes_nrrd, pixelAxisIndex, numberOfDomainAxes, needPermutation, this->GetAxesReorder());
++
++    if (nrrd->spaceDim > 0)
+     {
+-      itkExceptionMacro("ReadImageInformation: nrrd's #independent axes (" << domainAxisNum
+-                                                                           << ") doesn't match dimension of space"
+-                                                                              " in which orientation is defined ("
+-                                                                           << nrrd->spaceDim
+-                                                                           << "); not currently handled");
++      // "space directions" is specified in the NRRD file
++      if (nrrd->spaceDim != numberOfDomainAxes)
++      {
++        itkExceptionMacro("ReadImageInformation: number of domain axes in the NRRD file ("
++                          << numberOfDomainAxes
++                          << ") doesn't match dimension of space in which orientation is defined (" << nrrd->spaceDim
++                          << "). This is not supported.");
++      }
+     }
+-    // else nrrd->spaceDim == domainAxisNum when nrrd has orientation
+ 
+-    if (0 == rangeAxisNum)
++    if (pixelAxisIndex < 0)
+     {
+-      // we don't have any non-scalar data
++      // simple scalar image
+       this->SetNumberOfDimensions(nrrd->dim);
+       this->SetPixelType(IOPixelEnum::SCALAR);
+       this->SetNumberOfComponents(1);
+     }
+-    else if (1 == rangeAxisNum)
++    else
+     {
+-      this->SetNumberOfDimensions(nrrd->dim - 1);
+-      int    kind = nrrd->axis[rangeAxisIdx[0]].kind;
+-      size_t size = nrrd->axis[rangeAxisIdx[0]].size;
++      this->SetNumberOfDimensions(imageAxes_nrrd.size());
++      int    kind = nrrd->axis[pixelAxisIndex].kind;
++      size_t size = nrrd->axis[pixelAxisIndex].size;
+       // NOTE: it is the NRRD readers responsibility to make sure that
+       // the size (#of components) associated with a specific kind is
+       // matches the actual size of the axis.
+@@ -442,70 +563,63 @@ NrrdImageIO::ReadImageInformation()
+           itkExceptionMacro("ReadImageInformation: nrrdKind " << kind << " not known!");
+       }
+     }
+-    else
+-    {
+-      itkExceptionMacro("ReadImageInformation: nrrd has " << rangeAxisNum
+-                                                          << " dependent axis (not 1); not currently handled");
+-    }
+ 
+-    double              spacing;
+-    double              spaceDir[NRRD_SPACE_DIM_MAX];
+-    std::vector<double> spaceDirStd(domainAxisNum);
+-    int                 spacingStatus;
++    unsigned int imageDimensions = imageAxes_nrrd.size();
+ 
+-    int iFlipFactors[3]; // used to flip the measurement frame later on
+-    for (int & iFlipFactor : iFlipFactors)
++    // used to flip the measurement frame later on
++    std::vector<double> axisDirectionFactors(numberOfDomainAxes, 1.0);
++    bool                normalizeAxisDirectionsToLPS = false;
++    switch (nrrd->space)
+     {
+-      iFlipFactor = 1;
++      // on read, convert non-LPS coords into LPS coords, when we can
++      case nrrdSpaceRightAnteriorSuperior:
++        axisDirectionFactors[0] = -1.0; // R -> L
++        axisDirectionFactors[1] = -1.0; // A -> P
++        normalizeAxisDirectionsToLPS = true;
++        break;
++      case nrrdSpaceLeftAnteriorSuperior:
++        axisDirectionFactors[1] = -1; // A -> P
++        normalizeAxisDirectionsToLPS = true;
++        break;
++      case nrrdSpaceLeftPosteriorSuperior:
++        normalizeAxisDirectionsToLPS = true;
++        // no change needed
++        break;
++      default:
++        // we're not coming from a space for which the conversion
++        // to LPS is well-defined
++        break;
+     }
+ 
+-    for (unsigned int axii = 0; axii < domainAxisNum; ++axii)
++
++    for (unsigned int domainAxis_itk = 0; domainAxis_itk < numberOfDomainAxes; ++domainAxis_itk)
+     {
+-      unsigned int naxi = domainAxisIdx[axii];
+-      this->SetDimensions(axii, static_cast<unsigned int>(nrrd->axis[naxi].size));
+-      spacingStatus = nrrdSpacingCalculate(nrrd, naxi, &spacing, spaceDir);
++      unsigned int domainAxis_nrrd = imageAxes_nrrd[domainAxis_itk];
++      this->SetDimensions(domainAxis_itk, static_cast<unsigned int>(nrrd->axis[domainAxis_nrrd].size));
++      double spacing{ 1.0 };
++      double spaceDir[NRRD_SPACE_DIM_MAX]{};
++      int    spacingStatus = nrrdSpacingCalculate(nrrd, domainAxis_nrrd, &spacing, spaceDir);
+ 
+       switch (spacingStatus)
+       {
+         case nrrdSpacingStatusNone:
+           // Let ITK's defaults stay
+-          // this->SetSpacing(axii, 1.0);
++          // this->SetSpacing(domainAxis_itk, 1.0);
+           break;
+         case nrrdSpacingStatusScalarNoSpace:
+-          this->SetSpacing(axii, spacing);
++          this->SetSpacing(domainAxis_itk, spacing);
+           break;
+         case nrrdSpacingStatusDirection:
+           if (AIR_EXISTS(spacing))
+           {
+             // only set info if we have something to set
+-            switch (nrrd->space)
+-            {
+-              // on read, convert non-LPS coords into LPS coords, when we can
+-              case nrrdSpaceRightAnteriorSuperior:
+-                spaceDir[0] *= -1; // R -> L
+-                spaceDir[1] *= -1; // A -> P
+-                iFlipFactors[0] = -1;
+-                iFlipFactors[1] = -1;
+-                break;
+-              case nrrdSpaceLeftAnteriorSuperior:
+-                spaceDir[0] *= -1; // R -> L
+-                iFlipFactors[0] = -1;
+-                break;
+-              case nrrdSpaceLeftPosteriorSuperior:
+-                // no change needed
+-                break;
+-              default:
+-                // we're not coming from a space for which the conversion
+-                // to LPS is well-defined
+-                break;
+-            }
+-            this->SetSpacing(axii, spacing);
+-
+-            for (unsigned int saxi = 0; saxi < nrrd->spaceDim; ++saxi)
++            this->SetSpacing(domainAxis_itk, spacing);
++            std::vector<double> spaceDirStd(imageDimensions);
++            for (unsigned int axis = 0; axis < numberOfDomainAxes; ++axis)
+             {
+-              spaceDirStd[saxi] = spaceDir[saxi];
++              spaceDirStd[axis] = axisDirectionFactors[axis] * spaceDir[axis];
+             }
+-            this->SetDirection(axii, spaceDirStd);
++            this->SetDirection(domainAxis_itk, spaceDirStd);
+           }
+           break;
+         default:
+@@ -513,21 +627,44 @@ NrrdImageIO::ReadImageInformation()
+           itkExceptionMacro("ReadImageInformation: Error interpreting "
+                             "nrrd spacing (nrrdSpacingStatusUnknown)");
+         case nrrdSpacingStatusScalarWithSpace:
++          // Both "spacings" and "space origin" fields are specified. This is an unusual combination, no need to support
++          // it. Either use space fields ("space directions" and "space origin") or use older convention of just
++          // "spacings".
+           itkExceptionMacro("ReadImageInformation: Error interpreting "
+                             "nrrd spacing (nrrdSpacingStatusScalarWithSpace)");
+       }
+     }
+ 
+-    // Figure out origin
+-    if (nrrd->spaceDim)
++    // If there are additional range axis in the NRRD file then add those as extra domain axes to the ITK image.
++    for (unsigned int axis_itk = numberOfDomainAxes; axis_itk < imageAxes_nrrd.size(); ++axis_itk)
+     {
++      unsigned int axis_nrrd = imageAxes_nrrd[axis_itk];
++      // NRRD file range axis is added to the ITK image as domain axis
++      this->SetDimensions(axis_itk, static_cast<unsigned int>(nrrd->axis[axis_nrrd].size));
++
++      // Cannot calculate spacing for this axis using nrrdSpacingCalculate,
++      // because in NRRD it is a range axis, not domain kind. Set default values for axis.
++      this->SetSpacing(axis_itk, 1.0);
++
++      std::vector<double> spaceDirStd(imageDimensions);
++      for (unsigned int axis = 0; axis < imageDimensions; ++axis)
++      {
++        spaceDirStd[axis] = (axis == axis_itk ? 1.0 : 0.0);
++      }
++      this->SetDirection(axis_itk, spaceDirStd);
++    }
++
++    // Set origin for NRRD domain axes
++    if (nrrd->spaceDim > 0)
++    {
++      // "space directions" is specified in the NRRD file, set origin from "space origin" field
+       if (AIR_EXISTS(nrrd->spaceOrigin[0]))
+       {
+         // only set info if we have something to set
+         double spaceOrigin[NRRD_SPACE_DIM_MAX];
+-        for (unsigned int saxi = 0; saxi < nrrd->spaceDim; ++saxi)
++        for (unsigned int axis = 0; axis < nrrd->spaceDim; ++axis)
+         {
+-          spaceOrigin[saxi] = nrrd->spaceOrigin[saxi];
++          spaceOrigin[axis] = nrrd->spaceOrigin[axis];
+         }
+         switch (nrrd->space)
+         {
+@@ -537,7 +674,7 @@ NrrdImageIO::ReadImageInformation()
+             spaceOrigin[1] *= -1; // A -> P
+             break;
+           case nrrdSpaceLeftAnteriorSuperior:
+-            spaceOrigin[0] *= -1; // R -> L
++            spaceOrigin[1] *= -1; // A -> P
+             break;
+           case nrrdSpaceLeftPosteriorSuperior:
+             // no change needed
+@@ -547,17 +684,29 @@ NrrdImageIO::ReadImageInformation()
+             // to LPS is well-defined
+             break;
+         }
+-        for (unsigned int saxi = 0; saxi < nrrd->spaceDim; ++saxi)
++        for (unsigned int axis = 0; axis < nrrd->spaceDim; ++axis)
+         {
+-          this->SetOrigin(saxi, spaceOrigin[saxi]);
++          this->SetOrigin(axis, spaceOrigin[axis]);
+         }
+       }
+     }
+     else
+     {
+-      double spaceOrigin[NRRD_DIM_MAX];
+-      int    originStatus = nrrdOriginCalculate(nrrd, domainAxisIdx, domainAxisNum, nrrdCenterCell, spaceOrigin);
+-      for (unsigned int saxi = 0; saxi < domainAxisNum; ++saxi)
++      // "space directions" is not specified in the NRRD file, origin may still be possible to calculate
++      double       spaceOrigin[NRRD_DIM_MAX]{};
++      unsigned int domainAxisIndices_nrrd[NRRD_DIM_MAX]{};
++
++      unsigned int numberOfDomainAxesForOrigin = nrrdDomainAxesGet(nrrd, domainAxisIndices_nrrd);
++      if (numberOfDomainAxesForOrigin != numberOfDomainAxes)
++      {
++        // this should never happen, as numberOfDomainAxes is obtained by calling a same method earlier
++        // but it is safer to check than just assume they match
++        itkExceptionMacro("ReadImageInformation: internal error, mismatch in number of domain axes.");
++      }
++
++      int originStatus =
++        nrrdOriginCalculate(nrrd, domainAxisIndices_nrrd, numberOfDomainAxes, nrrdCenterCell, spaceOrigin);
++      for (unsigned int saxi = 0; saxi < numberOfDomainAxes; ++saxi)
+       {
+         switch (originStatus)
+         {
+@@ -579,116 +728,128 @@ NrrdImageIO::ReadImageInformation()
+     }
+ 
+     // Store key/value pairs in MetaDataDictionary
+-    char                 key[AIR_STRLEN_SMALL];
+-    const char *         val;
+-    char *               keyPtr = nullptr;
+-    char *               valPtr = nullptr;
+     MetaDataDictionary & thisDic = this->GetMetaDataDictionary();
+     // Necessary to clear dict if ImageIO object is re-used
+     thisDic.Clear();
+-    std::string classname(this->GetNameOfClass());
++    const std::string classname(this->GetNameOfClass());
+     EncapsulateMetaData<std::string>(thisDic, ITK_InputFilterName, classname);
+     for (unsigned int kvpi = 0; kvpi < nrrdKeyValueSize(nrrd); ++kvpi)
+     {
++      char * keyPtr = nullptr;
++      char * valPtr = nullptr;
+       nrrdKeyValueIndex(nrrd, &keyPtr, &valPtr, kvpi);
+       EncapsulateMetaData<std::string>(thisDic, std::string(keyPtr), std::string(valPtr));
+-      keyPtr = (char *)airFree(keyPtr);
+-      valPtr = (char *)airFree(valPtr);
++      keyPtr = static_cast<char *>(airFree(keyPtr));
++      valPtr = static_cast<char *>(airFree(valPtr));
+     }
+ 
+     // save in MetaDataDictionary those important nrrd fields that
+     // (currently) have no ITK equivalent. NOTE that for the per-axis
+-    // information, we use the same axis index (axii) as in ITK, NOT
+-    // the original axis index in nrrd (axi).  This is because in the
++    // information, we use the same axis index (domainAxisIndex) as in ITK, NOT
++    // the original axis index in nrrd (axis_nrrd).  This is because in the
+     // Read() method, non-scalar data is permuted to the fastest axis,
+     // on the on the Write() side, its always written to the fastest axis,
+-    // so we might was well go with consistent and idiomatic indexing.
+-    NrrdAxisInfo * naxis;
+-    for (unsigned int axii = 0; axii < domainAxisNum; ++axii)
++    // so we might as well go with consistent and idiomatic indexing.
++    // for (unsigned int domainAxisIndex = 0; domainAxisIndex < numberOfDomainAxes; ++domainAxisIndex)
++    for (unsigned int axis_itk = 0; axis_itk < imageDimensions; ++axis_itk)
+     {
+-      unsigned int axi = domainAxisIdx[axii];
+-      naxis = nrrd->axis + axi;
+-      if (AIR_EXISTS(naxis->thickness))
++      unsigned int   axis_nrrd = imageAxes_nrrd[axis_itk];
++      NrrdAxisInfo * axisInfo = nrrd->axis + axis_nrrd;
++      if (AIR_EXISTS(axisInfo->thickness))
++      {
++        std::string key =
++          NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_thicknesses) + "[" + std::to_string(axis_itk) + "]";
++        EncapsulateMetaData<double>(thisDic, key, axisInfo->thickness);
++      }
++      if (axisInfo->center)
++      {
++        std::string key =
++          NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_centers) + "[" + std::to_string(axis_itk) + "]";
++        EncapsulateMetaData<std::string>(thisDic, key, airEnumStr(nrrdCenter, axisInfo->center));
++      }
++      if (axisInfo->kind)
+       {
+-        snprintf(key, sizeof(key), "%s%s[%u]", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_thicknesses), axii);
+-        EncapsulateMetaData<double>(thisDic, std::string(key), naxis->thickness);
++        std::string key =
++          NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_kinds) + "[" + std::to_string(axis_itk) + "]";
++        EncapsulateMetaData<std::string>(thisDic, key, airEnumStr(nrrdKind, axisInfo->kind));
+       }
+-      if (naxis->center)
++      if (airStrlen(axisInfo->label))
+       {
+-        snprintf(key, sizeof(key), "%s%s[%u]", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_centers), axii);
+-        val = airEnumStr(nrrdCenter, naxis->center);
+-        EncapsulateMetaData<std::string>(thisDic, std::string(key), std::string(val));
++        std::string key =
++          NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_labels) + "[" + std::to_string(axis_itk) + "]";
++        EncapsulateMetaData<std::string>(thisDic, key, axisInfo->label);
+       }
+-      if (naxis->kind)
++      if (airStrlen(axisInfo->units))
+       {
+-        snprintf(key, sizeof(key), "%s%s[%u]", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_kinds), axii);
+-        val = airEnumStr(nrrdKind, naxis->kind);
+-        EncapsulateMetaData<std::string>(thisDic, std::string(key), std::string(val));
++        std::string key =
++          NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_units) + "[" + std::to_string(axis_itk) + "]";
++        EncapsulateMetaData<std::string>(thisDic, key, axisInfo->units);
+       }
+-      if (airStrlen(naxis->label))
++    }
++    if (pixelAxisIndex >= 0)
++    {
++      // The pixel component has no assigned axis number in the ITK image. Therefore use
++      // NRRD_<field>[pixel] metadata key for saving label and unit information.
++      NrrdAxisInfo * axisInfo = nrrd->axis + pixelAxisIndex;
++      if (axisInfo->kind)
+       {
+-        snprintf(key, sizeof(key), "%s%s[%u]", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_labels), axii);
+-        EncapsulateMetaData<std::string>(thisDic, std::string(key), std::string(naxis->label));
++        std::string key = NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_kinds) + "[pixel]";
++        EncapsulateMetaData<std::string>(thisDic, key, airEnumStr(nrrdKind, axisInfo->kind));
+       }
++      if (airStrlen(axisInfo->label))
++      {
++        std::string key = NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_labels) + "[pixel]";
++        EncapsulateMetaData<std::string>(thisDic, key, axisInfo->label);
++      }
++      if (airStrlen(axisInfo->units))
++      {
++        std::string key = NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_units) + "[pixel]";
++        EncapsulateMetaData<std::string>(thisDic, key, axisInfo->units);
++      }
++      // Save the original component index, just incase there are some custom metadata fields that
++      // can only be interpreted if this information is known
++      std::string key = NRRD_KEY_PREFIX + "pixel_original_axis";
++      EncapsulateMetaData<int>(thisDic, key, pixelAxisIndex);
+     }
++
++    // Parse generic (not per-axis) metadata
+     if (airStrlen(nrrd->content))
+     {
+-      snprintf(key, sizeof(key), "%s%s", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_content));
+-      EncapsulateMetaData<std::string>(thisDic, std::string(key), std::string(nrrd->content));
++      EncapsulateMetaData<std::string>(
++        thisDic, NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_content), nrrd->content);
+     }
+     if (AIR_EXISTS(nrrd->oldMin))
+     {
+-      snprintf(key, sizeof(key), "%s%s", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_old_min));
+-      EncapsulateMetaData<double>(thisDic, std::string(key), nrrd->oldMin);
++      EncapsulateMetaData<double>(thisDic, NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_old_min), nrrd->oldMin);
+     }
+     if (AIR_EXISTS(nrrd->oldMax))
+     {
+-      snprintf(key, sizeof(key), "%s%s", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_old_max));
+-      EncapsulateMetaData<double>(thisDic, std::string(key), nrrd->oldMax);
++      EncapsulateMetaData<double>(thisDic, NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_old_max), nrrd->oldMax);
+     }
+-    if (nrrd->space)
++    if (nrrd->space != nrrdSpaceUnknown)
+     {
+-      snprintf(key, sizeof(key), "%s%s", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_space));
+-      val = airEnumStr(nrrdSpace, nrrd->space);
+-
+-      // keep everything consistent: so enter it as LPS in the meta data
+-      // dictionary in case it could get converted, otherwise leave it
+-      // as is
+-
+-      switch (nrrd->space)
+-      {
+-        case nrrdSpaceRightAnteriorSuperior:
+-        case nrrdSpaceLeftAnteriorSuperior:
+-        case nrrdSpaceLeftPosteriorSuperior:
+-          // in all these cases we could convert
+-          EncapsulateMetaData<std::string>(
+-            thisDic, std::string(key), std::string(airEnumStr(nrrdSpace, nrrdSpaceLeftPosteriorSuperior)));
+-          break;
+-        default:
+-          // we're not coming from a space for which the conversion
+-          // to LPS is well-defined
+-          EncapsulateMetaData<std::string>(thisDic, std::string(key), std::string(val));
+-          break;
+-      }
++      // If the input directions were normalized to LPS then use that as space.
++      // Otherwise leave the space unchanged.
++      int space = (normalizeAxisDirectionsToLPS ? nrrdSpaceLeftPosteriorSuperior : nrrd->space);
++      EncapsulateMetaData<std::string>(
++        thisDic, NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_space), airEnumStr(nrrdSpace, space));
+     }
+ 
+     if (AIR_EXISTS(nrrd->measurementFrame[0][0]))
+     {
+-      snprintf(key, sizeof(key), "%s%s", KEY_PREFIX, airEnumStr(nrrdField, nrrdField_measurement_frame));
+-      std::vector<std::vector<double>> msrFrame(domainAxisNum);
++      std::vector<std::vector<double>> msrFrame(numberOfDomainAxes);
+ 
+       // flip the measurement frame here if we have to
+       // so that everything is consistent with the ITK LPS space directions
+       // but only do this if we have a three dimensional space or smaller
+-
+-      for (unsigned int saxi = 0; saxi < domainAxisNum; ++saxi)
++      for (unsigned int saxi = 0; saxi < numberOfDomainAxes; ++saxi)
+       {
+-        msrFrame[saxi].resize(domainAxisNum);
+-        for (unsigned int saxj = 0; saxj < domainAxisNum; ++saxj)
++        msrFrame[saxi].resize(numberOfDomainAxes);
++        for (unsigned int saxj = 0; saxj < numberOfDomainAxes; ++saxj)
+         {
+-          if (domainAxisNum <= 3)
++          if (numberOfDomainAxes <= 3)
+           {
+-            msrFrame[saxi][saxj] = iFlipFactors[saxj] * nrrd->measurementFrame[saxi][saxj];
++            msrFrame[saxi][saxj] = axisDirectionFactors[saxj] * nrrd->measurementFrame[saxi][saxj];
+           }
+           else
+           {
+@@ -696,7 +857,8 @@ NrrdImageIO::ReadImageInformation()
+           }
+         }
+       }
+-      EncapsulateMetaData<std::vector<std::vector<double>>>(thisDic, std::string(key), msrFrame);
++      std::string key = NRRD_KEY_PREFIX + airEnumStr(nrrdField, nrrdField_measurement_frame);
++      EncapsulateMetaData<std::vector<std::vector<double>>>(thisDic, key, msrFrame);
+     }
+ 
+     nrrd = nrrdNix(nrrd);
+@@ -722,7 +884,7 @@ NrrdImageIO::Read(void * buffer)
+   // NOTE the main reason the logic becomes complicated here is that
+   // ITK has to be the one to allocate the data segment ("buffer")
+ 
+-  if (IOPixelEnum::SYMMETRICSECONDRANKTENSOR == this->GetPixelType())
++  if (this->GetPixelType() == IOPixelEnum::SYMMETRICSECONDRANKTENSOR)
+   {
+     // It may be that this is coming from a nrrdKind3DMaskedSymMatrix,
+     // in which case ITK's buffer has not been allocated for the
+@@ -736,23 +898,25 @@ NrrdImageIO::Read(void * buffer)
+     // the nrrd knows the allocated data size (the axes may actually be out
+     // of order in the case of non-scalar data.  Internal to nrrdLoad(), the
+     // given buffer will be re-used, instead of allocating new data.
+-    unsigned int baseDim;
+     nrrdAllocated = false;
+     nrrd->data = buffer;
+     nrrd->type = this->ITKToNrrdComponentType(this->m_ComponentType);
+     if (IOPixelEnum::SCALAR == this->m_PixelType)
+     {
+-      baseDim = 0;
++      nrrd->dim = this->GetNumberOfDimensions();
++      for (unsigned int axis = 0; axis < this->GetNumberOfDimensions(); ++axis)
++      {
++        nrrd->axis[axis].size = this->GetDimensions(axis);
++      }
+     }
+     else
+     {
+-      baseDim = 1;
+       nrrd->axis[0].size = this->GetNumberOfComponents();
+-    }
+-    nrrd->dim = baseDim + this->GetNumberOfDimensions();
+-    for (unsigned int axi = 0; axi < this->GetNumberOfDimensions(); ++axi)
+-    {
+-      nrrd->axis[axi + baseDim].size = this->GetDimensions(axi);
++      nrrd->dim = this->GetNumberOfDimensions() + 1;
++      for (unsigned int axis = 0; axis < this->GetNumberOfDimensions(); ++axis)
++      {
++        nrrd->axis[axis + 1].size = this->GetDimensions(axis);
++      }
+     }
+   }
+ 
+@@ -776,25 +940,27 @@ NrrdImageIO::Read(void * buffer)
+   FloatingPointExceptions::SetEnabled(saveFPEState);
+ #endif
+ 
+-  unsigned int rangeAxisNum, rangeAxisIdx[NRRD_DIM_MAX];
+-  rangeAxisNum = nrrdRangeAxesGet(nrrd, rangeAxisIdx);
++  int                       pixelAxisIndex{ -1 };
++  std::vector<unsigned int> imageAxes_nrrd;
++  unsigned int              numberOfDomainAxes{ 0 };
++  bool                      needPermutation{ false };
++  GetAxisOrderForFileReading(
++    nrrd, imageAxes_nrrd, pixelAxisIndex, numberOfDomainAxes, needPermutation, this->GetAxesReorder());
+ 
+-  if (rangeAxisNum > 1)
++  if (needPermutation)
+   {
+-    itkExceptionMacro("Read: handling more than one non-scalar axis "
+-                      "not currently handled");
+-  }
+-  if (1 == rangeAxisNum && 0 != rangeAxisIdx[0])
+-  {
+-    // the range (dependent variable) is not on the fastest axis,
++    // the pixel component is not on the fastest axis,
+     // so we have to permute axes to put it there, since that is
+     // how we set things up in ReadImageInformation() above
+     Nrrd *       ntmp = nrrdNew();
+     unsigned int axmap[NRRD_DIM_MAX];
+-    axmap[0] = rangeAxisIdx[0];
+-    for (unsigned int axi = 1; axi < nrrd->dim; ++axi)
++    if (pixelAxisIndex >= 0)
++    {
++      imageAxes_nrrd.insert(imageAxes_nrrd.begin(), pixelAxisIndex);
++    }
++    for (unsigned int axis = 0; axis < imageAxes_nrrd.size(); ++axis)
+     {
+-      axmap[axi] = axi - (axi <= rangeAxisIdx[0]);
++      axmap[axis] = imageAxes_nrrd[axis];
+     }
+     // The memory size of the input and output of nrrdAxesPermute is
+     // the same; the existing nrrd->data is re-used.
+@@ -816,11 +982,11 @@ NrrdImageIO::Read(void * buffer)
+     {
+       // we crop out the mask and put the output in ITK-allocated "buffer"
+       size_t size[NRRD_DIM_MAX], minIdx[NRRD_DIM_MAX], maxIdx[NRRD_DIM_MAX];
+-      for (unsigned int axi = 0; axi < nrrd->dim; ++axi)
++      for (unsigned int axis = 0; axis < nrrd->dim; ++axis)
+       {
+-        minIdx[axi] = (0 == axi) ? 1 : 0;
+-        maxIdx[axi] = nrrd->axis[axi].size - 1;
+-        size[axi] = maxIdx[axi] - minIdx[axi] + 1;
++        minIdx[axis] = (0 == axis) ? 1 : 0;
++        maxIdx[axis] = nrrd->axis[axis].size - 1;
++        size[axis] = maxIdx[axis] - minIdx[axis] + 1;
+       }
+       Nrrd * ntmp = nrrdNew();
+       if (nrrdCopy(ntmp, nrrd))
+@@ -854,7 +1020,7 @@ NrrdImageIO::Read(void * buffer)
+ bool
+ NrrdImageIO::CanWriteFile(const char * name)
+ {
+-  std::string filename = name;
++  const std::string filename = name;
+ 
+   if (filename.empty())
+   {
+@@ -890,76 +1056,104 @@ NrrdImageIO::Write(const void * buffer)
+ {
+   Nrrd *        nrrd = nrrdNew();
+   NrrdIoState * nio = nrrdIoStateNew();
+-  int           kind[NRRD_DIM_MAX];
+-  size_t        size[NRRD_DIM_MAX];
+-  unsigned int  nrrdDim, baseDim, spaceDim;
+-  double        spaceDir[NRRD_DIM_MAX][NRRD_SPACE_DIM_MAX];
+-  double        origin[NRRD_DIM_MAX];
++  int           kind[NRRD_DIM_MAX]{};
++  size_t        size[NRRD_DIM_MAX]{};
++
++  double spaceDir[NRRD_DIM_MAX][NRRD_SPACE_DIM_MAX];
++  std::fill(&spaceDir[0][0], &spaceDir[0][0] + NRRD_DIM_MAX * NRRD_SPACE_DIM_MAX, AIR_NAN);
+ 
+-  spaceDim = this->GetNumberOfDimensions();
++  int          pixelAxisIndex_nrrd{ -1 };
++  unsigned int numberOfPixelAxis_nrrd{ 0 };
+   if (this->GetNumberOfComponents() > 1)
+   {
+-    size[0] = this->GetNumberOfComponents();
++    pixelAxisIndex_nrrd = 0;
++    numberOfPixelAxis_nrrd = 1;
++
++    size[pixelAxisIndex_nrrd] = this->GetNumberOfComponents();
++
+     switch (this->GetPixelType())
+     {
+       case IOPixelEnum::RGB:
+-        kind[0] = nrrdKindRGBColor;
++        kind[pixelAxisIndex_nrrd] = nrrdKindRGBColor;
+         break;
+       case IOPixelEnum::RGBA:
+-        kind[0] = nrrdKindRGBAColor;
++        kind[pixelAxisIndex_nrrd] = nrrdKindRGBAColor;
+         break;
+       case IOPixelEnum::POINT:
+-        kind[0] = nrrdKindPoint;
++        kind[pixelAxisIndex_nrrd] = nrrdKindPoint;
+         break;
+       case IOPixelEnum::COVARIANTVECTOR:
+-        kind[0] = nrrdKindCovariantVector;
++        kind[pixelAxisIndex_nrrd] = nrrdKindCovariantVector;
+         break;
+       case IOPixelEnum::SYMMETRICSECONDRANKTENSOR:
+       case IOPixelEnum::DIFFUSIONTENSOR3D:
+-        kind[0] = nrrdKind3DSymMatrix;
++        kind[pixelAxisIndex_nrrd] = nrrdKind3DSymMatrix;
+         break;
+       case IOPixelEnum::COMPLEX:
+-        kind[0] = nrrdKindComplex;
++        kind[pixelAxisIndex_nrrd] = nrrdKindComplex;
+         break;
+       case IOPixelEnum::VECTOR:
+       case IOPixelEnum::OFFSET:     // HEY is this right?
+       case IOPixelEnum::FIXEDARRAY: // HEY is this right?
+       default:
+-        kind[0] = nrrdKindVector;
++        kind[pixelAxisIndex_nrrd] = nrrdKindVector;
+         break;
+     }
+-    // the range axis has no space direction
+-    for (unsigned int saxi = 0; saxi < spaceDim; ++saxi)
+-    {
+-      spaceDir[0][saxi] = AIR_NAN;
+-    }
+-    baseDim = 1;
+   }
+-  else
++
++  // Get list dimensions
++  unsigned int         numberOfListAxes = 0;
++  MetaDataDictionary & thisDic = this->GetMetaDataDictionary();
++  for (unsigned int axi = 0; axi < this->GetNumberOfDimensions(); ++axi)
+   {
+-    baseDim = 0;
++    unsigned int axis_itk = axi;
++    unsigned int axis_nrrd = numberOfPixelAxis_nrrd + axi;
++    std::string  key =
++      std::string(NRRD_KEY_PREFIX) + airEnumStr(nrrdField, nrrdField_kinds) + "[" + std::to_string(axis_itk) + "]";
++    std::string kindValue;
++    ExposeMetaData<std::string>(thisDic, key, kindValue);
++    if (!kindValue.compare("list"))
++    {
++      kind[axis_nrrd] = nrrdKindList;
++      ++numberOfListAxes;
++    }
+   }
+-  nrrdDim = baseDim + spaceDim;
+-  std::vector<double> spaceDirStd(spaceDim);
+-  unsigned int        axi;
+-  for (axi = 0; axi < spaceDim; ++axi)
++
++  unsigned int spaceDim = this->GetNumberOfDimensions() - numberOfListAxes;
++
++  // Origin is only specified for domain axes
++  std::vector<double> originStd;
++  for (unsigned int axi = 0; axi < this->GetNumberOfDimensions(); ++axi)
+   {
+-    size[axi + baseDim] = this->GetDimensions(axi);
+-    kind[axi + baseDim] = nrrdKindDomain;
+-    origin[axi] = this->GetOrigin(axi);
+-    double spacing = this->GetSpacing(axi);
+-    spaceDirStd = this->GetDirection(axi);
++    unsigned int axis_itk = axi;
++    unsigned int axis_nrrd = numberOfPixelAxis_nrrd + axi;
++    size[axis_nrrd] = this->GetDimensions(axis_itk);
++    if (kind[axis_nrrd] == nrrdKindList)
++    {
++      for (unsigned int saxi = 0; saxi < spaceDim; ++saxi)
++      {
++        spaceDir[axis_nrrd][saxi] = AIR_NAN;
++      }
++      continue;
++    }
++    kind[axis_nrrd] = nrrdKindDomain;
++    originStd.push_back(this->GetOrigin(axis_itk));
++    double              spacing = this->GetSpacing(axis_itk);
++    std::vector<double> spaceDirStd = this->GetDirection(axis_itk);
+     for (unsigned int saxi = 0; saxi < spaceDim; ++saxi)
+     {
+-      spaceDir[axi + baseDim][saxi] = spacing * spaceDirStd[saxi];
++      spaceDir[axis_nrrd][saxi] = spacing * spaceDirStd[saxi];
+     }
+   }
+-  if (nrrdWrap_nva(nrrd, const_cast<void *>(buffer), this->ITKToNrrdComponentType(m_ComponentType), nrrdDim, size) ||
+-      (3 == spaceDim
++
++  unsigned int nrrdDimensions = this->GetNumberOfDimensions() + (pixelAxisIndex_nrrd < 0 ? 0 : 1);
++  if (nrrdWrap_nva(
++        nrrd, const_cast<void *>(buffer), this->ITKToNrrdComponentType(m_ComponentType), nrrdDimensions, size) ||
++      (spaceDim == 3
+          // special case: ITK is LPS in 3-D
+          ? nrrdSpaceSet(nrrd, nrrdSpaceLeftPosteriorSuperior)
+          : nrrdSpaceDimensionSet(nrrd, spaceDim)) ||
+-      nrrdSpaceOriginSet(nrrd, origin))
++      nrrdSpaceOriginSet(nrrd, originStd.data()))
+   {
+     char * err = biffGetDone(NRRD); // would be nice to free(err)
+     itkExceptionMacro("Write: Error wrapping nrrd for " << this->GetFileName() << ":\n" << err);
+@@ -969,54 +1163,64 @@ NrrdImageIO::Write(const void * buffer)
+ 
+   // Go through MetaDataDictionary and set either specific nrrd field
+   // or a key/value pair
+-  MetaDataDictionary &                     thisDic = this->GetMetaDataDictionary();
+   std::vector<std::string>                 keys = thisDic.GetKeys();
+   std::vector<std::string>::const_iterator keyIt;
+   const char *                             keyField, *field;
+   for (keyIt = keys.begin(); keyIt != keys.end(); ++keyIt)
+   {
+-    if (!strncmp(KEY_PREFIX, keyIt->c_str(), strlen(KEY_PREFIX)))
++    if (!strncmp(NRRD_KEY_PREFIX.c_str(), keyIt->c_str(), NRRD_KEY_PREFIX.size()))
+     {
+-      keyField = keyIt->c_str() + strlen(KEY_PREFIX);
++      keyField = keyIt->c_str() + NRRD_KEY_PREFIX.size();
+       // only of one of these can succeed
+       field = airEnumStr(nrrdField, nrrdField_thicknesses);
++      unsigned int axi{ 0 };
+       if (!strncmp(keyField, field, strlen(field)))
+       {
+-        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + baseDim < nrrd->dim)
++        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + numberOfPixelAxis_nrrd < nrrd->dim)
+         {
+           double thickness = 0.0;
+           ExposeMetaData<double>(thisDic, *keyIt, thickness);
+-          nrrd->axis[axi + baseDim].thickness = thickness;
++          nrrd->axis[axi + numberOfPixelAxis_nrrd].thickness = thickness;
+         }
+       }
+       field = airEnumStr(nrrdField, nrrdField_centers);
+       if (!strncmp(keyField, field, strlen(field)))
+       {
+-        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + baseDim < nrrd->dim)
++        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + numberOfPixelAxis_nrrd < nrrd->dim)
+         {
+           std::string value;
+           ExposeMetaData<std::string>(thisDic, *keyIt, value);
+-          nrrd->axis[axi + baseDim].center = airEnumVal(nrrdCenter, value.c_str());
++          nrrd->axis[axi + numberOfPixelAxis_nrrd].center = airEnumVal(nrrdCenter, value.c_str());
+         }
+       }
+       field = airEnumStr(nrrdField, nrrdField_kinds);
+       if (!strncmp(keyField, field, strlen(field)))
+       {
+-        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + baseDim < nrrd->dim)
++        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + numberOfPixelAxis_nrrd < nrrd->dim)
+         {
+           std::string value;
+           ExposeMetaData<std::string>(thisDic, *keyIt, value);
+-          nrrd->axis[axi + baseDim].kind = airEnumVal(nrrdKind, value.c_str());
++          nrrd->axis[axi + numberOfPixelAxis_nrrd].kind = airEnumVal(nrrdKind, value.c_str());
+         }
+       }
+       field = airEnumStr(nrrdField, nrrdField_labels);
+       if (!strncmp(keyField, field, strlen(field)))
+       {
+-        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + baseDim < nrrd->dim)
++        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + numberOfPixelAxis_nrrd < nrrd->dim)
++        {
++          std::string value;
++          ExposeMetaData<std::string>(thisDic, *keyIt, value);
++          nrrd->axis[axi + numberOfPixelAxis_nrrd].label = airStrdup(value.c_str());
++        }
++      }
++      field = airEnumStr(nrrdField, nrrdField_units);
++      if (!strncmp(keyField, field, strlen(field)))
++      {
++        if (1 == sscanf(keyField + strlen(field), "[%u]", &axi) && axi + numberOfPixelAxis_nrrd < nrrd->dim)
+         {
+           std::string value;
+           ExposeMetaData<std::string>(thisDic, *keyIt, value);
+-          nrrd->axis[axi + baseDim].label = airStrdup(value.c_str());
++          nrrd->axis[axi + numberOfPixelAxis_nrrd].units = airStrdup(value.c_str());
+         }
+       }
+       field = airEnumStr(nrrdField, nrrdField_old_min);
+@@ -1108,7 +1312,7 @@ NrrdImageIO::Write(const void * buffer)
+   }
+   else
+   {
+-    Superclass::IOFileEnum fileType = this->GetFileType();
++    const typename Superclass::IOFileEnum fileType = this->GetFileType();
+     switch (fileType)
+     {
+       default:
+@@ -1123,7 +1327,7 @@ NrrdImageIO::Write(const void * buffer)
+   }
+ 
+   // set desired endianness of output
+-  Superclass::IOByteOrderEnum byteOrder = this->GetByteOrder();
++  const typename Superclass::IOByteOrderEnum byteOrder = this->GetByteOrder();
+   switch (byteOrder)
+   {
+     default:
+diff --git a/Modules/IO/NRRD/test/CMakeLists.txt b/Modules/IO/NRRD/test/CMakeLists.txt
+index 317ab1dd510..004e86d1ad7 100644
+--- a/Modules/IO/NRRD/test/CMakeLists.txt
++++ b/Modules/IO/NRRD/test/CMakeLists.txt
+@@ -1,19 +1,23 @@
+ itk_module_test()
+-set(ITKIONRRDTests
+-    itkNrrdImageIOTest.cxx
+-    itkNrrdComplexImageReadTest.cxx
+-    itkNrrdComplexImageReadWriteTest.cxx
+-    itkNrrdCovariantVectorImageReadTest.cxx
+-    itkNrrdCovariantVectorImageReadWriteTest.cxx
+-    itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDoubleTest.cxx
+-    itkNrrdDiffusionTensor3DImageReadTest.cxx
+-    itkNrrdDiffusionTensor3DImageReadWriteTest.cxx
+-    itkNrrdImageReadWriteTest.cxx
+-    itkNrrdRGBAImageReadWriteTest.cxx
+-    itkNrrdRGBImageReadWriteTest.cxx
+-    itkNrrdVectorImageReadTest.cxx
+-    itkNrrdVectorImageReadWriteTest.cxx
+-    itkNrrdMetaDataTest.cxx)
++set(
++  ITKIONRRDTests
++  itkNrrdImageIOTest.cxx
++  itkNrrdComplexImageReadTest.cxx
++  itkNrrdComplexImageReadWriteTest.cxx
++  itkNrrdCovariantVectorImageReadTest.cxx
++  itkNrrdCovariantVectorImageReadWriteTest.cxx
++  itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDoubleTest.cxx
++  itkNrrdDiffusionTensor3DImageReadTest.cxx
++  itkNrrdDiffusionTensor3DImageReadWriteTest.cxx
++  itkNrrdImageReadWriteTest.cxx
++  itkNrrdRGBAImageReadWriteTest.cxx
++  itkNrrdRGBImageReadWriteTest.cxx
++  itkNrrdVectorImageReadTest.cxx
++  itkNrrdVectorImageReadWriteTest.cxx
++  itkNrrdVectorImageUnitLabelReadTest.cxx
++  itkNrrd5dVectorImageReadWriteTest.cxx
++  itkNrrdMetaDataTest.cxx
++)
+ 
+ # For itkNrrdImageIOTest.h.
+ include_directories(${ITKIONRRD_SOURCE_DIR})
+@@ -21,307 +25,334 @@ include_directories(${ITKIONRRD_SOURCE_DIR})
+ createtestdriver(ITKIONRRD "${ITKIONRRD-Test_LIBRARIES}" "${ITKIONRRDTests}")
+ 
+ itk_add_test(
+-  NAME
+-  itkNrrdImageIOTest1
++  NAME itkNrrdImageIOTest1
+   COMMAND
+-  ITKIONRRDTestDriver
+-  --redirectOutput
+-  ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest1.txt
+-  itkNrrdImageIOTest
+-  ${ITK_TEST_OUTPUT_DIR}/testNrrd.nrrd)
+-set_tests_properties(itkNrrdImageIOTest1 PROPERTIES ATTACHED_FILES_ON_FAIL
+-                                                    ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest1.txt)
++    ITKIONRRDTestDriver
++    --redirectOutput
++    ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest1.txt
++    itkNrrdImageIOTest
++    ${ITK_TEST_OUTPUT_DIR}/testNrrd.nrrd
++)
++set_tests_properties(
++  itkNrrdImageIOTest1
++  PROPERTIES
++    ATTACHED_FILES_ON_FAIL
++      ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest1.txt
++)
+ 
+ itk_add_test(
+-  NAME
+-  itkNrrdImageIOTest2
++  NAME itkNrrdImageIOTest2
+   COMMAND
+-  ITKIONRRDTestDriver
+-  --redirectOutput
+-  ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest2.txt
+-  itkNrrdImageIOTest
+-  ${ITK_TEST_OUTPUT_DIR}/testNrrd.nhdr)
+-set_tests_properties(itkNrrdImageIOTest2 PROPERTIES ATTACHED_FILES_ON_FAIL
+-                                                    ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest2.txt)
++    ITKIONRRDTestDriver
++    --redirectOutput
++    ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest2.txt
++    itkNrrdImageIOTest
++    ${ITK_TEST_OUTPUT_DIR}/testNrrd.nhdr
++)
++set_tests_properties(
++  itkNrrdImageIOTest2
++  PROPERTIES
++    ATTACHED_FILES_ON_FAIL
++      ${ITK_TEST_OUTPUT_DIR}/itkNrrdImageIOTest2.txt
++)
+ 
+ itk_add_test(
+-  NAME
+-  itkNrrdComplexImageReadTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdComplexImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-complex-slow.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdComplexImageReadWriteTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-complex-fast.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-complex.nrrd
+-  itkNrrdComplexImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-complex-slow.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-complex.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdCovariantVectorImageReadTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdCovariantVectorImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-covector-fast.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdCovariantVectorImageReadWriteTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-covector.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-covector.nrrd
+-  itkNrrdCovariantVectorImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-covector-slow.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-covector.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDouble
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/small-tensors-double.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/small-tensors-double.nrrd
+-  itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDoubleTest
+-  DATA{${ITK_DATA_ROOT}/Input/small-tensors.nhdr,small-tensors.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/small-tensors-double.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadTest1
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdDiffusionTensor3DImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-ten-mask.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadTest2
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdDiffusionTensor3DImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-fast.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadTest3
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdDiffusionTensor3DImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-slow.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadWriteTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-ten.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-ten.nrrd
+-  itkNrrdDiffusionTensor3DImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-fast.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-ten.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdDiffusionTensor3DImageReadWriteTest4
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/small-tensors.nhdr,small-tensors.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/small-tensors.nhdr
+-  itkNrrdDiffusionTensor3DImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/small-tensors.nhdr}
+-  ${ITK_TEST_OUTPUT_DIR}/small-tensors.nhdr)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest1
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdImageReadWriteTest1.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/box.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/box.nhdr,box.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/box.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest2
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol2.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol2.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest3
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol3.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-raw-big.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol3.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest4
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol4.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-raw-little.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol4.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest5
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol5.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-gzip-big.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol5.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest6
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol6.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-gzip-little.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol6.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest7
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol7.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-ascii.nhdr,vol-ascii.ascii}
+-  ${ITK_TEST_OUTPUT_DIR}/vol7.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest8
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol8.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-raw-big.nhdr,vol-raw-big.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/vol8.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest9
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol9.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-raw-little.nhdr,vol-raw-little.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/vol9.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest10
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol10.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-gzip-big.nhdr,vol-gzip-big.raw.gz}
+-  ${ITK_TEST_OUTPUT_DIR}/vol10.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdImageReadWriteTest11
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/vol11.nrrd
+-  itkNrrdImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/vol-gzip-little.nhdr,vol-gzip-little.raw.gz}
+-  ${ITK_TEST_OUTPUT_DIR}/vol11.nrrd)
+-itk_add_test(
+-  NAME
+-  itkNrrdRGBAImageReadWriteTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBAImageReadWriteTest.png}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBAImageReadWriteTest.png
+-  itkNrrdRGBAImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/testrgba.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBAImageReadWriteTest.png)
+-itk_add_test(
+-  NAME
+-  itkNrrdRGBImageReadWriteTest0
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest0.png}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest0.png
+-  itkNrrdRGBImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/testrgb-0.nhdr,testrgb-0.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest0.png)
+-itk_add_test(
+-  NAME
+-  itkNrrdRGBImageReadWriteTest1
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest1.png}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest1.png
+-  itkNrrdRGBImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/testrgb-1.nhdr,testrgb-1.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest1.png)
+-itk_add_test(
+-  NAME
+-  itkNrrdRGBImageReadWriteTest2
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest2.png}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest2.png
+-  itkNrrdRGBImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/testrgb-2.nhdr,testrgb-2.raw}
+-  ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest2.png)
+-itk_add_test(
+-  NAME
+-  itkNrrdVectorImageReadTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdVectorImageReadTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-vector-fast.nrrd})
+-itk_add_test(
+-  NAME
+-  itkNrrdVectorImageReadWriteTest
+-  COMMAND
+-  ITKIONRRDTestDriver
+-  --compare
+-  DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-vector.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-vector.nrrd
+-  itkNrrdVectorImageReadWriteTest
+-  DATA{${ITK_DATA_ROOT}/Input/mini-vector-slow.nrrd}
+-  ${ITK_TEST_OUTPUT_DIR}/mini-vector.nrrd)
++  NAME itkNrrdComplexImageReadTest
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdComplexImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-complex-slow.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdComplexImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-complex-fast.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-complex.nrrd
++    itkNrrdComplexImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-complex-slow.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-complex.nrrd
++)
++itk_add_test(
++  NAME itkNrrdCovariantVectorImageReadTest
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdCovariantVectorImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-covector-fast.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdCovariantVectorImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-covector.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-covector.nrrd
++    itkNrrdCovariantVectorImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-covector-slow.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-covector.nrrd
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDouble
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/small-tensors-double.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/small-tensors-double.nrrd
++    itkNrrdDiffusionTensor3DImageReadTensorDoubleWriteTensorDoubleTest
++    DATA{${ITK_DATA_ROOT}/Input/small-tensors.nhdr,small-tensors.raw}
++    ${ITK_TEST_OUTPUT_DIR}/small-tensors-double.nrrd
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadTest1
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdDiffusionTensor3DImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-ten-mask.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadTest2
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdDiffusionTensor3DImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-fast.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadTest3
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdDiffusionTensor3DImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-slow.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-ten.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-ten.nrrd
++    itkNrrdDiffusionTensor3DImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-ten-nomask-fast.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-ten.nrrd
++)
++itk_add_test(
++  NAME itkNrrdDiffusionTensor3DImageReadWriteTest4
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/small-tensors.nhdr,small-tensors.raw}
++    ${ITK_TEST_OUTPUT_DIR}/small-tensors.nhdr
++    itkNrrdDiffusionTensor3DImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/small-tensors.nhdr}
++    ${ITK_TEST_OUTPUT_DIR}/small-tensors.nhdr
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest1
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdImageReadWriteTest1.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/box.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/box.nhdr,box.raw}
++    ${ITK_TEST_OUTPUT_DIR}/box.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest2
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol2.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol2.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest3
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol3.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-raw-big.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol3.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest4
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol4.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-raw-little.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol4.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest5
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol5.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-gzip-big.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol5.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest6
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol6.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-gzip-little.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol6.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest7
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol7.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-ascii.nhdr,vol-ascii.ascii}
++    ${ITK_TEST_OUTPUT_DIR}/vol7.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest8
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol8.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-raw-big.nhdr,vol-raw-big.raw}
++    ${ITK_TEST_OUTPUT_DIR}/vol8.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest9
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol9.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-raw-little.nhdr,vol-raw-little.raw}
++    ${ITK_TEST_OUTPUT_DIR}/vol9.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest10
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol10.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-gzip-big.nhdr,vol-gzip-big.raw.gz}
++    ${ITK_TEST_OUTPUT_DIR}/vol10.nrrd
++)
++itk_add_test(
++  NAME itkNrrdImageReadWriteTest11
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/vol-ascii.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/vol11.nrrd
++    itkNrrdImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/vol-gzip-little.nhdr,vol-gzip-little.raw.gz}
++    ${ITK_TEST_OUTPUT_DIR}/vol11.nrrd
++)
++itk_add_test(
++  NAME itkNrrdRGBAImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBAImageReadWriteTest.png}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBAImageReadWriteTest.png
++    itkNrrdRGBAImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/testrgba.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBAImageReadWriteTest.png
++)
++itk_add_test(
++  NAME itkNrrdRGBImageReadWriteTest0
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest0.png}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest0.png
++    itkNrrdRGBImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/testrgb-0.nhdr,testrgb-0.raw}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest0.png
++)
++itk_add_test(
++  NAME itkNrrdRGBImageReadWriteTest1
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest1.png}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest1.png
++    itkNrrdRGBImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/testrgb-1.nhdr,testrgb-1.raw}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest1.png
++)
++itk_add_test(
++  NAME itkNrrdRGBImageReadWriteTest2
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/NrrdRGBImageReadWriteTest2.png}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest2.png
++    itkNrrdRGBImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/testrgb-2.nhdr,testrgb-2.raw}
++    ${ITK_TEST_OUTPUT_DIR}/NrrdRGBImageReadWriteTest2.png
++)
++itk_add_test(
++  NAME itkNrrdVectorImageReadTest
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdVectorImageReadTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-vector-fast.nrrd}
++)
++itk_add_test(
++  NAME itkNrrdVectorImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    --compare
++    DATA{${ITK_DATA_ROOT}/Baseline/IO/mini-vector.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-vector.nrrd
++    itkNrrdVectorImageReadWriteTest
++    DATA{${ITK_DATA_ROOT}/Input/mini-vector-slow.nrrd}
++    ${ITK_TEST_OUTPUT_DIR}/mini-vector.nrrd
++)
++itk_add_test(
++  NAME itkNrrdVectorImageUnitLabelReadTest
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrdVectorImageUnitLabelReadTest
++    DATA{${ITK_DATA_ROOT}/Input/CTCardioCropped.seq.nrrd}
++)
++itk_add_test(
++  NAME itkNrrd5dVectorImageReadWriteTest
++  COMMAND
++    ITKIONRRDTestDriver
++    itkNrrd5dVectorImageReadWriteTest
++    ${ITK_TEST_OUTPUT_DIR}/2d-double.seq.nrrd
++    ${ITK_TEST_OUTPUT_DIR}/3d-double.seq.nrrd
++    ${ITK_TEST_OUTPUT_DIR}/2d-displacement-field-vector.seq.nrrd
++    ${ITK_TEST_OUTPUT_DIR}/3d-displacement-field-vector.seq.nrrd
++    ${ITK_TEST_OUTPUT_DIR}/2d-rgb-color-image-vector.seq.nrrd
++    ${ITK_TEST_OUTPUT_DIR}/3d-rgba-color-image-vector.seq.nrrd
++)
+ 
+ itk_add_test(
+-  NAME
+-  itkNrrdMetaDataTest
++  NAME itkNrrdMetaDataTest
+   COMMAND
+-  ITKIONRRDTestDriver
+-  itkNrrdMetaDataTest
+-  ${ITK_TEST_OUTPUT_DIR})
++    ITKIONRRDTestDriver
++    itkNrrdMetaDataTest
++    ${ITK_TEST_OUTPUT_DIR}
++)
+diff --git a/Modules/IO/NRRD/test/itkNrrd5dVectorImageReadWriteTest.cxx b/Modules/IO/NRRD/test/itkNrrd5dVectorImageReadWriteTest.cxx
+new file mode 100644
+index 00000000000..e5c2e7791f2
+--- /dev/null
++++ b/Modules/IO/NRRD/test/itkNrrd5dVectorImageReadWriteTest.cxx
+@@ -0,0 +1,643 @@
++/*=========================================================================
++ *
++ *  Copyright NumFOCUS
++ *
++ *  Licensed under the Apache License, Version 2.0 (the "License");
++ *  you may not use this file except in compliance with the License.
++ *  You may obtain a copy of the License at
++ *
++ *         https://www.apache.org/licenses/LICENSE-2.0.txt
++ *
++ *  Unless required by applicable law or agreed to in writing, software
++ *  distributed under the License is distributed on an "AS IS" BASIS,
++ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *  See the License for the specific language governing permissions and
++ *  limitations under the License.
++ *
++ *=========================================================================*/
++
++#include <fstream>
++#include "itkExtractImageFilter.h"
++#include "itkImageDuplicator.h"
++#include "itkImageFileReader.h"
++#include "itkImageFileWriter.h"
++#include "itkJoinSeriesImageFilter.h"
++#include "itkNrrdImageIO.h"
++#include "itkPermuteAxesImageFilter.h"
++#include "itkTestingMacros.h"
++
++// Test writing of time-varying displacement field into NRRD file.
++
++// Generate a sequence of 2D or 3D displacement field images
++template <class ImageType>
++void
++GenerateImageSequence(int numberOfTimePoints, std::vector<typename ImageType::Pointer> & imageList)
++{
++  typename ImageType::SizeType      size;
++  typename ImageType::IndexType     start;
++  typename ImageType::RegionType    region;
++  typename ImageType::DirectionType inDirection; // 3x3 matrix
++  typename ImageType::PointType     inOrigin;    // 3D vector
++  typename ImageType::SpacingType   inSpacing;   // 3D vector
++  // Region
++  size[0] = 8;
++  size[1] = 12;
++  if (ImageType::SizeType::Dimension > 2)
++  {
++    size[2] = 10;
++  }
++  start.Fill(0);
++  region.SetSize(size);
++  region.SetIndex(start);
++  // Origin
++  inOrigin[0] = 10.0;
++  inOrigin[1] = 20.0;
++  if (ImageType::PointType::Dimension > 2)
++  {
++    inOrigin[2] = 15.0;
++  }
++  // Direction (matrix indices: column, row)
++  inDirection[0][0] = 0.94;
++  inDirection[0][1] = 0.24;
++  inDirection[1][0] = -0.10;
++  inDirection[1][1] = 0.87;
++  if (ImageType::DirectionType::RowDimensions > 2)
++  {
++    inDirection[0][2] = -0.24;
++    inDirection[1][2] = 0.49;
++    inDirection[2][0] = 0.33;
++    inDirection[2][1] = -0.43;
++    inDirection[2][2] = 0.84;
++  }
++  // Spacing
++  inSpacing[0] = 1.2;
++  inSpacing[1] = 2.3;
++  if (ImageType::SpacingType::Dimension > 2)
++  {
++    inSpacing[2] = 4.1;
++  }
++  for (int timePoint = 0; timePoint < numberOfTimePoints; ++timePoint)
++  {
++    typename ImageType::Pointer image = ImageType::New();
++    image->SetRegions(region);
++    image->Allocate();
++
++    // Fill each image with a different constant value for testing
++    image->FillBuffer(typename ImageType::PixelType(timePoint * 2));
++
++    // Set common geometry
++    image->SetOrigin(inOrigin);
++    image->SetDirection(inDirection);
++    image->SetSpacing(inSpacing);
++    // Add to list
++    imageList.push_back(image);
++  }
++}
++
++//----------------------------------------------------------------------------
++template <class PixelType, int SpaceDimension>
++void
++WriteImageSequenceFile(std::string                                                            filename,
++                       std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> & imageList,
++                       bool                                                                   listAxisFastest = false)
++{
++  typedef itk::Image<PixelType, SpaceDimension>     ImageType;
++  typedef itk::Image<PixelType, SpaceDimension + 1> ImageSequenceType;
++
++  typedef itk::JoinSeriesImageFilter<ImageType, ImageSequenceType> JoinImageFilterType;
++  typename JoinImageFilterType::Pointer                            joinImageFilter = JoinImageFilterType::New();
++  for (auto image : imageList)
++  {
++    joinImageFilter->PushBackInput(image);
++  }
++
++  typename ImageSequenceType::Pointer joinedImage;
++  unsigned int                        listAxis;
++  if (!listAxisFastest)
++  {
++    // axis order: 0 1 2 3
++    listAxis = SpaceDimension;
++    joinImageFilter->Update();
++    joinedImage = joinImageFilter->GetOutput();
++  }
++  else
++  {
++    // axis order: 3 0 1 2
++
++    joinImageFilter->Update();
++    joinedImage = joinImageFilter->GetOutput();
++
++    listAxis = 0;
++    using PermuteFilterType = itk::PermuteAxesImageFilter<ImageSequenceType>;
++    typename PermuteFilterType::Pointer permuteFilter = PermuteFilterType::New();
++    permuteFilter->SetInput(joinImageFilter->GetOutput());
++
++    // Define new axis order: e.g., swap axis 0 and 2 (X <-> Z)
++    constexpr unsigned int                                ImageSequenceDimension = SpaceDimension + 1;
++    itk::FixedArray<unsigned int, ImageSequenceDimension> order;
++    order[0] = SpaceDimension;
++    for (unsigned int i = 1; i < ImageSequenceDimension; ++i)
++    {
++      order[i] = i - 1;
++    }
++    permuteFilter->SetOrder(order);
++    permuteFilter->Update();
++
++    joinedImage = permuteFilter->GetOutput();
++
++    // Permute filter does not reorder the origin, so we need to do it manually
++    typename ImageSequenceType::PointType oldOrigin = joinedImage->GetOrigin();
++    typename ImageSequenceType::PointType newOrigin;
++    for (unsigned int i = 0; i < ImageSequenceDimension; ++i)
++    {
++      newOrigin[i] = oldOrigin[order[i]];
++    }
++    joinedImage->SetOrigin(newOrigin);
++  }
++
++  // Save additional metadata into NRRD header that is needed for correct image interpretation
++  itk::MetaDataDictionary & dictionary = joinedImage->GetMetaDataDictionary();
++
++  // NRRD axis 0 kind is set from pixel type (covariant-vector)
++  // NRRD axis 1, 2, 3 are spatial, no need to modify them
++  // NRRD axis 4 (ITK axis 3) must be set to "list" (setting to time or domain would assign direction and then no
++  // per-axis unit could be specified)
++  std::string listAxisStr = std::to_string(listAxis); // 3 for 5D image (sequence of 3D displacement fields), 2 for
++                                                      // 4D image (sequence of 2D displacement fields)
++  itk::EncapsulateMetaData<std::string>(dictionary, "NRRD_kinds[" + listAxisStr + "]", "list");
++  // NRRD axis 4 (ITK axis 3) is set to time to indicate this is a time sequence
++  itk::EncapsulateMetaData<std::string>(dictionary, "NRRD_labels[" + listAxisStr + "]", "time");
++  // NRRD axis 4 (ITK axis 3) is set to seconds (unit of spatial axes can be set in NRRD "space units" tag)
++  itk::EncapsulateMetaData<std::string>(dictionary, "NRRD_units[" + listAxisStr + "]", "s");
++
++  // Set intent code indicating this is a displacement field (comes from Nifti heritage as a de facto standard)
++  itk::EncapsulateMetaData<std::string>(
++    dictionary, "intent_code", "1006"); // 1006 NIFTI_INTENT_DISPVECT (Displacement field)
++
++  // Write to file
++  typedef itk::ImageFileWriter<ImageSequenceType> ImageWriterType;
++  typename ImageWriterType::Pointer               writer = ImageWriterType::New();
++  writer->SetImageIO(itk::NrrdImageIO::New());
++  writer->SetInput(joinedImage);
++  writer->SetFileName(filename);
++  writer->Update();
++}
++
++//----------------------------------------------------------------------------
++void
++CheckImageSequenceFileHeader(std::string  filename,
++                             unsigned int SpaceDimension,
++                             unsigned int expectedDimensionInFile,
++                             std::string  expectedPixelType,
++                             unsigned int expectedComponents,
++                             bool         useNonListExtensionAsPixel)
++{
++  // Create an NRRD image IO object
++  using ImageIOType = itk::NrrdImageIO;
++  ImageIOType::Pointer imageIO = ImageIOType::New();
++  if (useNonListExtensionAsPixel)
++  {
++    imageIO->SetAxesReorderToUseNonListRangeAxisAsPixel();
++  }
++
++  // Read metadata
++  if (!imageIO->CanReadFile(filename.c_str()))
++  {
++    throw itk::InvalidArgumentError("Cannot read file: " + filename);
++  }
++  imageIO->SetFileName(filename);
++  imageIO->ReadImageInformation(); // Read only the header information
++
++  // Read the relevant header information
++  itk::MetaDataDictionary  thisDic = imageIO->GetMetaDataDictionary();
++  std::vector<std::string> keys = thisDic.GetKeys();
++
++  std::cout << "---------------------------------------------------------" << std::endl;
++  std::cout << "Checking NRRD file: " << filename << std::endl;
++  std::cout << "Metadata: " << std::endl;
++  for (const std::string & key : keys)
++  {
++    // Print all key/value pairs from metadata dictionary for debugging
++    std::string value;
++    itk::ExposeMetaData<std::string>(thisDic, key, value);
++    std::cout << "  " << key << "=" << value << std::endl;
++  }
++
++  std::cout << "Image information:" << std::endl;
++  unsigned int dimensionInFile = imageIO->GetNumberOfDimensions();
++  std::cout << "  Dimensions: " << dimensionInFile << std::endl;
++  if (dimensionInFile != expectedDimensionInFile)
++  {
++    throw itk::InvalidArgumentError("Unexpected number of dimensions in NRRD file: " + std::to_string(dimensionInFile) +
++                                    " != " + std::to_string(expectedDimensionInFile));
++  }
++  for (unsigned int i = 0; i < expectedDimensionInFile; ++i)
++  {
++    std::cout << "  Size of dimension " << i << ": " << imageIO->GetDimensions(i) << std::endl;
++  }
++  std::cout << "  Pixel Type: " << imageIO->GetPixelTypeAsString(imageIO->GetPixelType()) << std::endl;
++  std::cout << "  Component Type: " << imageIO->GetComponentTypeAsString(imageIO->GetComponentType()) << std::endl;
++
++  std::string listAxis;
++  if (dimensionInFile == SpaceDimension)
++  {
++    // list dimension is pixel components
++    listAxis = "pixel";
++  }
++  else
++  {
++    // list dimension is after space dimension
++    listAxis = std::to_string(SpaceDimension);
++
++    // check axis kind
++    std::string listAxisKind;
++    itk::ExposeMetaData<std::string>(thisDic, "NRRD_kinds[" + listAxis + "]", listAxisKind);
++    std::cout << "  NRRD axis " << listAxis << " kind: " << listAxisKind << std::endl;
++    if (listAxisKind != "list")
++    {
++      throw itk::InvalidArgumentError("Unexpected NRRD axis kind for axis " + listAxis + ": " + listAxisKind +
++                                      " != list");
++    }
++  }
++
++  std::string listAxisLabel;
++  itk::ExposeMetaData<std::string>(thisDic, "NRRD_labels[" + listAxis + "]", listAxisLabel);
++  std::string listAxisUnit;
++  itk::ExposeMetaData<std::string>(thisDic, "NRRD_units[" + listAxis + "]", listAxisUnit);
++  std::cout << "  NRRD axis " << listAxis << " label: " << listAxisLabel << std::endl;
++  std::cout << "  NRRD axis " << listAxis << " unit: " << listAxisUnit << std::endl;
++
++  if (listAxisLabel != "time")
++  {
++    throw itk::InvalidArgumentError("Unexpected NRRD axis label for axis " + listAxis + ": " + listAxisLabel +
++                                    " != time");
++  }
++  if (listAxisUnit != "s")
++  {
++    throw itk::InvalidArgumentError("Unexpected NRRD axis unit for axis " + listAxis + ": " + listAxisUnit + " != s");
++  }
++  if (imageIO->GetPixelTypeAsString(imageIO->GetPixelType()) != expectedPixelType)
++  {
++    throw itk::InvalidArgumentError(
++      "Unexpected pixel type in NRRD file: " + imageIO->GetPixelTypeAsString(imageIO->GetPixelType()) +
++      " != " + expectedPixelType);
++  }
++  if (imageIO->GetNumberOfComponents() != expectedComponents)
++  {
++    throw itk::InvalidArgumentError(
++      "Unexpected number of components in NRRD file: " + std::to_string(imageIO->GetNumberOfComponents()) +
++      " != " + std::to_string(expectedComponents));
++  }
++}
++
++//----------------------------------------------------------------------------
++template <class PixelType, int SpaceDimension>
++void
++ReadImageSequenceFile(std::string                                                            filename,
++                      std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> & imageList)
++{
++  constexpr unsigned int ImageSequenceDimension = SpaceDimension + 1;
++  using ImageSequenceType = itk::Image<PixelType, ImageSequenceDimension>;
++  using ImageType = itk::Image<PixelType, SpaceDimension>;
++
++  // Read image from file
++  using ReaderType = itk::ImageFileReader<ImageSequenceType>;
++  typename ReaderType::Pointer reader = ReaderType::New();
++  reader->SetFileName(filename);
++  reader->Update();
++  typename ImageSequenceType::ConstPointer image = reader->GetOutput();
++
++  // Extract frames from image
++  using ExtractImageFilterType = itk::ExtractImageFilter<ImageSequenceType, ImageType>;
++  typename ExtractImageFilterType::Pointer extractImageFilter = ExtractImageFilterType::New();
++  extractImageFilter->SetInput(image);
++
++  // Set up extraction region
++  typename ImageSequenceType::RegionType fullRegion = image->GetLargestPossibleRegion();
++  typename ImageSequenceType::SizeType   extractionSize = fullRegion.GetSize();
++  const int                              listDimIdx = SpaceDimension;
++  int                                    numberOfTimePoints = extractionSize[listDimIdx];
++  // Collapse sequence dimension when extracting frame
++  extractionSize[listDimIdx] = 0;
++
++  // Get image frames into list
++  imageList.clear();
++  for (int timePoint = 0; timePoint < numberOfTimePoints; ++timePoint)
++  {
++    typename ImageSequenceType::RegionType extractionRegion;
++    typename ImageSequenceType::IndexType  extractionIndex = extractionRegion.GetIndex();
++    extractionIndex[listDimIdx] = timePoint;
++    extractionRegion.SetIndex(extractionIndex);
++    extractionRegion.SetSize(extractionSize);
++    extractImageFilter->SetDirectionCollapseToSubmatrix();
++    extractImageFilter->SetExtractionRegion(extractionRegion);
++    extractImageFilter->Update();
++    // Deep-copy the frame
++    {
++      using DuplicatorType = itk::ImageDuplicator<ImageType>;
++      typename DuplicatorType::Pointer duplicator = DuplicatorType::New();
++      duplicator->SetInputImage(extractImageFilter->GetOutput());
++      duplicator->Update();
++      imageList.push_back(duplicator->GetOutput());
++    }
++  }
++}
++
++//----------------------------------------------------------------------------
++template <class PixelType, int SpaceDimension>
++void
++ReadImageFile(std::string filename, typename itk::VectorImage<PixelType, SpaceDimension>::Pointer & image)
++{
++  using ImageType = itk::VectorImage<PixelType, SpaceDimension>;
++  using ReaderType = itk::ImageFileReader<ImageType>;
++  typename ReaderType::Pointer reader = ReaderType::New();
++  reader->SetFileName(filename);
++  reader->Update();
++  image = reader->GetOutput();
++}
++
++//----------------------------------------------------------------------------
++int
++itkNrrd5dVectorImageReadWriteTest(int argc, char * argv[])
++{
++  if (argc < 7)
++  {
++    std::cerr << "Usage: " << argc << itkNameOfTestExecutableMacro(argv)
++              << " 2d-double-vector.seq.nrrd 3d-double-vector.seq.nrrd"
++              << " 2d-displacement-field-vector.seq.nrrd 3d-displacement-field-vector.seq.nrrd"
++              << " 2d-color-image-vector.seq.nrrd 3d-color-image-vector.seq.nrrd\n";
++    return EXIT_FAILURE;
++  }
++
++  // In the first two tests pixel type is scalar.
++  // We test if we can read and write an image sequence with the list axis as the slowest axis and fastest axis.
++
++  bool useNonListExtensionAsPixel = true;
++
++  // 2D scalar image sequence, written and read with list as the slowest axis
++  {
++    const char *                                  filename = argv[1];
++    constexpr int                                 SpaceDimension = 2;
++    const std::string                             expectedPixelType = "scalar";
++    typedef double                                PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, 1, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // 3D scalar image sequence, written and read with list as the slowest axis
++  {
++    const char *                                  filename = argv[2];
++    constexpr int                                 SpaceDimension = 3;
++    const std::string                             expectedPixelType = "scalar";
++    typedef double                                PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, 1, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // 3D scalar image sequence, written with list as the fastest axis, read with list as the slowest axis
++  {
++    const char *                                  filename = argv[2];
++    constexpr int                                 SpaceDimension = 3;
++    const std::string                             expectedPixelType = "scalar";
++    typedef double                                PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++    const int                                     numberOfTimePoints = 20;
++
++    GenerateImageSequence<ImageType>(numberOfTimePoints, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite, true);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, 1, useNonListExtensionAsPixel);
++
++    // Read image from file into a single image with vector pixel type
++    typedef itk::VectorImage<double, SpaceDimension> ImageTypeToRead;
++    ImageTypeToRead::Pointer                         imageRead;
++    ReadImageFile<double, SpaceDimension>(filename, imageRead);
++    if (imageRead->GetNumberOfComponentsPerPixel() != numberOfTimePoints)
++    {
++      std::cerr << "Error reading image with vector pixel type, expected " << numberOfTimePoints << " components, got "
++                << imageRead->GetNumberOfComponentsPerPixel() << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  // Read list axis as fastest axis (default axis mapping strategy)
++  useNonListExtensionAsPixel = false;
++
++  // 2D scalar image sequence, written and read with list as the fastest axis
++  {
++    const char *                                         filename = argv[1];
++    constexpr int                                        SpaceDimension = 2;
++    const std::string                                    expectedPixelType = "vector";
++    const int                                            numberOfTimePoints = 20;
++    typedef double                                       PixelTypeToWrite;
++    typedef itk::Image<PixelTypeToWrite, SpaceDimension> ImageTypeToWrite;
++    std::vector<ImageTypeToWrite::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageTypeToWrite>(numberOfTimePoints, imageListToWrite);
++    WriteImageSequenceFile<PixelTypeToWrite, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension, expectedPixelType, numberOfTimePoints, useNonListExtensionAsPixel);
++
++    // Read image from file into a single image with vector pixel type
++    typedef itk::VectorImage<double, SpaceDimension> ImageTypeToRead;
++    ImageTypeToRead::Pointer                         imageRead;
++    ReadImageFile<double, SpaceDimension>(filename, imageRead);
++    if (imageRead->GetNumberOfComponentsPerPixel() != numberOfTimePoints)
++    {
++      std::cerr << "Error reading image with vector pixel type, expected " << numberOfTimePoints << " components, got "
++                << imageRead->GetNumberOfComponentsPerPixel() << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  // 3D scalar image sequence, written and read with list as the fastest axis
++  {
++    const char *                                         filename = argv[2];
++    constexpr int                                        SpaceDimension = 3;
++    const std::string                                    expectedPixelType = "vector";
++    const int                                            numberOfTimePoints = 20;
++    typedef double                                       PixelTypeToWrite;
++    typedef itk::Image<PixelTypeToWrite, SpaceDimension> ImageTypeToWrite;
++    std::vector<ImageTypeToWrite::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageTypeToWrite>(numberOfTimePoints, imageListToWrite);
++    WriteImageSequenceFile<PixelTypeToWrite, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension, expectedPixelType, numberOfTimePoints, useNonListExtensionAsPixel);
++
++    // Read image from file into a single image with vector pixel type
++    typedef itk::VectorImage<double, SpaceDimension> ImageTypeToRead;
++    ImageTypeToRead::Pointer                         imageRead;
++    ReadImageFile<double, SpaceDimension>(filename, imageRead);
++    if (imageRead->GetNumberOfComponentsPerPixel() != numberOfTimePoints)
++    {
++      std::cerr << "Error reading image with vector pixel type, expected " << numberOfTimePoints << " components, got "
++                << imageRead->GetNumberOfComponentsPerPixel() << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  // 3D scalar image time sequence, written time as the fastest axis, read with time as slowest axis
++  {
++    const char *                                         filename = argv[2];
++    constexpr int                                        SpaceDimension = 3;
++    const std::string                                    expectedPixelType = "vector";
++    const int                                            numberOfTimePoints = 20;
++    typedef double                                       PixelTypeToWrite;
++    typedef itk::Image<PixelTypeToWrite, SpaceDimension> ImageTypeToWrite;
++    std::vector<ImageTypeToWrite::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageTypeToWrite>(numberOfTimePoints, imageListToWrite);
++    WriteImageSequenceFile<PixelTypeToWrite, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension, expectedPixelType, numberOfTimePoints, useNonListExtensionAsPixel);
++
++    // Read image from file into a single image with vector pixel type
++    typedef itk::VectorImage<double, SpaceDimension> ImageTypeToRead;
++    ImageTypeToRead::Pointer                         imageRead;
++    ReadImageFile<double, SpaceDimension>(filename, imageRead);
++    if (imageRead->GetNumberOfComponentsPerPixel() != numberOfTimePoints)
++    {
++      std::cerr << "Error reading image with vector pixel type, expected " << numberOfTimePoints << " components, got "
++                << imageRead->GetNumberOfComponentsPerPixel() << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  // 2D gradient field sequence
++  {
++    const char *                                         filename = argv[3];
++    constexpr int                                        SpaceDimension = 2;
++    const std::string                                    expectedPixelType = "covariant_vector";
++    typedef itk::CovariantVector<double, SpaceDimension> PixelType;
++    typedef itk::Image<PixelType, SpaceDimension>        ImageType;
++    std::vector<ImageType::Pointer>                      imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, SpaceDimension, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // 3D displacement field sequence
++  {
++    const char *                                  filename = argv[4];
++    constexpr int                                 SpaceDimension = 3;
++    const std::string                             expectedPixelType = "vector";
++    typedef itk::Vector<double, SpaceDimension>   PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, SpaceDimension, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // 2D color image (RGB) sequence
++  {
++    const char *                                  filename = argv[5];
++    constexpr int                                 SpaceDimension = 2;
++    const std::string                             expectedPixelType = "rgb";
++    const unsigned int                            expectedComponents = 3; // RGB has 3 components
++    typedef itk::RGBPixel<double>                 PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, expectedComponents, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // 3D color image (RGBA) sequence
++  {
++    const char *                                  filename = argv[6];
++    constexpr int                                 SpaceDimension = 3;
++    const std::string                             expectedPixelType = "rgba";
++    const unsigned int                            expectedComponents = 4; // RGBA has 4 components
++    typedef itk::RGBAPixel<double>                PixelType;
++    typedef itk::Image<PixelType, SpaceDimension> ImageType;
++    std::vector<ImageType::Pointer>               imageListToWrite;
++
++    GenerateImageSequence<ImageType>(20, imageListToWrite);
++    WriteImageSequenceFile<PixelType, SpaceDimension>(filename, imageListToWrite);
++    CheckImageSequenceFileHeader(
++      filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, expectedComponents, useNonListExtensionAsPixel);
++    std::vector<typename itk::Image<PixelType, SpaceDimension>::Pointer> imageListRead;
++    ReadImageSequenceFile<PixelType, SpaceDimension>(filename, imageListRead);
++  }
++
++  // Cross-checks (make sure incorrect files cannot be read)
++
++  // 2D displacement field can be distinguished from 3D
++  {
++    const char *      filename = argv[3];
++    constexpr int     SpaceDimension = 3;
++    const std::string expectedPixelType = "covariant_vector";
++
++    bool expectedErrorCaught = false;
++    try
++    {
++      CheckImageSequenceFileHeader(
++        filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, SpaceDimension, useNonListExtensionAsPixel);
++    }
++    catch (itk::InvalidArgumentError & e)
++    {
++      std::cout << "Caught expected error: " << e.what() << std::endl;
++      expectedErrorCaught = true;
++    }
++    if (!expectedErrorCaught)
++    {
++      std::cerr << "Expected error not caught when checking reading 2D displacement field as 3D image." << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  // RGB color can be distinguished from displacement field
++  {
++    const char *      filename = argv[3];
++    constexpr int     SpaceDimension = 3;
++    const std::string expectedPixelType = "rgb";
++
++    bool expectedErrorCaught = false;
++    try
++    {
++      CheckImageSequenceFileHeader(
++        filename, SpaceDimension, SpaceDimension + 1, expectedPixelType, 3, useNonListExtensionAsPixel);
++    }
++    catch (itk::InvalidArgumentError & e)
++    {
++      std::cout << "Caught expected error: " << e.what() << std::endl;
++      expectedErrorCaught = true;
++    }
++    if (!expectedErrorCaught)
++    {
++      std::cerr << "Expected error not caught when checking reading 2D displacement field as 3D image." << std::endl;
++      return EXIT_FAILURE;
++    }
++  }
++
++  return EXIT_SUCCESS;
++}
+diff --git a/Modules/IO/NRRD/test/itkNrrdVectorImageUnitLabelReadTest.cxx b/Modules/IO/NRRD/test/itkNrrdVectorImageUnitLabelReadTest.cxx
+new file mode 100644
+index 00000000000..ff155b67d53
+--- /dev/null
++++ b/Modules/IO/NRRD/test/itkNrrdVectorImageUnitLabelReadTest.cxx
+@@ -0,0 +1,148 @@
++/*=========================================================================
++ *
++ *  Copyright NumFOCUS
++ *
++ *  Licensed under the Apache License, Version 2.0 (the "License");
++ *  you may not use this file except in compliance with the License.
++ *  You may obtain a copy of the License at
++ *
++ *         https://www.apache.org/licenses/LICENSE-2.0.txt
++ *
++ *  Unless required by applicable law or agreed to in writing, software
++ *  distributed under the License is distributed on an "AS IS" BASIS,
++ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ *  See the License for the specific language governing permissions and
++ *  limitations under the License.
++ *
++ *=========================================================================*/
++
++#include <fstream>
++#include "itkImageFileReader.h"
++#include "itkNrrdImageIO.h"
++#include "itkTestingMacros.h"
++
++// Specific ImageIO test
++
++namespace
++{
++
++template <typename T>
++void
++checkField(itk::MetaDataDictionary & metadata, const std::string & key, const T & expectedValue)
++{
++  T value;
++  if (!itk::ExposeMetaData<T>(metadata, key, value))
++  {
++    std::cerr << "Metadata test failed: '" << key << "' is not found" << std::endl;
++    exit(EXIT_FAILURE);
++  }
++  if (value != expectedValue)
++  {
++    std::cerr << "Metadata test failed: '" << key << "' value is expected to be '" << expectedValue << "', got '"
++              << value << "' instead" << std::endl;
++    exit(EXIT_FAILURE);
++  }
++}
++
++} // namespace
++
++int
++itkNrrdVectorImageUnitLabelReadTest(int argc, char * argv[])
++{
++  if (argc < 1)
++  {
++    std::cerr << "Usage: " << itkNameOfTestExecutableMacro(argv) << " Input\n";
++    return EXIT_FAILURE;
++  }
++
++  const char * filename = argv[1];
++
++  // Create an NRRD image IO object
++  using ImageIOType = itk::NrrdImageIO;
++  ImageIOType::Pointer imageIO = ImageIOType::New();
++
++  // Read metadata
++  if (!imageIO->CanReadFile(filename))
++  {
++    std::cerr << "Cannot read file: " << filename << std::endl;
++    return EXIT_FAILURE;
++  }
++  imageIO->SetFileName(filename);
++  imageIO->ReadImageInformation(); // Read only the header information
++
++  // Read the relevant header information
++  itk::MetaDataDictionary  thisDic = imageIO->GetMetaDataDictionary();
++  std::vector<std::string> keys = thisDic.GetKeys();
++
++  std::cout << "Metadata: " << std::endl;
++  for (const std::string & key : keys)
++  {
++    // Print all key/value pairs from metadata dictionary for debugging
++    if (key == "NRRD_pixel_original_axis")
++    {
++      int value{ -1 };
++      itk::ExposeMetaData<int>(thisDic, key, value);
++      std::cout << "  " << key << "=" << value << std::endl;
++    }
++    else if (key == "NRRD_measurement frame")
++    {
++      std::vector<std::vector<double>> value;
++      itk::ExposeMetaData<std::vector<std::vector<double>>>(thisDic, key, value);
++      std::cout << "  " << key << "=";
++      for (size_t i = 0; i < value.size(); ++i)
++      {
++        std::cout << "(";
++        for (size_t j = 0; j < value[i].size(); ++j)
++        {
++          std::cout << value[i][j] << (j < value[i].size() - 1 ? "," : "");
++        }
++        std::cout << ")";
++      }
++      std::cout << std::endl;
++    }
++    else
++    {
++      std::string value;
++      itk::ExposeMetaData<std::string>(thisDic, key, value);
++      std::cout << "  " << key << "=" << value << std::endl;
++    }
++  }
++
++  std::string pixelType = imageIO->GetPixelTypeAsString(imageIO->GetPixelType());
++  std::cout << "Pixel type: " << pixelType << std::endl;
++  if (pixelType != "vector")
++  {
++    std::cerr << "Metadata test failed: pixel type is expected to be 'vector', got '" << pixelType << "' instead"
++              << std::endl;
++    exit(EXIT_FAILURE);
++  }
++
++  // General test of axis types
++  checkField<std::string>(thisDic, "NRRD_kinds[0]", "domain");
++  checkField<std::string>(thisDic, "NRRD_kinds[1]", "domain");
++  checkField<std::string>(thisDic, "NRRD_kinds[2]", "domain");
++
++  // Main goal of this test: check that label and units information is available for the pixel component
++  checkField<std::string>(thisDic, "NRRD_labels[pixel]", "time");
++  checkField<std::string>(thisDic, "NRRD_units[pixel]", "s");
++
++  checkField<int>(thisDic, "NRRD_pixel_original_axis", 0);
++
++  /* std::string key = "NRRD_original_component_axis";
++  int value{ -1 };
++  const int expectedValue = 0; // The expected value for the original component axis
++  itk::ExposeMetaData<int>(thisDic, key, value);
++  if (value != expectedValue)
++  {
++    std::cerr << "Metadata test failed: '" << key << "' value is expected to be '" << expectedValue << "', got '"
++              << value << "' instead" << std::endl;
++    exit(EXIT_FAILURE);
++  }
++  */
++
++  // Test that additional metadata stored in the NRRD file is added to the metadata dictionary
++  checkField<std::string>(thisDic, "axis 0 index type", "numeric");
++  checkField<std::string>(thisDic, "axis 0 index values", "0.0 0.09 0.18 0.27 0.36 0.45 0.54 0.63 0.72 0.8");
++
++  return EXIT_SUCCESS;
++}
+diff --git a/Modules/IO/NRRD/wrapping/itkNrrdImageIO.wrap b/Modules/IO/NRRD/wrapping/itkNrrdImageIO.wrap
+index 9fbe7c4a209..e341aec64e7 100644
+--- a/Modules/IO/NRRD/wrapping/itkNrrdImageIO.wrap
++++ b/Modules/IO/NRRD/wrapping/itkNrrdImageIO.wrap
+@@ -1,2 +1,7 @@
++set(WRAPPER_AUTO_INCLUDE_HEADERS OFF)
++itk_wrap_include("itkNrrdImageIO.h")
++itk_wrap_include("itkNrrdImageIOFactory.h")
++
++itk_wrap_simple_class("itk::NrrdImageIOEnums")
+ itk_wrap_simple_class("itk::NrrdImageIO" POINTER)
+ itk_wrap_simple_class("itk::NrrdImageIOFactory" POINTER)
+diff --git a/Testing/Data/Input/CTCardioCropped.seq.nrrd.cid b/Testing/Data/Input/CTCardioCropped.seq.nrrd.cid
+new file mode 100644
+index 00000000000..8014994ac91
+--- /dev/null
++++ b/Testing/Data/Input/CTCardioCropped.seq.nrrd.cid
+@@ -0,0 +1 @@
++bafkreiczdu4gg7sl6o4oocjd7qqa5rzr4rnumkp5odbl5gqtyatd3nsjo4

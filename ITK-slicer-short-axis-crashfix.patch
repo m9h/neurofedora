@@ -1,0 +1,36 @@
+From f97ef5d40292abb5faec3a195730209682f6f890 Mon Sep 17 00:00:00 2001
+From: Andras Lasso <lasso@queensu.ca>
+Date: Wed, 30 Jul 2025 11:57:07 +0200
+Subject: [PATCH] [backport] BUG: Fix image file reader crash when axis
+ direction vector is short
+
+The image file reader crashed when an IO class stored additional non-spatial (such as time) dimension in the image array
+and provided axis direction vectors that covered only the spatial axes.
+The previous implementation crashed (due to vector out of bounds access), while the current implementation augments the
+direction matrix with unit direction vectors for additional axes.
+
+Cherry-picked commit from https://github.com/InsightSoftwareConsortium/ITK/commit/a0cf385e3c71814b3a9f3d509b2549c0d9bd63f8
+---
+ Modules/IO/ImageBase/include/itkImageFileReader.hxx | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Modules/IO/ImageBase/include/itkImageFileReader.hxx b/Modules/IO/ImageBase/include/itkImageFileReader.hxx
+index f690a457e98..6a3eeda5de1 100644
+--- a/Modules/IO/ImageBase/include/itkImageFileReader.hxx
++++ b/Modules/IO/ImageBase/include/itkImageFileReader.hxx
+@@ -181,13 +181,13 @@ ImageFileReader<TOutputImage, ConvertPixelTraits>::GenerateOutputInformation()
+       axis = directionIO[i];
+       for (unsigned int j = 0; j < TOutputImage::ImageDimension; ++j)
+       {
+-        if (j < numberOfDimensionsIO)
++        if (j < numberOfDimensionsIO && j < axis.size())
+         {
+           direction[j][i] = axis[j];
+         }
+         else
+         {
+-          direction[j][i] = 0.0;
++          direction[j][i] = (i == j ? 1.0 : 0.0);
+         }
+       }
+     }

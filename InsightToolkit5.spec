@@ -6,7 +6,7 @@
 
 Name:           InsightToolkit5
 Version:        5.4.6
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v5
 
 License:        Apache-2.0
@@ -40,6 +40,18 @@ Source7:        https://github.com/InsightSoftwareConsortium/itkMGHImageIO/archi
 # (pinned commit from ITK 5.4.6's IOScanco.remote.cmake)
 %global ioscanco_commit 10b80f69048e79ab3069e89635822a6851099278
 Source8:        https://github.com/KitwareMedical/ITKIOScanco/archive/%{ioscanco_commit}/ITKIOScanco-10b80f69.tar.gz
+
+# 3D Slicer builds against a curated ITK fork (Slicer/ITK @ slicer-v5.4.6) that
+# is pristine upstream v5.4.6 plus 5 cherry-picked, already-upstream commits.
+# Slicer's vtkITKImageSequenceReader requires the NrrdImageIO AxesReorder / 5D
+# NRRD I/O API, which landed in ITK master (-> ITK 6) but not the frozen 5.4.x
+# line. Both patches are additive backports of accepted-upstream ITK commits,
+# scoped to the NRRD I/O and ImageFileReader modules; they do not change ABI for
+# existing consumers (NrrdImageIO is only ever used via New()/SmartPointer).
+# Patch0: cherry-pick of InsightSoftwareConsortium/ITK@10389fb0 (5D NRRD).
+Patch0:         ITK-slicer-5d-nrrd-io.patch
+# Patch1: ImageFileReader crash fix for short axis direction vectors.
+Patch1:         ITK-slicer-short-axis-crashfix.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch: %{ix86}
@@ -330,6 +342,17 @@ fi
 %{_datadir}/%{name}/examples/
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-6
+- Backport two accepted-upstream ITK commits that 3D Slicer's curated
+  Slicer/ITK fork carries (the full fork is pristine v5.4.6 + only 5 such
+  patches). Patch0: 5D NRRD I/O / NrrdImageIO AxesReorder
+  (cherry-pick of InsightSoftwareConsortium/ITK@10389fb0), required by
+  Slicer's vtkITKImageSequenceReader which fails to compile without the
+  itk::NrrdImageIOEnums::AxesReorder enum and Set/GetAxesReorder API.
+  Patch1: ImageFileReader crash fix for short axis direction vectors. Both
+  are additive and scoped to NRRD/ImageBase; no ABI change for existing
+  consumers (NrrdImageIO is only used via New()/SmartPointer).
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.4.6-5
 - Enable Module_ITKIODCMTK. Built-in but EXCLUDE_FROM_DEFAULT in ITK
   5.4. Surfaced by 3dslicer-9 retry after MGHIO/IOScanco were resolved.
