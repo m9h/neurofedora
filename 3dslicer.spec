@@ -37,7 +37,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        20%{?dist}
+Release:        21%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -83,9 +83,12 @@ BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  qt6-qttools-devel
 
 # COPR deps
-BuildRequires:  InsightToolkit6-devel >= 6.0.0~b02
-# ITK6 bundles ITKVtkGlue into the main -devel package (no separate
-# -vtk-devel subpackage like ITK5 had).
+# Slicer's SuperBuild (External_ITK.cmake) pins the Slicer/ITK fork tag
+# slicer-v5.4.6-2026-04-20 and does find_package(ITK 5.1 REQUIRED). Our
+# InsightToolkit5 (5.4.6) carries the MGHIO/IOScanco remote modules Slicer
+# needs. ITK6 was a wrong turn (no itkNamespace.h gain; HDF5/MGHIO regressions).
+BuildRequires:  InsightToolkit5-devel >= 5.4.6
+BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  ctk-devel
 BuildRequires:  vtkAddon-devel
@@ -277,7 +280,7 @@ EOF
     -DSlicer_USE_SYSTEM_python_SimpleITK:BOOL=ON \
     \
     `# Find_package paths` \
-    -DITK_DIR:PATH=%{_libdir}/cmake/ITK-6.0 \
+    -DITK_DIR:PATH=%{_libdir}/cmake/ITK-5.4 \
     -DVTK_DIR:PATH=%{_libdir}/cmake/vtk \
     -DCTK_DIR:PATH=%{_libdir}/cmake/CTK \
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
@@ -383,6 +386,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-21
+- Revert to InsightToolkit5 (ITK_DIR=ITK-5.4). Confirmed from upstream
+  SuperBuild/External_ITK.cmake @208adb86 that Slicer pins the Slicer/ITK
+  fork tag slicer-v5.4.6-2026-04-20 and does find_package(ITK 5.1 REQUIRED) —
+  upstream is NOT on ITK6. The -18 ITK6 switch was a wrong turn: it gained
+  nothing on itkNamespace.h (absent in both ITK5 and ITK6, stubbed either
+  way) and regressed configure with an HDF5 imported-target collision and a
+  missing MGHIO module. ITK5 (5.4.6, carries MGHIO/IOScanco) configured
+  cleanly and was already compiling at -17. Re-add InsightToolkit5-vtk-devel
+  BR for ITKVtkGlue headers.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-20
 - Add cli11-devel BR. VTK 9.6's cmake config now calls
   find_package(CLI11) — surfaced by 3dslicer-19 since the ITK6 switch
