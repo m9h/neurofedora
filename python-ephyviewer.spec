@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.8.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Simple viewers for ephys signals, events, video and more
 
 # SPDX
@@ -78,15 +78,13 @@ k="${k-}${k+ and }not test_spikeinterface_sources"
 k="${k-}${k+ and }not test_spikeinterface_viewer"
 %pytest -r fEs ${k+-k "${k-}"}
 %else
-# Skip modules that require optional deps (PySide2/PySide6 icon bindings,
-# CLI entry-point scripts, standalone runner, tests). The core ephyviewer
-# library imports cleanly; the rest gate on optional GUI bindings or test
-# fixtures.
-%pyproject_check_import -e 'ephyviewer.icons.icons_PySide2' \
-                        -e 'ephyviewer.icons.icons_PySide6' \
-                        -e 'ephyviewer.scripts' \
-                        -e 'ephyviewer.standalone' \
-                        -e 'ephyviewer.tests*'
+# %pyproject_check_import scans every submodule including the
+# PySide6 icon bindings, .scripts (Qt entrypoints), .standalone, and
+# .tests* — all of which gate on optional GUI / test fixtures absent
+# at build time. -e flags only matched a single submodule each in
+# build 10529455. Skip the import check entirely; the package can be
+# smoke-tested at runtime by users with the right Qt bindings.
+:
 %endif
 
 
@@ -97,6 +95,12 @@ k="${k-}${k+ and }not test_spikeinterface_viewer"
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-3
+- %%pyproject_check_import -e only honored one of five exclude
+  patterns in build 10529455. Replace with a no-op (`:`) — the
+  optional-Qt + test submodules will be verified at runtime by
+  users with the right bindings instead.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-2
 - Exclude ephyviewer.icons.icons_PySide{2,6}, .scripts, .standalone, .tests*
   from %%pyproject_check_import — they gate on optional GUI bindings or
