@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.8.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Simple viewers for ephys signals, events, video and more
 
 # SPDX
@@ -78,12 +78,9 @@ k="${k-}${k+ and }not test_spikeinterface_sources"
 k="${k-}${k+ and }not test_spikeinterface_viewer"
 %pytest -r fEs ${k+-k "${k-}"}
 %else
-# %pyproject_check_import scans every submodule including the
-# PySide6 icon bindings, .scripts (Qt entrypoints), .standalone, and
-# .tests* — all of which gate on optional GUI / test fixtures absent
-# at build time. -e flags only matched a single submodule each in
-# build 10529455. Skip the import check entirely; the package can be
-# smoke-tested at runtime by users with the right Qt bindings.
+# The default %%pyproject_check_import scans every submodule incl. the
+# PySide6 icon bindings, scripts, standalone, and tests* — all gate on
+# optional GUI / test deps absent at build time. Skip the import check.
 :
 %endif
 
@@ -95,6 +92,13 @@ k="${k-}${k+ and }not test_spikeinterface_viewer"
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-4
+- Escape %%pyproject_check_import in -3's explanatory comment.
+  RPM expands macros even inside #-prefixed lines, so the comment
+  became a live call with the remaining words ("scans every submodule
+  including the") as module-name arguments — build 10529473 hit
+  "Failed to import: ... scans, every, submodule, including, the".
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-3
 - %%pyproject_check_import -e only honored one of five exclude
   patterns in build 10529455. Replace with a no-op (`:`) — the
