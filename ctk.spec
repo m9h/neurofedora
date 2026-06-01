@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.11.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -26,6 +26,9 @@ Patch0:         ctk-qttesting-01-enable-qt6.patch
 Patch1:         ctk-qttesting-02-guard-xmlpatterns-source.patch
 Patch2:         ctk-qttesting-03-detect-target-name.patch
 Patch3:         ctk-qttesting-04-guard-xmlpatterns-link.patch
+# Qt6 made QInputEvent::operator= protected, so QMouseEvent value members are
+# non-assignable; convert them to std::optional<QMouseEvent> with .emplace().
+Patch4:         ctk-qttesting-05-qmouseevent-optional.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -293,6 +296,11 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.11.20260126gitfd37b874
+- Add 5th cherry-pick (upstream 43225929): convert ctkVTKRenderViewEventTranslator
+  QMouseEvent value members to std::optional, since Qt6 made QInputEvent::operator=
+  protected. Fixes the -0.10 FTBFS at the CTKVisualizationVTKWidgets compile.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.10.20260126gitfd37b874
 - Enable CTK_USE_QTTESTING=ON against the new Qt6 qttesting COPR package
   (4 cherry-picks isolate the removed QtXmlPatterns dependency to Qt5 paths
