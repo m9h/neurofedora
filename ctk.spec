@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.11.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.12.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -215,6 +215,10 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DCTK_ENABLE_Widgets=ON \
     -DCTK_ENABLE_PluginFramework=OFF \
     -DCTK_LIB_Visualization/VTK/Widgets=ON \
+    `# ctkVTKChartView + transfer-function/volume-property/scalars-to-colors` \
+    `# widgets are gated behind this (default OFF). 3D Slicer's qMRMLPlotView` \
+    `# and qMRMLVolumePropertyNodeWidget link them, so enable it.` \
+    -DCTK_LIB_Visualization/VTK/Widgets_USE_TRANSFER_FUNCTION_CHARTS:BOOL=ON \
     -DCTK_LIB_ImageProcessing/ITK/Core=ON \
     -DCTK_LIB_Scripting/Python/Core=ON \
     -DCTK_LIB_Scripting/Python/Widgets=ON \
@@ -296,6 +300,12 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.12.20260126gitfd37b874
+- Enable CTK_LIB_Visualization/VTK/Widgets_USE_TRANSFER_FUNCTION_CHARTS so
+  libCTKVisualizationVTKWidgets exports ctkVTKChartView and the volume-property
+  / scalars-to-colors widgets. 3D Slicer's qMRMLPlotView links these; without
+  them the Slicer qMRMLWidgets link fails with undefined ctkVTKChartView refs.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.11.20260126gitfd37b874
 - Add 5th cherry-pick (upstream 43225929): convert ctkVTKRenderViewEventTranslator
   QMouseEvent value members to std::optional, since Qt6 made QInputEvent::operator=
