@@ -32,12 +32,18 @@
 # to several GB. Disable.
 %define debug_package %{nil}
 
-# Slicer's build is huge; use up to 8 jobs concurrently (matching freesurfer).
-%global _smp_mflags -j8
+# Disable LTO. Fedora's default -flto=auto -ffat-lto-objects roughly doubles
+# C++ compile time (fat objects build both a normal .o and LTO bytecode) and
+# makes every one of Slicer's ~150 CLI executable links do a slow, memory-heavy
+# LTO pass. With -j8 + LTO the build only reached ~705/2843 steps before COPR's
+# 5h builder timeout (10528880, 10529439). LTO off ~halves compile time and
+# slashes link memory, which also lets us drop the -j8 cap and use all builder
+# CPUs (the cap existed only to contain LTO memory pressure).
+%global _lto_cflags %{nil}
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        26%{?dist}
+Release:        27%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -393,6 +399,15 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-27
+- Disable LTO (%%global _lto_cflags %%{nil}) and drop the -j8 cap. -26 proved the
+  ITK backport works (compiled cleanly past the AxesReorder wall) but hit COPR's
+  5h builder timeout at only ~705/2843 steps: Fedora's default fat-LTO doubles
+  compile work and makes each of Slicer's ~150 CLI links a slow memory-heavy LTO
+  pass. LTO off ~halves compile time and removes the memory pressure the -j8 cap
+  was containing, so we now use all builder CPUs. Build submitted with raised
+  --timeout for margin.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-26
 - Rebuild against InsightToolkit5 5.4.6-7, which now carries the Slicer/ITK-fork
   backport patches (5D NRRD / NrrdImageIO AxesReorder API). This unblocks the
