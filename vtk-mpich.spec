@@ -28,7 +28,7 @@
 # is built by SPECS/vtk.spec (already shipping 9.6.2-5 in this COPR).
 Name:           vtk-mpich
 Version:        9.6.2
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        VTK 9.6 - mpich parallel runtime
 
 License:        BSD-3-Clause
@@ -188,6 +188,9 @@ do
       -DVTK_MODULE_ENABLE_VTK_cli11:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_IOGDAL:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_AcceleratorsVTKmFilters:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
       -DVTK_MODULE_USE_EXTERNAL_VTK_hdf5:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_vtkhdf5:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_VTK_freetype:BOOL=OFF \
@@ -271,6 +274,14 @@ done
 %{_libdir}/mpich/bin/vtkWrapSerDes
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-3
+- Bump Release past the old vtk-mpi-9.6.2-2 leftover binary subpackages.
+  paraview-6.1.1-8 build 10529609 pulled vtk-mpich-devel-9.6.2-2.fc44
+  (from the timed-out vtk-mpi-4 attempt) instead of the new
+  9.6.2-1 because 9.6.2-2 > 9.6.2-1 in rpm version comparison.
+  All the cli11 / IOGDAL / AcceleratorsVTKmFilters targets ARE in
+  9.6.2-1 RPMs but dnf prefers the higher-Release older build.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-1
 - Split from vtk-mpi.spec (mpich-only variant). Building both mpich
   + openmpi sequentially overran COPR's 5h timeout; vtk-mpi-9.6.2-4
