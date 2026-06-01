@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        28%{?dist}
+Release:        29%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -105,7 +105,9 @@ BuildRequires:  qt6-qttools-devel
 BuildRequires:  InsightToolkit5-devel >= 5.4.6-7
 BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtk-devel >= 9.6
-BuildRequires:  ctk-devel
+# 0.12 enables CTK transfer-function charts (ctkVTKChartView) that
+# Slicer's qMRMLPlotView links against.
+BuildRequires:  ctk-devel >= 2026.01.26-0.12
 BuildRequires:  vtkAddon-devel
 BuildRequires:  qRestAPI-devel
 BuildRequires:  python-pythonqt-devel
@@ -409,6 +411,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-29
+- Functional baseline rebuild against ctk 0.12. The -28 build advanced past the
+  Python 3.14 / QtTesting fixes to step 938/2843, then failed linking
+  libqMRMLWidgets.so with undefined ctkVTKChartView references. ctk 0.12 now
+  exports those (transfer-function charts), so just bump and rebuild; QtTesting
+  stays OFF until this functional baseline lands.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-28
 - LTO-off build (-27) ran 6.7h (raised --timeout worked) and got past the prior
   timeout wall to step ~831/2843, surfacing two real compile errors, both fixed:
