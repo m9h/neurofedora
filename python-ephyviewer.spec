@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.8.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Simple viewers for ephys signals, events, video and more
 
 # SPDX
@@ -78,7 +78,15 @@ k="${k-}${k+ and }not test_spikeinterface_sources"
 k="${k-}${k+ and }not test_spikeinterface_viewer"
 %pytest -r fEs ${k+-k "${k-}"}
 %else
-%pyproject_check_import
+# Skip modules that require optional deps (PySide2/PySide6 icon bindings,
+# CLI entry-point scripts, standalone runner, tests). The core ephyviewer
+# library imports cleanly; the rest gate on optional GUI bindings or test
+# fixtures.
+%pyproject_check_import -e 'ephyviewer.icons.icons_PySide2' \
+                        -e 'ephyviewer.icons.icons_PySide6' \
+                        -e 'ephyviewer.scripts' \
+                        -e 'ephyviewer.standalone' \
+                        -e 'ephyviewer.tests*'
 %endif
 
 
@@ -89,5 +97,11 @@ k="${k-}${k+ and }not test_spikeinterface_viewer"
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-2
+- Exclude ephyviewer.icons.icons_PySide{2,6}, .scripts, .standalone, .tests*
+  from %%pyproject_check_import — they gate on optional GUI bindings or
+  test fixtures not present at build time. Build 10529354 failed at
+  %%check importing those modules.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-1
 - Update to 1.8.0 (adopted from Fedora dist-git python-ephyviewer 1.7.0; PR-185 + PR-188 patches now upstream)
