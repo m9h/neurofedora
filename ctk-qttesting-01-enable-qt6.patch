@@ -1,0 +1,32 @@
+From b9ea642ed6e7aa2df84107fbcf48447cb727ee5c Mon Sep 17 00:00:00 2001
+From: "Hans J. Johnson" <hans-johnson@uiowa.edu>
+Date: Sat, 28 Mar 2026 09:05:24 -0500
+Subject: [PATCH] ENH: Allow CTK_USE_QTTESTING=ON with Qt 6 builds
+
+Remove the block that forced CTK_USE_QTTESTING=OFF when building with
+Qt 6. The QtXmlPatterns dependency that prevented Qt 6 support has been
+isolated to ctkXMLEventSource (addressed separately), so CTK_USE_QTTESTING
+can now be enabled for Qt 6 users.
+---
+ CMakeLists.txt | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index eb845115e6..10b94f3c19 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -344,14 +344,6 @@ endif()
+ #
+ option(CTK_USE_QTTESTING "Enable/Disable QtTesting" OFF)
+ mark_as_advanced(CTK_USE_QTTESTING)
+-if(NOT CTK_QT_VERSION VERSION_EQUAL "5")
+-  # Forcing to OFF as "QtTesting" depends on XmlPatterns Qt component not available with Qt 6
+-  if(DEFINED CTK_USE_QTTESTING AND CTK_USE_QTTESTING)
+-    unset(CTK_USE_QTTESTING CACHE)
+-    set(CTK_USE_QTTESTING OFF)
+-    message(WARNING "Forcing option [CTK_USE_QTTESTING] to OFF as QtTesting depends on XmlPatterns Qt component not available with Qt ${CTK_QT_VERSION}")
+-  endif()
+-endif()
+ mark_as_superbuild(CTK_USE_QTTESTING)
+ 
+ #-----------------------------------------------------------------------------

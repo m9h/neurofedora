@@ -1,0 +1,31 @@
+From 90839a951a2c787b28e536f5737bb4ee99973063 Mon Sep 17 00:00:00 2001
+From: "Hans J. Johnson" <hans-johnson@uiowa.edu>
+Date: Sat, 28 Mar 2026 09:40:41 -0500
+Subject: [PATCH] COMP: Guard Qt5::XmlPatterns link dependency for Qt 6 builds
+
+Qt 6 removed the XmlPatterns module. Guard the Qt5::XmlPatterns
+target_link_libraries entry so it is only added for Qt 5 builds.
+ctkXMLEventSource already guards its XmlPatterns usage at the source level.
+
+Changes suggested by AI coding agent
+---
+ Libs/QtTesting/CMakeLists.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Libs/QtTesting/CMakeLists.txt b/Libs/QtTesting/CMakeLists.txt
+index 431bcae284..af3ec83d16 100644
+--- a/Libs/QtTesting/CMakeLists.txt
++++ b/Libs/QtTesting/CMakeLists.txt
+@@ -147,8 +147,11 @@ ctkFunctionGetTargetLibraries(KIT_target_libraries)
+ 
+ list(APPEND KIT_target_libraries
+   Qt${CTK_QT_VERSION}::Xml
+-  Qt${CTK_QT_VERSION}::XmlPatterns
+   )
++if(CTK_QT_VERSION VERSION_LESS "6")
++  # QtXmlPatterns is Qt 5 only; ctkXMLEventSource guards its usage accordingly
++  list(APPEND KIT_target_libraries Qt5::XmlPatterns)
++endif()
+ 
+ ctkMacroBuildLib(
+   NAME ${PROJECT_NAME}

@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -17,6 +17,15 @@ Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/IT
 License:        Apache-2.0
 URL:            https://commontk.org/
 Source0:        https://github.com/commontk/CTK/archive/%{commit}/CTK-%{shortcommit}.tar.gz
+
+# Qt6 port of CTK_USE_QTTESTING (cherry-picks, Hans Johnson, 2026-03-28):
+# isolate the removed QtXmlPatterns dependency to Qt5-only paths and detect the
+# new lowercase "qttesting" external target name, so CTK_USE_QTTESTING can be
+# enabled against the Qt6 qttesting package (unblocks 3D Slicer GUI tests).
+Patch0:         ctk-qttesting-01-enable-qt6.patch
+Patch1:         ctk-qttesting-02-guard-xmlpatterns-source.patch
+Patch2:         ctk-qttesting-03-detect-target-name.patch
+Patch3:         ctk-qttesting-04-guard-xmlpatterns-link.patch
 
 # https://fedoraproject.org/wiki/Changes/EncourageI686LeafRemoval
 ExcludeArch:    %{ix86}
@@ -88,6 +97,9 @@ BuildRequires:  libpq-devel
 # ITK5 (COPR)
 BuildRequires:  InsightToolkit5-devel
 
+# QtTesting (COPR) — external Qt6 record/replay lib for CTK_USE_QTTESTING=ON
+BuildRequires:  qttesting-devel
+
 %global _description %{expand:
 The Common Toolkit is a community effort to provide support code for medical
 image analysis, surgical navigation, and related projects. This build uses
@@ -158,7 +170,7 @@ Requires:       InsightToolkit5-devel
 This package contains development files for building applications with CTK.
 
 %prep
-%autosetup -n CTK-%{commit}
+%autosetup -p1 -n CTK-%{commit}
 
 # Change EOL encoding
 tr -d '\r' < README.md > README
@@ -210,7 +222,8 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DCTK_USE_SYSTEM_ITK=ON \
     -DCTK_USE_SYSTEM_DCMTK=ON \
     -DCTK_BUILD_QTDESIGNER_PLUGINS=ON \
-    -DCTK_USE_QTTESTING=OFF \
+    -DCTK_USE_QTTESTING=ON \
+    -DQtTesting_DIR=%{_libdir}/cmake/qttesting \
     -DITK_DIR=%{_prefix}/lib/cmake/ITK-5.4
 
 %cmake_build
@@ -247,6 +260,7 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 
 %files widgets
 %{_libdir}/libCTKWidgets.so.%{soname_version}{,.*}
+%{_libdir}/libCTKQtTesting.so.%{soname_version}{,.*}
 
 %files dicom
 %{_libdir}/libCTKDICOMCore.so.%{soname_version}{,.*}
@@ -269,6 +283,7 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_includedir}/ctk-%{soname_version}/
 %{_libdir}/libCTKCore.so
 %{_libdir}/libCTKWidgets.so
+%{_libdir}/libCTKQtTesting.so
 %{_libdir}/libCTKDICOMCore.so
 %{_libdir}/libCTKDICOMWidgets.so
 %{_libdir}/libCTKVisualizationVTK*.so
@@ -278,6 +293,12 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.10.20260126gitfd37b874
+- Enable CTK_USE_QTTESTING=ON against the new Qt6 qttesting COPR package
+  (4 cherry-picks isolate the removed QtXmlPatterns dependency to Qt5 paths
+  and detect the lowercase "qttesting" external target name). Builds
+  libCTKQtTesting.so, which unblocks the 3D Slicer GUI record/replay tests.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.9.20260126gitfd37b874
 - Inject find_dependency(DCMTK) and find_dependency(ITK 5.4) at the
   top of CTKConfig.cmake. CTK's upstream Config doesn't auto-load its

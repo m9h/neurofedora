@@ -1,0 +1,49 @@
+From 9cf942bc1f4ecb4405012da3f184dc9bc2959e25 Mon Sep 17 00:00:00 2001
+From: "Hans J. Johnson" <hans-johnson@uiowa.edu>
+Date: Sat, 28 Mar 2026 09:05:29 -0500
+Subject: [PATCH] COMP: Guard ctkXMLEventSource XmlPatterns usage for Qt 6
+
+QXmlSchema and QXmlSchemaValidator are from the QtXmlPatterns module
+which does not exist in Qt 6. Guard their includes and usage behind
+\#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0). The rest of the file
+(QXmlStreamReader) is already Qt 6 compatible.
+---
+ Libs/QtTesting/ctkXMLEventSource.cpp | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/Libs/QtTesting/ctkXMLEventSource.cpp b/Libs/QtTesting/ctkXMLEventSource.cpp
+index b153f77bb6..f1a69eeab6 100644
+--- a/Libs/QtTesting/ctkXMLEventSource.cpp
++++ b/Libs/QtTesting/ctkXMLEventSource.cpp
+@@ -25,8 +25,10 @@
+ #include <QFile>
+ #include <QMap>
+ #include <QMessageBox>
+-#include <QtXmlPatterns/QXmlSchema>
+-#include <QtXmlPatterns/QXmlSchemaValidator>
++#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
++# include <QtXmlPatterns/QXmlSchema>
++# include <QtXmlPatterns/QXmlSchemaValidator>
++#endif
+ #include <QVariant>
+ 
+ // CTKQtTesting includes
+@@ -78,7 +80,9 @@ void ctkXMLEventSource::setContent(const QString& xmlfilename)
+     return;
+   }
+ 
+-  // Check if the xml file is valid
++#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
++  // Check if the xml file is valid (Qt5 only — QXmlSchema/QXmlSchemaValidator
++  // are from QtXmlPatterns which is not available in Qt 6)
+   QXmlSchema xmlSchema;
+   if (!xmlSchema.load(QUrl::fromLocalFile(":/XML/XMLDescription.xsd")) ||
+       !xmlSchema.isValid())
+@@ -93,6 +97,7 @@ void ctkXMLEventSource::setContent(const QString& xmlfilename)
+     qCritical() << xmlfilename << "invalid xml file for qtTesting !";
+     return;
+   }
++#endif
+ 
+   xml.reset();
+   QByteArray data = xml.readAll();
