@@ -1,0 +1,77 @@
+--- a/Base/QTCore/qSlicerCoreApplication.cxx	2026-06-01 07:39:45.784775260 -0700
++++ b/Base/QTCore/qSlicerCoreApplication.cxx	2026-06-01 07:40:00.202077240 -0700
+@@ -1299,53 +1299,39 @@
+       pythonArgv[i + 1] = QStringToPythonWCharPointer(scriptArgs.at(i));
+     }
+ 
+-    PyConfig config;
+-    PyConfig_InitPythonConfig(&config);
+-
+-    // Retrieve a copy of the current interpreter configuration.
+-    // This allows us to update the argv without reinitializing Python.
+-    if (_PyInterpreterState_GetConfigCopy(&config) < 0)
++    // The interpreter is already running (initialized by PythonQt), so the only
++    // thing this block needs to update is sys.argv. The private interpreter-config
++    // round-trip (_PyInterpreterState_GetConfigCopy / _PyInterpreterState_SetConfig)
++    // was removed from the public CPython API in Python 3.13+, and its only purpose
++    // here was to refresh argv while preserving the runtime-augmented sys.path.
++    // Setting sys.argv directly via the stable public API achieves the same result
++    // and leaves sys.path (already augmented at runtime) untouched, so savedSysPath
++    // no longer needs to be re-applied.
++    Q_UNUSED(savedSysPath);
++    PyObject* argvList = PyList_New(pythonArgc);
++    if (!argvList)
+     {
+-      PyConfig_Clear(&config);
+       PyErr_Print();
+       qSlicerCoreApplication::terminate(EXIT_FAILURE);
+     }
+-
+-    // Preserve runtime-augmented sys.path in the config itself.
+-    // Set module_search_paths_set=1 BEFORE PyConfig_SetArgv so argv changes
+-    // won't trigger a path recompute that drops Slicer inserts.
+-    ClearWideStringList(&config.module_search_paths);
+-    config.module_search_paths_set = 1;
+-
+-    for (const QString& path : savedSysPath)
++    for (int i = 0; i < pythonArgc; ++i)
+     {
+-      const std::wstring w = path.toStdWString();
+-      PyStatus status = PyWideStringList_Append(&config.module_search_paths, w.c_str());
+-      if (PyStatus_Exception(status))
++      PyObject* arg = PyUnicode_FromWideChar(pythonArgv[i], -1);
++      if (!arg)
+       {
+-        PyConfig_Clear(&config);
+-        Py_ExitStatusException(status);
++        Py_DECREF(argvList);
++        PyErr_Print();
++        qSlicerCoreApplication::terminate(EXIT_FAILURE);
+       }
++      PyList_SET_ITEM(argvList, i, arg); // steals reference to 'arg'
+     }
+-
+-    // Apply updated command-line arguments to the interpreter.
+-    PyStatus status = PyConfig_SetArgv(&config, pythonArgc, pythonArgv);
+-    if (PyStatus_Exception(status))
+-    {
+-      PyConfig_Clear(&config);
+-      Py_ExitStatusException(status);
+-    }
+-
+-    // Apply the updated config back to the running interpreter (This call *replaces*
+-    // sys.path from the config's module_search_paths)
+-    if (_PyInterpreterState_SetConfig(&config) < 0)
++    if (PySys_SetObject("argv", argvList) != 0)
+     {
+-      PyConfig_Clear(&config);
++      Py_DECREF(argvList);
+       PyErr_Print();
+       qSlicerCoreApplication::terminate(EXIT_FAILURE);
+     }
+-
+-    PyConfig_Clear(&config);
++    Py_DECREF(argvList);
+ 
+     // Set 'sys.executable' so that Slicer can be used as a "regular" python interpreter
+     this->corePythonManager()->executeString(

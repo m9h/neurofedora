@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        27%{?dist}
+Release:        28%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -52,6 +52,13 @@ Source0:        https://github.com/Slicer/Slicer/archive/%{slicer_commit}/Slicer
 
 # Profile environment hook (sets $Slicer_HOME, prepends bin to PATH)
 Source1:        slicer.sh
+
+# Python 3.14 (F44/rawhide) removed the private _PyInterpreterState_GetConfigCopy
+# / _PyInterpreterState_SetConfig functions that qSlicerCoreApplication used to
+# refresh sys.argv after PythonQt init. Replace that round-trip with a direct
+# PySys_SetObject("argv", ...) using only stable public C-API. Upstream Slicer's
+# superbuild still ships Python 3.9, so it never hit this.
+Patch0:         slicer-python314-interpreter-config.patch
 
 # Build infrastructure
 BuildRequires:  cmake >= 3.20.6
@@ -338,7 +345,10 @@ EOF
     -DSlicer_USE_SimpleITK:BOOL=ON \
     -DSlicer_USE_CTKAPPLAUNCHER:BOOL=ON \
     -DSlicer_USE_TBB:BOOL=ON \
-    -DSlicer_USE_QtTesting:BOOL=ON \
+    `# QtTesting (Kitware GUI record/replay) is not packaged on Fedora and its` \
+    `# qMRML*EventPlayer/EventTranslator sources need pqWidgetEventPlayer.h.` \
+    `# BUILD_TESTING is OFF anyway, so disable it.` \
+    -DSlicer_USE_QtTesting:BOOL=OFF \
     -DSlicer_BUILD_CLI:BOOL=ON \
     -DSlicer_BUILD_QTLOADABLEMODULES:BOOL=ON \
     -DSlicer_BUILD_QTSCRIPTEDMODULES:BOOL=ON \
@@ -399,6 +409,19 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-28
+- LTO-off build (-27) ran 6.7h (raised --timeout worked) and got past the prior
+  timeout wall to step ~831/2843, surfacing two real compile errors, both fixed:
+- Disable Slicer_USE_QtTesting: the qMRML*EventPlayer/EventTranslator sources
+  need Kitware QtTesting's pqWidgetEventPlayer.h, which is not packaged on Fedora.
+  BUILD_TESTING is already OFF, so the GUI record/replay feature is dispensable.
+- Patch0 (slicer-python314-interpreter-config.patch): Python 3.14 on F44/rawhide
+  removed the private _PyInterpreterState_GetConfigCopy / _PyInterpreterState_-
+  SetConfig API that qSlicerCoreApplication used to refresh sys.argv post-PythonQt
+  init. Replace with a direct PySys_SetObject("argv", ...) via stable public
+  C-API; sys.path is left as-is (already runtime-augmented). Upstream Slicer's
+  superbuild ships Python 3.9 so never hit this.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-27
 - Disable LTO (%%global _lto_cflags %%{nil}) and drop the -j8 cap. -26 proved the
   ITK backport works (compiled cleanly past the AxesReorder wall) but hit COPR's
