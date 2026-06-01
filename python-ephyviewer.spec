@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.8.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Simple viewers for ephys signals, events, video and more
 
 # SPDX
@@ -52,7 +52,9 @@ sed -i \
 
 
 %generate_buildrequires
-%pyproject_buildrequires -x tests
+# Upstream extra is named 'test' (singular) per pyproject.toml.
+# Rawhide rejects the wrong name; F44 had been lenient.
+%pyproject_buildrequires -x test
 
 
 %build
@@ -92,6 +94,14 @@ k="${k-}${k+ and }not test_spikeinterface_viewer"
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-5
+- Fix rawhide-only failure: %%pyproject_buildrequires -x tests
+  (plural) is wrong; upstream extra is 'test' (singular per
+  pyproject.toml). F44 was lenient about the missing extra,
+  rawhide rejects with "Extra tests does not exist in upstream
+  metadata. Available extras: ['test', 'docs']". F44 succeeded
+  in build 10529475; this is just to make rawhide green.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-4
 - Escape %%pyproject_check_import in -3's explanatory comment.
   RPM expands macros even inside #-prefixed lines, so the comment
