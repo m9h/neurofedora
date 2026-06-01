@@ -419,7 +419,8 @@ do
   # win over PARAVIEW_USE_PYTHON=ON in the main options block.
   %cmake -Wno-dev %{paraview_cmake_mpi_options} \
          -DPARAVIEW_USE_PYTHON:BOOL=OFF \
-         -DPARAVIEW_ENABLE_WEB:BOOL=OFF
+         -DPARAVIEW_ENABLE_WEB:BOOL=OFF \
+         -DPARAVIEW_USE_QT:BOOL=OFF
   module purge
 done
 
@@ -563,6 +564,15 @@ fi
 
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-9
+- Add PARAVIEW_USE_QT=OFF to MPI cmake options. Build 10530394 surfaced
+  yet another required VTK module (VTK::GUISupportQt) which only exists
+  in the serial vtk (MPI variants have VTK_GROUP_ENABLE_Qt=NO). The MPI
+  flavors are headless (pvbatch, pvserver) so the Qt GUI client isn't
+  meaningful there anyway. The other six modules from that failure
+  (IOVPIC/IOH5part/IOH5Rage/IOOMF/IOTRUCHAS/FiltersParallelStatistics)
+  are handled by adding them to vtk-mpich-9.6.2-4 + vtk-openmpi-9.6.2-4.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-8
 - -7's explanatory comment mentioned %%{paraview_cmake_mpi_options}
   unescaped, so RPM expanded the macro into the comment body. The

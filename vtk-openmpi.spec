@@ -28,7 +28,7 @@
 # is built by SPECS/vtk.spec (already shipping 9.6.2-5 in this COPR).
 Name:           vtk-openmpi
 Version:        9.6.2
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        VTK 9.6 - openmpi parallel runtime
 
 License:        BSD-3-Clause
@@ -191,6 +191,13 @@ do
       -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOVPIC:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOAvmesh:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOH5part:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOH5Rage:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOOMF:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
       -DVTK_MODULE_USE_EXTERNAL_VTK_hdf5:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_vtkhdf5:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_VTK_freetype:BOOL=OFF \
@@ -274,6 +281,11 @@ done
 %{_libdir}/openmpi/bin/vtkWrapSerDes
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-4
+- Add 7 more module enables needed by paraview MPI configure
+  (build 10530394): IOVPIC, IOAvmesh, IOH5part, IOH5Rage, IOOMF,
+  IOTRUCHAS, FiltersParallelStatistics. Match the serial vtk.spec.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-3
 - Bump Release past the old vtk-mpi-9.6.2-2 leftover binary subpackages.
   paraview-6.1.1-8 build 10529609 pulled vtk-mpich-devel-9.6.2-2.fc44
