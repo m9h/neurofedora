@@ -414,10 +414,9 @@ rm -r VTK/[A-TV-Za-z]* VTK/Utilities/[A-CE-Za-z]* VTK/Utilities/D[A-Za-np-z]*
 for mpi in %{mpi_list}
 do
   module load mpi/$mpi-%{_arch}
-  # PARAVIEW_USE_PYTHON / PARAVIEW_ENABLE_WEB must be set AFTER
-  # %{paraview_cmake_mpi_options} (which ends in %{paraview_cmake_options},
-  # carrying PARAVIEW_USE_PYTHON=ON). The MPI vtk-mpich/openmpi don't
-  # ship VTK::Python so paraview's MPI configure must run Python-free.
+  # MPI vtk variants are Python-free, so paraview's MPI configure must
+  # run with PYTHON+WEB off. Placed AFTER the macro expansion so they
+  # win over PARAVIEW_USE_PYTHON=ON in the main options block.
   %cmake -Wno-dev %{paraview_cmake_mpi_options} \
          -DPARAVIEW_USE_PYTHON:BOOL=OFF \
          -DPARAVIEW_ENABLE_WEB:BOOL=OFF
@@ -564,6 +563,14 @@ fi
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-8
+- -7's explanatory comment mentioned %%{paraview_cmake_mpi_options}
+  unescaped, so RPM expanded the macro into the comment body. The
+  expansion's multi-line cmake flags + parens caused a bash syntax
+  error at the start of the MPI configure loop (build 10529580:
+  "syntax error near unexpected token '('"). Rewrite the comment
+  without referencing macros by name.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-7
 - The PARAVIEW_ENABLE_WEB=OFF override in -6 was placed inside
   %%{paraview_cmake_mpi_options} but %%{paraview_cmake_options}
