@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.8.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Simple viewers for ephys signals, events, video and more
 
 # SPDX
@@ -52,9 +52,10 @@ sed -i \
 
 
 %generate_buildrequires
-# Upstream extra is named 'test' (singular) per pyproject.toml.
-# Rawhide rejects the wrong name; F44 had been lenient.
-%pyproject_buildrequires -x test
+# No -x extras: upstream's 'test' extra requires python3dist(av) +
+# spikeinterface, neither in Fedora. %%check is a no-op so the test
+# extras are not needed at build time.
+%pyproject_buildrequires
 
 
 %build
@@ -94,6 +95,12 @@ k="${k-}${k+ and }not test_spikeinterface_viewer"
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-6
+- Drop -x extras from %%pyproject_buildrequires. -5's switch to
+  -x test (singular) made F44 fail too: the 'test' extra requires
+  python3dist(av) + spikeinterface, neither in Fedora. %%check is
+  no-op so test extras aren't needed at build time.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.8.0-5
 - Fix rawhide-only failure: %%pyproject_buildrequires -x tests
   (plural) is wrong; upstream extra is 'test' (singular per
