@@ -414,7 +414,13 @@ rm -r VTK/[A-TV-Za-z]* VTK/Utilities/[A-CE-Za-z]* VTK/Utilities/D[A-Za-np-z]*
 for mpi in %{mpi_list}
 do
   module load mpi/$mpi-%{_arch}
-  %cmake -Wno-dev %{paraview_cmake_mpi_options}
+  # PARAVIEW_USE_PYTHON / PARAVIEW_ENABLE_WEB must be set AFTER
+  # %{paraview_cmake_mpi_options} (which ends in %{paraview_cmake_options},
+  # carrying PARAVIEW_USE_PYTHON=ON). The MPI vtk-mpich/openmpi don't
+  # ship VTK::Python so paraview's MPI configure must run Python-free.
+  %cmake -Wno-dev %{paraview_cmake_mpi_options} \
+         -DPARAVIEW_USE_PYTHON:BOOL=OFF \
+         -DPARAVIEW_ENABLE_WEB:BOOL=OFF
   module purge
 done
 
@@ -558,6 +564,17 @@ fi
 
 
 %changelog
+* Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-7
+- The PARAVIEW_ENABLE_WEB=OFF override in -6 was placed inside
+  %%{paraview_cmake_mpi_options} but %%{paraview_cmake_options}
+  (carrying PARAVIEW_USE_PYTHON=ON) is appended at the END of that
+  macro, so its defaults won. Build 10529574 failed with paraview
+  demanding VTK::PythonInterpreter / VTK::WrappingPythonCore /
+  VTK::Python / VTK::RenderingMatplotlib — none of which exist in
+  the Python-free MPI vtk variants. Move the overrides to the
+  %%cmake invocation itself (after %%{paraview_cmake_mpi_options})
+  and add PARAVIEW_USE_PYTHON=OFF to match.
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-6
 - Re-enable paraview-mpich + paraview-openmpi subpackages now that
   COPR vtk-mpi-9.6.2-4 ships matching cli11 / IOGDAL /
