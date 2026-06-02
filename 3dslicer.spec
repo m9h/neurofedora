@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        30%{?dist}
+Release:        31%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -59,6 +59,12 @@ Source1:        slicer.sh
 # PySys_SetObject("argv", ...) using only stable public C-API. Upstream Slicer's
 # superbuild still ships Python 3.9, so it never hit this.
 Patch0:         slicer-python314-interpreter-config.patch
+
+# Slicer_USE_QtTesting=ON with a system (non-superbuild) QtTesting: CTKQtTesting
+# does not re-export the QtTesting include dir, but Slicer's qMRML*EventPlayer/
+# EventTranslator headers include <pqWidgetEventPlayer.h> directly, so AUTOMOC of
+# qMRMLWidgets fails to find it. Add find_package(QtTesting) + its include dirs.
+Patch1:         slicer-qttesting-include-dirs.patch
 
 # Build infrastructure
 BuildRequires:  cmake >= 3.20.6
@@ -417,6 +423,22 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-31
+- The -30 build (QtTesting ON, qttesting-devel present) ran 6.4h and got far
+  past the -29 link wall, then failed in AUTOMOC of qMRMLWidgets at
+  mocs_compilation.cpp.o: "pqWidgetEventPlayer.h: No such file or directory".
+- Cause: qttesting installs headers under %%{_includedir}/QtTesting and its cmake
+  imported target carries the right INTERFACE_INCLUDE_DIRECTORIES, but
+  CTKQtTesting (which qMRMLWidgets links) does NOT re-export that include dir.
+  Slicer's qMRML*EventPlayer/EventTranslator headers #include <pqWidgetEventPlayer.h>
+  directly; the superbuild injects QtTesting's include path explicitly, the
+  system build does not.
+- Fix: Patch1 (slicer-qttesting-include-dirs.patch) adds find_package(QtTesting)
+  + include_directories(${QtTesting_INCLUDE_DIRS}) to Libs/MRML/Widgets/
+  CMakeLists.txt under if(Slicer_USE_QtTesting). Libs/MRML/Widgets is the only
+  non-test library compiling these sources; all other EventPlayer/Translator
+  sources are under Testing/ (BUILD_TESTING still OFF here).
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-30
 - Enable Slicer_USE_QtTesting=ON now that qttesting is packaged and ctk 0.12
   wraps it as CTKQtTesting. Slicer's qMRML*EventPlayer/EventTranslator sources

@@ -1,0 +1,26 @@
+Add QtTesting include directories to qMRMLWidgets for system (non-superbuild) builds.
+
+CTKQtTesting does not re-export the QtTesting include directory, but Slicer's
+qMRML*EventPlayer / qMRML*EventTranslator headers include <pqWidgetEventPlayer.h>
+and other pq* headers directly. In Slicer's own superbuild the QtTesting build
+tree is added to the include path explicitly (External_CTK.cmake); a system
+QtTesting build has no such wiring, so AUTOMOC of qMRMLWidgets fails with
+"pqWidgetEventPlayer.h: No such file or directory". Resolve the QtTesting
+imported target and add its include dirs.
+
+--- a/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.204091766 -0700
++++ b/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.216875345 -0700
+@@ -40,6 +40,13 @@
+   list(APPEND CTK_LIBRARIES
+     CTKQtTesting
+     )
++  # In a non-superbuild (system QtTesting) build, CTKQtTesting does not
++  # re-export the QtTesting include directory, yet Slicer's qMRML*EventPlayer
++  # and qMRML*EventTranslator headers include <pqWidgetEventPlayer.h> and
++  # other pq* headers directly. Resolve the QtTesting imported target and add
++  # its include dirs so the sources and AUTOMOC-generated moc files compile.
++  find_package(QtTesting REQUIRED)
++  include_directories(${QtTesting_INCLUDE_DIRS})
+ endif()
+ 
+ # --------------------------------------------------------------------------
