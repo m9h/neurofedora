@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        29%{?dist}
+Release:        30%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -106,8 +106,10 @@ BuildRequires:  InsightToolkit5-devel >= 5.4.6-7
 BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtk-devel >= 9.6
 # 0.12 enables CTK transfer-function charts (ctkVTKChartView) that
-# Slicer's qMRMLPlotView links against.
+# Slicer's qMRMLPlotView links against, and wraps QtTesting as CTKQtTesting.
 BuildRequires:  ctk-devel >= 2026.01.26-0.12
+# Slicer_USE_QtTesting=ON: CTKQtTesting links libqttesting transitively.
+BuildRequires:  qttesting-devel
 BuildRequires:  vtkAddon-devel
 BuildRequires:  qRestAPI-devel
 BuildRequires:  python-pythonqt-devel
@@ -305,6 +307,9 @@ EOF
     -DITK_DIR:PATH=%{_libdir}/cmake/ITK-5.4 \
     -DVTK_DIR:PATH=%{_libdir}/cmake/vtk \
     -DCTK_DIR:PATH=%{_libdir}/cmake/CTK \
+    `# CTKConfig find_dependency(QtTesting) resolves the imported qttesting target` \
+    `# that CTKQtTesting links against.` \
+    -DQtTesting_DIR:PATH=%{_libdir}/cmake/qttesting \
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     `# CTKAppLauncherLib and CTKAppLauncher both have their configs in` \
@@ -347,10 +352,11 @@ EOF
     -DSlicer_USE_SimpleITK:BOOL=ON \
     -DSlicer_USE_CTKAPPLAUNCHER:BOOL=ON \
     -DSlicer_USE_TBB:BOOL=ON \
-    `# QtTesting (Kitware GUI record/replay) is not packaged on Fedora and its` \
-    `# qMRML*EventPlayer/EventTranslator sources need pqWidgetEventPlayer.h.` \
-    `# BUILD_TESTING is OFF anyway, so disable it.` \
-    -DSlicer_USE_QtTesting:BOOL=OFF \
+    `# QtTesting (Kitware GUI record/replay): qttesting is now packaged on Fedora` \
+    `# and CTK (>= 0.12) wraps it as CTKQtTesting, which Slicer's qMRML*EventPlayer/` \
+    `# EventTranslator sources link transitively via CTK_DIR. BUILD_TESTING stays` \
+    `# OFF in this rebuild so the test executables are not compiled yet (-31 flips it).` \
+    -DSlicer_USE_QtTesting:BOOL=ON \
     -DSlicer_BUILD_CLI:BOOL=ON \
     -DSlicer_BUILD_QTLOADABLEMODULES:BOOL=ON \
     -DSlicer_BUILD_QTSCRIPTEDMODULES:BOOL=ON \
@@ -411,6 +417,24 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-30
+- Enable Slicer_USE_QtTesting=ON now that qttesting is packaged and ctk 0.12
+  wraps it as CTKQtTesting. Slicer's qMRML*EventPlayer/EventTranslator sources
+  link CTKQtTesting transitively via CTK_DIR; add BuildRequires qttesting-devel
+  and -DQtTesting_DIR so CTKConfig's find_dependency(QtTesting) resolves the
+  imported qttesting target. Upstream 208adb86 already supports Qt6 QtTesting
+  (Qt5-only XmlPatterns guard), so no Slicer source patch is needed.
+- BUILD_TESTING stays OFF in this step: this proves QtTesting links without
+  also compiling the full CTest executable suite (deferred to -31) on an
+  already-multi-hour build, isolating any QtTesting link failure from the
+  test-compile load.
+- Note: the -29 attempt (Slicer_USE_QtTesting=OFF) died at step 680/2837 with
+  "cannot find -lqttesting" linking libqSlicerIconEnginePlugin.so. ctk 0.12's
+  exported targets carry a transitive link to libqttesting regardless of
+  Slicer_USE_QtTesting, so qttesting-devel is mandatory once CTK is built with
+  CTK_USE_QTTESTING=ON. A QtTesting-OFF baseline therefore buys nothing here;
+  -30 (qttesting-devel present, QtTesting ON) supersedes it.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-29
 - Functional baseline rebuild against ctk 0.12. The -28 build advanced past the
   Python 3.14 / QtTesting fixes to step 938/2843, then failed linking
