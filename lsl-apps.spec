@@ -1,15 +1,14 @@
 Name:           lsl-apps
 Version:        1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Lab Streaming Layer applications (meta-package)
 
 License:        MIT
 URL:            https://labstreaminglayer.org/
 BuildArch:      noarch
 
-# Recording + format viewers
+# Recording + format viewer
 Requires:       labrecorder
-Requires:       sigviewer
 Requires:       App-XDFStreamer
 Requires:       App-SigVisualizer
 
@@ -25,7 +24,6 @@ Meta-package that pulls in the Lab Streaming Layer (LSL) user-facing
 applications shipped by the mhough/neurofedora COPR:
 
   * labrecorder         — record one or more LSL streams to XDF on disk
-  * sigviewer           — view XDF recordings
   * App-XDFStreamer     — replay XDF files back as live LSL streams
   * App-SigVisualizer   — PyQt5/pylsl interactive signal viewer
   * App-AudioCapture    — microphone capture into an LSL stream
@@ -39,5 +37,10 @@ are pulled in as transitive dependencies of the apps above.
 # Meta-package — no payload
 
 %changelog
+* Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-2
+- Drop sigviewer from Requires. Despite reading XDF, sigviewer is an
+  independent cbrnr/sigviewer project, not part of the labstreaminglayer
+  organization. Users who want it can install it directly.
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-1
 - Initial lsl-apps meta-package for the mhough/neurofedora COPR.
