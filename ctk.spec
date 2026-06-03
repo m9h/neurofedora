@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.12.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.13.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -222,6 +222,11 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DCTK_LIB_ImageProcessing/ITK/Core=ON \
     -DCTK_LIB_Scripting/Python/Core=ON \
     -DCTK_LIB_Scripting/Python/Widgets=ON \
+    `# Compiles ctkVTKPythonQtWrapperFactory into CTKVisualizationVTKCore` \
+    `# (default OFF). 3D Slicer's qSlicerCorePythonManager instantiates it` \
+    `# unconditionally, so without this Slicer fails linking` \
+    `# libqSlicerBaseQTCore.so with an undefined reference.` \
+    -DCTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK:BOOL=ON \
     -DCTK_WRAP_PYTHONQT_LIGHT=ON \
     -DPYTHONQT_INSTALL_DIR=%{_prefix} \
     -DPythonQt_DIR=%{_libdir}/cmake/PythonQt \
@@ -300,6 +305,13 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.13.20260126gitfd37b874
+- Enable CTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK so the
+  ctkVTKPythonQtWrapperFactory class is compiled into CTKVisualizationVTKCore
+  (default OFF). 3D Slicer's qSlicerCorePythonManager instantiates it
+  unconditionally; without it the Slicer libqSlicerBaseQTCore.so link fails
+  with an undefined reference to ctkVTKPythonQtWrapperFactory::ctkVTKPythonQtWrapperFactory().
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.12.20260126gitfd37b874
 - Enable CTK_LIB_Visualization/VTK/Widgets_USE_TRANSFER_FUNCTION_CHARTS so
   libCTKVisualizationVTKWidgets exports ctkVTKChartView and the volume-property

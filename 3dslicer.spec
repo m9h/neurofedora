@@ -113,7 +113,9 @@ BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtk-devel >= 9.6
 # 0.12 enables CTK transfer-function charts (ctkVTKChartView) that
 # Slicer's qMRMLPlotView links against, and wraps QtTesting as CTKQtTesting.
-BuildRequires:  ctk-devel >= 2026.01.26-0.12
+# 0.13 enables CTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK so
+# ctkVTKPythonQtWrapperFactory is compiled (qSlicerCorePythonManager links it).
+BuildRequires:  ctk-devel >= 2026.01.26-0.13
 # Slicer_USE_QtTesting=ON: CTKQtTesting links libqttesting transitively.
 BuildRequires:  qttesting-devel
 BuildRequires:  vtkAddon-devel
