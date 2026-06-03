@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        33%{?dist}
+Release:        34%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -427,6 +427,18 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-34
+- The -33 build cleared the QtTesting include wall (got ~2000 objects deeper,
+  to 13300/?) and failed compiling qSlicerSubjectHierarchyModule.cxx:
+  ctkAbstractPythonManager.h -> "PythonQtPythonInclude.h: No such file or
+  directory". Same class as QtTesting: an installed CTK header pulls in a
+  third-party (PythonQt) header, but the consuming target only links CTKWidgets
+  and never inherits PythonQt's include dir.
+- Add a second top-level hunk to slicer-qttesting-include-dirs.patch:
+  include_directories(${PYTHONQT_INCLUDE_DIRS}) right after the existing
+  find_package(PythonQt REQUIRED), inside if(Slicer_USE_PYTHONQT). Global, so it
+  covers every subdirectory (Modules/Loadable/SubjectHierarchy, etc.).
+
 * Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-33
 - The -32 build cleared the libqSlicerBaseQTCore.so link (ctk -0.13 fix) and
   failed later compiling qSlicerApplication.cxx: ctkQtTestingUtility.h ->

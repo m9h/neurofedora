@@ -1,18 +1,19 @@
-Add QtTesting include directories for system (non-superbuild) builds.
+Add QtTesting + PythonQt include directories for system (non-superbuild) builds.
 
-In Slicer's own superbuild the QtTesting build tree is injected onto the
-include path explicitly (External_CTK.cmake). A system QtTesting build has no
-such wiring: CTK's CTK_INCLUDE_DIRS does not carry the QtTesting header dir, and
-CTKQtTesting does not re-export it either. Several Slicer targets either link
-CTKQtTesting (the qMRML*EventPlayer/Translator libs) or simply #include the
-installed ctkQtTestingUtility.h directly (qSlicerBaseQTGUI's
-qSlicerApplication.cxx, Base/QTApp, Base/QTCLI) — both pull in <pqTestUtility.h>
-/ <pqWidgetEventPlayer.h>. The first hunk adds a global include_directories at
-the top level (covers every subdirectory); the second keeps the targeted
+In Slicer's own superbuild the QtTesting and PythonQt build trees are injected
+onto the include path implicitly. A system build has no such wiring: CTK's
+CTK_INCLUDE_DIRS does not carry either header dir, and the installed CTK headers
+in /usr/include/ctk-0.1/ reference these third-party headers directly:
+  - ctkQtTestingUtility.h -> <pqTestUtility.h>, <pqWidgetEventPlayer.h>
+  - ctkAbstractPythonManager.h -> <PythonQtPythonInclude.h>
+Many Slicer targets include those CTK headers transitively while linking only
+CTKWidgets (not CTKQtTesting / a PythonQt-bearing CTK lib), so they never
+inherit the third-party include dirs. Add both globally at the top level (each
+gated on the matching Slicer_USE_* option); also keep the targeted
 Libs/MRML/Widgets wiring for its AUTOMOC step.
 
---- a/CMakeLists.txt	2026-06-03 07:44:25.707429720 -0700
-+++ b/CMakeLists.txt	2026-06-03 07:44:25.718799881 -0700
+--- a/CMakeLists.txt	2026-06-03 14:52:02.134187416 -0700
++++ b/CMakeLists.txt	2026-06-03 14:52:02.146163652 -0700
 @@ -1010,6 +1010,17 @@
  find_package(CTK REQUIRED)
  include(${CTK_USE_FILE})
@@ -31,6 +32,19 @@ Libs/MRML/Widgets wiring for its AUTOMOC step.
  #-----------------------------------------------------------------------------
  # Update CMake module path
  #-----------------------------------------------------------------------------
+@@ -1068,6 +1079,12 @@
+   # See https://github.com/commontk/PythonQt/issues/7
+   # and https://github.com/commontk/PythonQt/issues/8
+   find_package(PythonQt REQUIRED)
++  # System (non-superbuild) PythonQt: installed CTK headers such as
++  # ctkAbstractPythonManager.h #include <PythonQtPythonInclude.h> and other
++  # PythonQt headers directly. CTK_INCLUDE_DIRS does not carry PythonQt's
++  # include dir, so add it globally here (covers every subdirectory, e.g.
++  # Modules/Loadable/SubjectHierarchy).
++  include_directories(${PYTHONQT_INCLUDE_DIRS})
+   link_directories(${PYTHONQT_INSTALL_DIR}/lib)
+   include(ctkMacroWrapPythonQt)
+   include(ctkMacroCompilePythonScript)
 --- a/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.204091766 -0700
 +++ b/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.216875345 -0700
 @@ -40,6 +40,13 @@
