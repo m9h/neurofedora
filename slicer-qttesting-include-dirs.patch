@@ -1,13 +1,36 @@
-Add QtTesting include directories to qMRMLWidgets for system (non-superbuild) builds.
+Add QtTesting include directories for system (non-superbuild) builds.
 
-CTKQtTesting does not re-export the QtTesting include directory, but Slicer's
-qMRML*EventPlayer / qMRML*EventTranslator headers include <pqWidgetEventPlayer.h>
-and other pq* headers directly. In Slicer's own superbuild the QtTesting build
-tree is added to the include path explicitly (External_CTK.cmake); a system
-QtTesting build has no such wiring, so AUTOMOC of qMRMLWidgets fails with
-"pqWidgetEventPlayer.h: No such file or directory". Resolve the QtTesting
-imported target and add its include dirs.
+In Slicer's own superbuild the QtTesting build tree is injected onto the
+include path explicitly (External_CTK.cmake). A system QtTesting build has no
+such wiring: CTK's CTK_INCLUDE_DIRS does not carry the QtTesting header dir, and
+CTKQtTesting does not re-export it either. Several Slicer targets either link
+CTKQtTesting (the qMRML*EventPlayer/Translator libs) or simply #include the
+installed ctkQtTestingUtility.h directly (qSlicerBaseQTGUI's
+qSlicerApplication.cxx, Base/QTApp, Base/QTCLI) — both pull in <pqTestUtility.h>
+/ <pqWidgetEventPlayer.h>. The first hunk adds a global include_directories at
+the top level (covers every subdirectory); the second keeps the targeted
+Libs/MRML/Widgets wiring for its AUTOMOC step.
 
+--- a/CMakeLists.txt	2026-06-03 07:44:25.707429720 -0700
++++ b/CMakeLists.txt	2026-06-03 07:44:25.718799881 -0700
+@@ -1010,6 +1010,17 @@
+ find_package(CTK REQUIRED)
+ include(${CTK_USE_FILE})
+
++# System (non-superbuild) QtTesting: CTK's CTK_INCLUDE_DIRS does not carry the
++# QtTesting header dir, yet several Slicer targets (qSlicerBaseQTGUI's
++# qSlicerApplication.cxx, Base/QTApp, Base/QTCLI) #include the installed
++# ctkQtTestingUtility.h directly, which pulls in <pqTestUtility.h>. Those
++# targets link CTKWidgets, not CTKQtTesting, so they never inherit qttesting's
++# include dir. Add it globally so every subdirectory can compile.
++if(Slicer_USE_QtTesting)
++  find_package(QtTesting REQUIRED)
++  include_directories(${QtTesting_INCLUDE_DIRS})
++endif()
++
+ #-----------------------------------------------------------------------------
+ # Update CMake module path
+ #-----------------------------------------------------------------------------
 --- a/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.204091766 -0700
 +++ b/Libs/MRML/Widgets/CMakeLists.txt	2026-06-02 15:46:36.216875345 -0700
 @@ -40,6 +40,13 @@
@@ -22,5 +45,5 @@ imported target and add its include dirs.
 +  find_package(QtTesting REQUIRED)
 +  include_directories(${QtTesting_INCLUDE_DIRS})
  endif()
- 
+
  # --------------------------------------------------------------------------

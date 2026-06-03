@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.13.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.14.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -262,7 +262,14 @@ install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
 # "The link interface of target CTKDICOMCore contains: DCMTK::ofstd
 #  but the target was not found." Inject the missing find_dependency
 # calls at the top of CTKConfig.cmake.
-sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependency(DCMTK)\nfind_dependency(ITK 5.4)\n\ninclude|}' \
+#
+# QtTesting must be here too: CTKQtTesting's interface link names the bare
+# target "qttesting". Without find_dependency(QtTesting) that target is
+# undefined in the consumer, so CMake degrades it to a plain -lqttesting —
+# which links but carries NONE of qttesting's INTERFACE_INCLUDE_DIRECTORIES,
+# leaving Slicer's qSlicerApplication.cxx unable to find pqTestUtility.h
+# (pulled in via the installed ctkQtTestingUtility.h header).
+sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependency(DCMTK)\nfind_dependency(ITK 5.4)\nfind_dependency(QtTesting)\n\ninclude|}' \
     %{buildroot}%{_libdir}/cmake/ctk/CTKConfig.cmake
 
 %files
@@ -305,6 +312,15 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.14.20260126gitfd37b874
+- Inject find_dependency(QtTesting) into CTKConfig.cmake. CTKQtTesting's
+  interface link names the bare target "qttesting"; without the find_dependency
+  that target is undefined in downstream consumers and CMake degrades it to a
+  plain -lqttesting, dropping qttesting's INTERFACE_INCLUDE_DIRECTORIES. That
+  left 3D Slicer unable to find pqTestUtility.h (via the installed
+  ctkQtTestingUtility.h header) when compiling qSlicerApplication.cxx. Same
+  root cause as the earlier -lqttesting link failure.
+
 * Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.13.20260126gitfd37b874
 - Enable CTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK so the
   ctkVTKPythonQtWrapperFactory class is compiled into CTKVisualizationVTKCore

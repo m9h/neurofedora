@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        32%{?dist}
+Release:        33%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -115,7 +115,9 @@ BuildRequires:  vtk-devel >= 9.6
 # Slicer's qMRMLPlotView links against, and wraps QtTesting as CTKQtTesting.
 # 0.13 enables CTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK so
 # ctkVTKPythonQtWrapperFactory is compiled (qSlicerCorePythonManager links it).
-BuildRequires:  ctk-devel >= 2026.01.26-0.13
+# 0.14 adds find_dependency(QtTesting) to CTKConfig so the qttesting imported
+# target resolves in consumers (otherwise it degrades to a bare -lqttesting).
+BuildRequires:  ctk-devel >= 2026.01.26-0.14
 # Slicer_USE_QtTesting=ON: CTKQtTesting links libqttesting transitively.
 BuildRequires:  qttesting-devel
 BuildRequires:  vtkAddon-devel
@@ -425,6 +427,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-33
+- The -32 build cleared the libqSlicerBaseQTCore.so link (ctk -0.13 fix) and
+  failed later compiling qSlicerApplication.cxx: ctkQtTestingUtility.h ->
+  "pqTestUtility.h: No such file or directory". qSlicerBaseQTGUI links only
+  CTKWidgets (not CTKQtTesting), so it never inherits the qttesting include dir,
+  yet it #includes the installed ctkQtTestingUtility.h directly.
+- Broaden slicer-qttesting-include-dirs.patch with a top-level global
+  include_directories(${QtTesting_INCLUDE_DIRS}) gated on Slicer_USE_QtTesting,
+  covering every subdirectory (Base/QTApp, Base/QTCLI, Base/QTGUI, ...).
+- Also requires ctk-devel >= 0.14 (find_dependency(QtTesting) in CTKConfig).
+
 * Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-32
 - The -31 build (Patch1 fixed the qMRMLWidgets pqWidgetEventPlayer.h include)
   compiled far deeper, then failed linking libqSlicerBaseQTCore.so with an
