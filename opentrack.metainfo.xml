@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>opentrack</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>ISC AND GPL-3.0-or-later</project_license>
+  <name>opentrack</name>
+  <summary>Head tracking for game and flight simulators</summary>
+  <description>
+    <p>
+      opentrack tracks head motion in space and broadcasts position and
+      rotation to flight and racing simulators. It supports a wide variety of
+      input devices including webcams, IR-LED point trackers, Arduino-based
+      hardware, gamepads and IMUs, and speaks the most common output
+      protocols used by simulators (freetrack, TrackIR/NPClient, UDP,
+      joystick, X-Plane plugin and more).
+    </p>
+  </description>
+  <launchable type="desktop-id">opentrack.desktop</launchable>
+  <url type="homepage">https://github.com/opentrack/opentrack</url>
+  <url type="bugtracker">https://github.com/opentrack/opentrack/issues</url>
+  <developer_name>The opentrack project</developer_name>
+  <provides>
+    <binary>opentrack</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="2026.1.0" date="2025-12-31"/>
+  </releases>
+</component>
