@@ -2,7 +2,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.18.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Python library for LSL (lab streaming layer)
 
 License:        MIT
@@ -51,7 +51,7 @@ Summary:        %{summary}
 
 %install
 %pyproject_install
-%pyproject_save_files -l %{pypi_name}
+%pyproject_save_files -l -L %{pypi_name}
 
 
 %check
@@ -69,6 +69,13 @@ Summary:        %{summary}
 
 
 %changelog
+* Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.18.2-2
+- Pass -L to %%pyproject_save_files. Upstream pylsl 1.18.2 commented out
+  the pyproject.toml license-file declaration (setuptools bug workaround),
+  so the wheel ships no PEP 639 License-File metadata. -L disables the
+  automatic license-file expectation; LICENSE is shipped via %%license
+  in %%files manually.
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.18.2-1
 - Initial package for the mhough/neurofedora COPR.
 - Pure-Python noarch wheel; liblsl resolved at runtime via ctypes.
