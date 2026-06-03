@@ -43,7 +43,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        31%{?dist}
+Release:        32%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -425,6 +425,16 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-32
+- The -31 build (Patch1 fixed the qMRMLWidgets pqWidgetEventPlayer.h include)
+  compiled far deeper, then failed linking libqSlicerBaseQTCore.so with an
+  undefined reference to ctkVTKPythonQtWrapperFactory::ctkVTKPythonQtWrapperFactory().
+- Cause: qSlicerCorePythonManager instantiates that class unconditionally, but
+  CTK only compiles it into CTKVisualizationVTKCore when
+  CTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK is ON (default OFF). Fixed in
+  ctk -0.13; bump BuildRequires to ctk-devel >= 2026.01.26-0.13. No Slicer code
+  change — rebuild once the fixed CTK lands in COPR.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-31
 - The -30 build (QtTesting ON, qttesting-devel present) ran 6.4h and got far
   past the -29 link wall, then failed in AUTOMOC of qMRMLWidgets at
