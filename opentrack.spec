@@ -1,6 +1,6 @@
 Name:           opentrack
 Version:        2026.1.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Head tracking software for game and flight simulators
 
 # Per OPENTRACK-LICENSING.txt the project is a collage of per-module licenses.
@@ -50,6 +50,7 @@ BuildRequires:  opencv-devel
 
 # Linux-only modules
 BuildRequires:  pkgconfig(libevdev)
+BuildRequires:  pkgconfig(libproc2)
 BuildRequires:  pkgconfig(x11)
 
 # PS3 eye driver subprocess (video-ps3eye)
@@ -198,6 +199,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/opentrack.desktop
 %exclude %{_docdir}/opentrack/AUTHORS.md
 
 %changelog
+* Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-3
+- Add pkgconfig(libproc2) BuildRequires. Build 10561394 failed at
+  cmake configure: compat/CMakeLists.txt:21 demands libproc2 or
+  libprocps for process enumeration on Linux.
+
 * Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-2
 - Add Provides: bundled(qxt-mini). qxt-mini is vendored under qxt-mini/
   in the upstream source tree and shipped in the binary RPM; Fedora
