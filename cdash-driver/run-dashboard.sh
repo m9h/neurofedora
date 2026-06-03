@@ -48,5 +48,6 @@ run_one vmtk         python3-vmtk               neurofedora-vmtk.cmake
 run_one ParaView     paraview                   neurofedora-paraview.cmake
 run_one VTK-extended vtk-testing                neurofedora-vtk-extended.cmake
 run_one ITK-examples InsightToolkit5-examples   neurofedora-itk-examples.cmake
+run_one Slicer       3dslicer                   neurofedora-slicer.cmake
 
 printf '\nAll done.\n'
