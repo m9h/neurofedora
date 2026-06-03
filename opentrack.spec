@@ -1,6 +1,6 @@
 Name:           opentrack
 Version:        2026.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Head tracking software for game and flight simulators
 
 # Per OPENTRACK-LICENSING.txt the project is a collage of per-module licenses.
@@ -11,6 +11,11 @@ Summary:        Head tracking software for game and flight simulators
 # either ISC, BSD-2-Clause or GPL-3.0-or-later. We pick the most-restrictive
 # union that covers what gets actually compiled into the binary RPM.
 License:        ISC AND GPL-3.0-or-later AND BSD-2-Clause AND BSD-3-Clause
+
+# Bundled libraries shipped in the binary RPM. qxt-mini is vendored
+# under qxt-mini/ in the upstream source tree; its license (BSD-3-Clause)
+# is already covered by the License: expression above.
+Provides:       bundled(qxt-mini)
 
 URL:            https://github.com/opentrack/opentrack
 # GitHub auto-generated tarball for the "opentrack-2026.1.0" tag unpacks to
@@ -193,5 +198,12 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/opentrack.desktop
 %exclude %{_docdir}/opentrack/AUTHORS.md
 
 %changelog
+* Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-2
+- Add Provides: bundled(qxt-mini). qxt-mini is vendored under qxt-mini/
+  in the upstream source tree and shipped in the binary RPM; Fedora
+  packaging policy requires an explicit bundled() Provides for every
+  bundled library. License (BSD-3-Clause) is already covered by the
+  existing License: expression.
+
 * Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-1
 - Initial package for opentrack 2026.1.0
