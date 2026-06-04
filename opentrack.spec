@@ -1,6 +1,6 @@
 Name:           opentrack
 Version:        2026.1.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Head tracking software for game and flight simulators
 
 # Per OPENTRACK-LICENSING.txt the project is a collage of per-module licenses.
@@ -156,6 +156,11 @@ rm -f %{buildroot}%{_libexecdir}/opentrack/freetrackclient*.dll \
       %{buildroot}%{_libexecdir}/opentrack/TrackIR.exe \
       %{buildroot}%{_libexecdir}/opentrack/qt.conf || :
 
+# Drop Windows-only contrib payloads installed by upstream into the doc tree
+# (Fedora policy bans shipping precompiled foreign binaries).
+rm -rf %{buildroot}%{_docdir}/opentrack/contrib/Tir4Fun
+rm -rf %{buildroot}%{_docdir}/opentrack/contrib/trackir-client
+
 # Icon (hicolor 256x256 — upstream's icon is a 256-px PNG)
 install -Dpm 0644 gui/images/opentrack.png \
     %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/opentrack.png
@@ -178,6 +183,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/opentrack.desktop
 %doc README.md AUTHORS.md
 %doc %{_docdir}/opentrack/3rdparty-notices/
 %doc %{_docdir}/opentrack/settings/
+%doc %{_docdir}/opentrack/contrib/
 %{_bindir}/opentrack
 %dir %{_libexecdir}/opentrack/
 %{_libexecdir}/opentrack/*.so
@@ -199,6 +205,13 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/opentrack.desktop
 %exclude %{_docdir}/opentrack/AUTHORS.md
 
 %changelog
+* Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-4
+- Strip Windows-only contrib payloads from %%{_docdir}/opentrack/contrib/
+  (Tir4Fun/npclient.dll, trackir-client/client.exe) — Fedora policy bans
+  shipping precompiled foreign binaries. Claim the remaining contrib
+  files (FlightGear/headtracker.xml + readme.txt) under %%doc.
+  Build 10562329 failed with 'Installed (but unpackaged) file(s)'.
+
 * Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.1.0-3
 - Add pkgconfig(libproc2) BuildRequires. Build 10561394 failed at
   cmake configure: compat/CMakeLists.txt:21 demands libproc2 or
