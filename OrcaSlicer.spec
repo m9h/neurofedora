@@ -63,7 +63,11 @@ BuildRequires:  gstreamermm-devel
 BuildRequires:  gtk3-devel
 BuildRequires:  libcurl-devel
 BuildRequires:  libmspack-devel
+# libquadmath (__float128) is an x86-only GCC runtime; the package does not ship
+# on Fedora aarch64, where it is neither available nor needed.
+%ifarch x86_64
 BuildRequires:  libquadmath-devel
+%endif
 BuildRequires:  libsecret-devel
 BuildRequires:  libspnav-devel
 BuildRequires:  mesa-libGLU-devel
