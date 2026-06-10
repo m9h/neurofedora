@@ -29,7 +29,7 @@
 
 Name:           fsl
 Version:        6.0.7.18
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        FMRIB Software Library - core libraries and build system
 
 # FSL itself is non-commercial (LicenseRef-FSL); armawrap bundles Armadillo
@@ -52,6 +52,10 @@ Source11:       fsl-profile.csh
 Source12:       fsl-ld.so.conf
 Source13:       https://git.fmrib.ox.ac.uk/fsl/basisfield/-/archive/%{ver_basisfield}/basisfield-%{ver_basisfield}.tar.gz#/fsl-basisfield-%{ver_basisfield}.tar.gz
 Source14:       https://git.fmrib.ox.ac.uk/fsl/warpfns/-/archive/%{ver_warpfns}/warpfns-%{ver_warpfns}.tar.gz#/fsl-warpfns-%{ver_warpfns}.tar.gz
+
+# Export newimage's euclideanDistanceTransform overloads (hidden-visibility
+# instantiations are not exported from the shared lib; needed by avwutils).
+Patch1:         fsl-newimage-edt-export.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  make
@@ -134,6 +138,8 @@ setup_mod %{SOURCE5} newnifti
 setup_mod %{SOURCE6} utils
 setup_mod %{SOURCE7} miscmaths
 setup_mod %{SOURCE8} newimage
+# Export euclideanDistanceTransform from libfsl-newimage.so (see Patch1 header).
+patch -p1 -d fsl-newimage < %{PATCH1}
 setup_mod %{SOURCE9} meshclass
 setup_mod %{SOURCE13} basisfield
 setup_mod %{SOURCE14} warpfns
@@ -230,6 +236,15 @@ test -e %{buildroot}%{fsldir}/include/meshclass/meshclass.h
 %{fsldir}/include
 
 %changelog
+* Tue Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-5
+- Export newimage's euclideanDistanceTransform overloads from
+  libfsl-newimage.so (fsl-newimage-edt-export.patch). edt.cc force-instantiates
+  them via a helper marked visibility("hidden"), which is only honoured for
+  static linking; in the shared lib the symbols were not exported, so
+  consumers that link the .so (avwutils' distancemap) failed with "undefined
+  reference". Add default-visibility explicit instantiation definitions
+  (mirroring the adjacent sparseInterpolate instantiation)
+
 * Mon Jun 08 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-4
 - Strip the leaked build-stage rpath with chrpath instead of patchelf (keeps
   the $ORIGIN runpath; chrpath is already in the buildroot tooling set)

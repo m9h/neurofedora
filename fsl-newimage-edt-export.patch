@@ -1,0 +1,30 @@
+Export newimage's euclideanDistanceTransform overloads from the shared library.
+
+edt.cc force-instantiates these via the edtInstantiate() helper, but that
+helper is marked __attribute__((visibility("hidden"))). Hidden visibility is
+only honoured for static linking; in a shared libfsl-newimage.so the symbols
+are not exported, so external consumers that link the .so (avwutils'
+distancemap) fail with 'undefined reference to euclideanDistanceTransform'.
+Add default-visibility explicit instantiation definitions (mirroring the
+sparseInterpolate instantiation immediately above) so they are exported.
+
+--- a/edt.cc
++++ b/edt.cc
+@@ -146,4 +146,15 @@
+   template auto __attribute__((visibility("hidden"))) edtInstantiate<char,short,int,float,double>();
+ 
+   template volume<double> sparseInterpolate(const volume<double>& data, const volume<double>& weights, const double sigma);
+-}
+\ No newline at end of file
++
++  // Export the euclideanDistanceTransform overloads from the shared
++  // libfsl-newimage.so. The edtInstantiate() helper above forces
++  // instantiation but is marked visibility("hidden"), which only resolves
++  // for static linking; consumers that link the shared library (e.g.
++  // avwutils distancemap) need these exported with default visibility.
++  template volume<double> euclideanDistanceTransform<char>(const volume<char>&);
++  template volume<double> euclideanDistanceTransform<short>(const volume<short>&);
++  template volume<double> euclideanDistanceTransform<int>(const volume<int>&);
++  template volume<double> euclideanDistanceTransform<float>(const volume<float>&);
++  template volume<double> euclideanDistanceTransform<double>(const volume<double>&);
++}
