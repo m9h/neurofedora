@@ -28,13 +28,16 @@
 # is built by SPECS/vtk.spec (already shipping 9.6.2-5 in this COPR).
 Name:           vtk-mpi
 Version:        9.6.2
-Release:        4%{?dist}
+Release:        7%{?dist}
 Summary:        Visualization Toolkit - MPI-parallel variants
 
 License:        BSD-3-Clause
 URL:            https://vtk.org/
 Source0:        https://www.vtk.org/files/release/9.6/VTK-%{version}.tar.gz
 Patch0:         vtk-libharu.patch
+# Bundled h5hut module is missing a VTK::mpi dependency, so vtk_mpi.h is not on
+# its include path once IOH5part is enabled in an MPI build (FTBFS at -6).
+Patch1:         vtk-h5hut-mpi-dep.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
@@ -82,8 +85,19 @@ BuildRequires:  openmpi-devel
 BuildRequires:  netcdf-openmpi-devel
 %endif
 
+# External Viskores (sibling COPR package viskores-1.1.0-2+). VTK's
+# AcceleratorsVTKmFilters module finds it via the viskores::cont/
+# cont_testing/filter/worklet imported targets viskores-devel exports.
+BuildRequires:  viskores-devel
+# Qt6 BR for vtk-mpi -6 (paraview-mpi needs VTK::GUISupportQt module).
+BuildRequires:  cmake(Qt6Core)
+BuildRequires:  cmake(Qt6Widgets)
+BuildRequires:  cmake(Qt6OpenGL)
+BuildRequires:  cmake(Qt6OpenGLWidgets)
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6UiPlugin)
+
 # Bundled libraries (intentional — see SPECS/vtk.spec for rationale)
-Provides:       bundled(viskores)
 Provides:       bundled(eigen3)
 Provides:       bundled(fast_float)
 Provides:       bundled(hdf5) = 1.14.6
@@ -101,7 +115,6 @@ Provides:       bundled(metaio)
 Provides:       bundled(scn)
 Provides:       bundled(token)
 Provides:       bundled(verdict)
-Provides:       bundled(viskores)
 Provides:       bundled(xdmf2)
 Provides:       bundled(xdmf3)
 
@@ -162,7 +175,7 @@ for x in vtkcli11 vtkdoubleconversion vtkexpat \
           vtkfmt vtkjpeg vtkjsoncpp vtklibharu \
           vtklibproj vtklibxml2 vtklz4 vtklzma vtknetcdf vtknlohmannjson \
           vtkogg vtkpegtl vtkpng vtkpugixml vtksqlite vtktheora vtktiff \
-          vtkutf8 vtkzlib
+          vtkutf8 vtkviskores vtkzlib
 do
   rm -rf ThirdParty/*/${x}
 done
@@ -189,7 +202,7 @@ do
       -DVTK_WRAP_PYTHON:BOOL=OFF \
       -DVTK_WRAP_JAVA:BOOL=OFF \
       -DVTK_USE_TK:BOOL=OFF \
-      -DVTK_GROUP_ENABLE_Qt:STRING=NO \
+      -DVTK_GROUP_ENABLE_Qt:STRING=YES \
       -DVTK_GROUP_ENABLE_Rendering:STRING=YES \
       -DVTK_GROUP_ENABLE_Imaging:STRING=YES \
       -DVTK_GROUP_ENABLE_Views:STRING=YES \
@@ -205,6 +218,20 @@ do
       -DVTK_MODULE_ENABLE_VTK_IOParallelExodus:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_IOParallelLSDyna:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_IOPIO:STRING=YES \
+      `# Additional modules required by paraview-{mpich,openmpi}-6.1.1's` \
+      `# plugin scan (CMakeLists.txt:568 in upstream paraview). Caught by` \
+      `# build 10550668 after vtk-mpi -5 shipped too lean.` \
+      -DVTK_MODULE_ENABLE_VTK_IOXdmf2:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOVPIC:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOH5part:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOH5Rage:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOOMF:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_IOTRUCHAS:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelDIY2:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelVerdict:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_FiltersParallelStatistics:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_GUISupportQt:STRING=YES \
+      -DVTK_MODULE_ENABLE_VTK_RenderingVolumeAMR:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_RenderingParallel:STRING=YES \
       -DVTK_MODULE_ENABLE_VTK_RenderingParallelLIC:STRING=YES \
       `# Required by ParaView 6.1.1 MPI flavors. Skip the Web modules` \
@@ -252,7 +279,7 @@ do
       -DVTK_MODULE_USE_EXTERNAL_VTK_scn:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_VTK_token:BOOL=OFF \
       -DVTK_MODULE_USE_EXTERNAL_VTK_verdict:BOOL=OFF \
-      -DVTK_MODULE_USE_EXTERNAL_VTK_vtkviskores:BOOL=OFF
+      -DVTK_MODULE_USE_EXTERNAL_VTK_vtkviskores:BOOL=ON
   %cmake_build
   module purge
 done
@@ -266,10 +293,10 @@ do
   # Strip build-time RPATHs from any installed binaries.
   find %{buildroot}$MPI_HOME/bin -type f -exec chrpath --delete {} \; 2>/dev/null || true
 
-  # Capture the runtime shared libraries for the %files manifest.
-  # Include bundled libviskores* (built when AcceleratorsVTKmFilters is enabled).
+  # Capture the runtime shared libraries for the %files manifest. Viskores
+  # ships from the sibling viskores package now — VTK's external-Viskores
+  # build doesn't install libviskores* under $MPI_HOME.
   ls %{buildroot}$MPI_HOME/lib/libvtk*.so.* \
-     %{buildroot}$MPI_HOME/lib/libviskores*.so.* \
     | sed "s|%{buildroot}||" > %{_vpath_builddir}/libs.list
 
   module purge
@@ -286,8 +313,6 @@ done
 %{_libdir}/mpich/include/vtk/
 %{_libdir}/mpich/lib/cmake/vtk/
 %{_libdir}/mpich/lib/libvtk*.so
-%{_libdir}/mpich/lib/libviskores*.so
-%{_libdir}/mpich/lib/pkgconfig/viskores.pc
 %dir %{_libdir}/mpich/lib/vtk
 %{_libdir}/mpich/lib/vtk/hierarchy/
 %{_libdir}/mpich/bin/vtkParseJava
@@ -308,8 +333,6 @@ done
 %{_libdir}/openmpi/include/vtk/
 %{_libdir}/openmpi/lib/cmake/vtk/
 %{_libdir}/openmpi/lib/libvtk*.so
-%{_libdir}/openmpi/lib/libviskores*.so
-%{_libdir}/openmpi/lib/pkgconfig/viskores.pc
 %dir %{_libdir}/openmpi/lib/vtk
 %{_libdir}/openmpi/lib/vtk/hierarchy/
 %{_libdir}/openmpi/bin/vtkParseJava
@@ -323,6 +346,34 @@ done
 %endif
 
 %changelog
+* Mon Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-7
+- Fix FTBFS introduced at -6 (enabling IOH5part): the bundled VTK::h5hut
+  module's vtk.module declares DEPENDS VTK::hdf5 only. In an MPI build the
+  bundled hdf5 reports H5_HAVE_PARALLEL, so h5t_octree.h reaches its parallel
+  branch and #include <vtk_mpi.h>, but without a VTK::mpi dependency that
+  module's include dir is never propagated - "fatal error: vtk_mpi.h: No such
+  file". Add VTK::mpi to the h5hut DEPENDS (vtk-h5hut-mpi-dep.patch). Unblocks
+  paraview 6.1.1 (which requires IOH5part)
+
+* Wed Jun  3 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-6
+- Enable Qt group + 11 parallel I/O/filter modules required by paraview
+  6.1.1's MPI variants (paraview-mpich, paraview-openmpi). vtk-mpi -5
+  shipped only the bare ParallelMPI/FiltersParallelMPI set; paraview
+  build 10550668 failed at CMakeLists.txt:568 with the full demand list
+  (IOXdmf2, IOVPIC, IOH5part, IOH5Rage, IOOMF, IOTRUCHAS,
+  FiltersParallelDIY2/Verdict/Statistics, GUISupportQt,
+  RenderingVolumeAMR). Add Qt6 BRs to match.
+
+* Mon Jun  1 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-5
+- Unbundle Viskores (mirror vtk.spec -11). Consume sibling COPR package
+  viskores-1.1.0-2 via VTK_MODULE_USE_EXTERNAL_VTK_vtkviskores=ON; drop
+  the two Provides:bundled(viskores) lines; drop libviskores* + the
+  pkgconfig file from both MPI %%files manifests; remove vtkviskores
+  from the install-time libs.list glob; add vtkviskores to the %%prep
+  unbundle loop; add BR: viskores-devel. Tracks
+  [[vtk-viskores-split-backlog]].
+
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-4
 - Drop the three Web module enables from -3. They all depend on
   VTK::Python which is intentionally off for MPI variants

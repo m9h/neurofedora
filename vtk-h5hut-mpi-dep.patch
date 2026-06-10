@@ -1,0 +1,21 @@
+Add VTK::mpi to the bundled h5hut module's dependencies.
+
+ThirdParty/h5hut/vtk.module declares only DEPENDS VTK::hdf5. In an
+MPI-enabled VTK build the bundled hdf5 reports H5_HAVE_PARALLEL, so
+h5t_octree.h takes its parallel branch and #include <vtk_mpi.h> - a
+header provided by VTK::mpi (Utilities/MPI/). Without a dependency on
+VTK::mpi that module's include directory is never propagated onto the
+h5hut compile line, giving 'fatal error: vtk_mpi.h: No such file'.
+Only surfaces once IOH5part (which pulls in VTK::h5hut) is enabled in
+an MPI build.
+
+--- a/ThirdParty/h5hut/vtk.module
++++ b/ThirdParty/h5hut/vtk.module
+@@ -8,6 +8,7 @@ SPDX_COPYRIGHT_TEXT
+   Copyright (c) Ken Martin, Will Schroeder, Bill Lorensen
+ DEPENDS
+   VTK::hdf5
++  VTK::mpi
+ TEST_DEPENDS
+   VTK::TestingCore
+ THIRD_PARTY
