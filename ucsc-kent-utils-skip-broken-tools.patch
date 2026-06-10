@@ -1,0 +1,124 @@
+--- a/src/hg/makefile	2026-05-19 14:25:09.395770760 -0700
++++ b/src/hg/makefile	2026-05-19 14:25:52.507040812 -0700
+@@ -3,15 +3,15 @@
+ kentSrc = ..
+ include ${kentSrc}/inc/localEnvironment.mk
+ 
+-BROWSER_BINS=cartReset das hgBlat makeDb/hgCgiData hgCollection hgConvert \
+-	hgHubConnect hgGateway hgGene hgGenome hgIntegrator hgLogin hgPcr \
++BROWSER_BINS=cartReset hgBlat makeDb/hgCgiData hgCollection hgConvert \
++	hgGateway hgGene hgGenome hgIntegrator hgLogin hgPcr \
+ 	hgSession hgSuggest hgTables hgTracks hgTrackUi hgUserSuggestion \
+ 	hgc hgApi cartDump near/hgNear hgLiftOver hgLinkIn hgVai \
+ 	visiGene/hgVisiGene hgMenubar hgPublicSessions \
+ 	encode/hgEncodeDataVersions encode/hgEncodeVocab encode/hgEncodeApi \
+ 	phyloPng hgCustom hgPal hgFileUi hgFileSearch makeDb/hgCgiData \
+ 	js htdocs/style hgMirror hgBeacon hgGtexTrackSettings pyLib \
+-	hgGeneGraph hgs hubApi hgPhyloPlace gar hgSearch
++	hgGeneGraph hgs hubApi hgPhyloPlace gar
+ 
+ ifdef LOWELAB
+     BROWSER_BINS += $(HOME)/lowelab/src/browser/tooltip $(HOME)/lowelab/src/browser/chooseorg
+@@ -46,7 +46,7 @@
+ ifeq ($(UNAME_S),Darwin)
+   buildRefresh=
+ else
+-  buildRefresh=encode3
++  buildRefresh=refreshNamedSessionCustomTracks
+ endif
+ 
+ # in the kent-core version of the tree, there is no encode3 directory
+@@ -67,7 +67,6 @@
+ 	bedToGenePred \
+ 	blastToPsl \
+ 	checkCoverageGaps \
+-	checkHgFindSpec \
+ 	checkTableCoords \
+ 	dbTrash \
+ 	encode3/validateFiles \
+@@ -251,7 +250,7 @@
+ 	if test -d $* ; then cd $* && echo $* && $(MAKE) ; fi
+ 
+ # Compile only, the cgi's for those builds without write access
+-#	to apache cgi-bin directories  (this compiles and links executables)
++#       to apache cgi-bin directories  (this compiles and links executables)
+ 
+ compile: ${BROWSER_BINS:%=%.compile} ${BROWSER_LOADERS:%=%.compile}
+ %.compile: hgLib
+@@ -268,7 +267,7 @@
+ 
+ #   alpha: Destination for the binaries is /usr/local/apache/cgi-bin/
+ 
+-alpha:	 ${BROWSER_BINS:%=%.alpha} ${BROWSER_LOADERS:%=%.alpha} ${ENCODE_FILES:%=%.alpha}
++alpha:   ${BROWSER_BINS:%=%.alpha} ${BROWSER_LOADERS:%=%.alpha} ${ENCODE_FILES:%=%.alpha}
+ %.alpha: hgLib
+ 	cd $* && echo $* && $(MAKE) alpha
+ 
+@@ -315,7 +314,7 @@
+ %.testAll:
+ 	@test -s $*/tests/makefile && (echo $*; cd $* && $(MAKE) test) || true
+ 
+-test::	${TEST_DIRS:%=%.test} ${TEST_EXTRA:%=%.test} testAll
++test::  ${TEST_DIRS:%=%.test} ${TEST_EXTRA:%=%.test} testAll
+ 
+ %.test: hgLib
+ 	${MAKE} -C $* test
+--- a/src/makefile	2026-05-19 14:24:29.945523634 -0700
++++ b/src/makefile	2026-05-19 14:24:45.445620725 -0700
+@@ -1,10 +1,10 @@
+ include inc/localEnvironment.mk
+ include inc/common.mk
+ 
+-all: utils cgi blatSuite
++all: utils cgi
+ 
+ alpha: clean
+-	${MAKE} utils-alpha cgi-alpha blatSuite
++	${MAKE} utils-alpha cgi-alpha
+ 
+ beta: check-beta clean
+ 	${MAKE} cgi-beta
+@@ -72,9 +72,9 @@
+ 	# this will fail if we are not in a beta checkout:
+ 	${GIT} branch | egrep '\* v[0-9]+_branch' > /dev/null	
+ 
+-BLAT_SUITE_DIRS = blat gfClient gfServer webBlat hg/pslPretty hg/pslReps \
++BLAT_SUITE_DIRS = hg/pslPretty hg/pslReps \
+ 	hg/pslSort utils/nibFrag utils/faToNib utils/faToTwoBit utils/twoBitToFa \
+-	utils/twoBitInfo isPcr blatz
++	utils/twoBitInfo
+ 
+ blatSuite: ${BLAT_SUITE_DIRS:%=%.blatSuite}
+ 
+@@ -86,11 +86,11 @@
+ 
+ # common subdirs uses by multiple targets
+ STD_DIRS = ameme index dnaDust protDust weblet aladdin primeMate fuse meta tagStorm \
+-	tabFile parasol blat
++	tabFile parasol
+ 
+ USER_APP_DIRS = utils parasol hg hg/utils \
+ 	hg/makeDb tabFile
+-ALMOST_USER_APP_DIRS = blat gfClient gfServer isPcr ameme index/ixIxx utils/userApps
++ALMOST_USER_APP_DIRS = ameme index/ixIxx utils/userApps
+ 
+ .PHONY: userApps
+ userApps: ${USER_APP_DIRS:%=%.userApps} ${ALMOST_USER_APP_DIRS:%=%.almostUserApps}
+@@ -105,7 +105,7 @@
+ destBin:
+ 	${MKDIR} ${DESTBINDIR}
+ 
+-CLEAN_DIRS = ${STD_DIRS} lib hg jkOwnLib htslib utils webBat isPcr
++CLEAN_DIRS = ${STD_DIRS} lib hg jkOwnLib htslib utils webBat
+ 
+ clean: ${CLEAN_DIRS:%=%.clean}
+ 	find . -name \*.o -print | xargs --no-run-if-empty rm
+@@ -116,7 +116,7 @@
+ 	if [ -e "$*/makefile" ] ; then ${MAKE} -C $* clean ; fi
+ 
+ 
+-TEST_DIRS = blat gfServer hg lib utils
++TEST_DIRS = hg lib utils
+ test:: $(TEST_DIRS:%=%.test)
+ %.test:
+ 	if test -d $* ; then ${MAKE} -C $* test; fi
