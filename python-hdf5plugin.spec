@@ -1,6 +1,6 @@
 Name:           python-hdf5plugin
 Version:        6.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        HDF5 Plugins for Windows, MacOS, and Linux
 
 License:        MIT
@@ -43,5 +43,10 @@ and PyTables.
 %{python3_sitearch}/hdf5plugin-%{version}.dist-info
 
 %changelog
+* Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0-2
+- Rebuild for rawhide's Python 3.15 transition (the -1 build required
+  python(abi)=3.14, blocking rawhide consumers such as python-babelviscofdtd).
+  Release bump so the py3.15 build cleanly supersedes the stale -1 in copr_base.
+
 * Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0-1
 - Initial package
