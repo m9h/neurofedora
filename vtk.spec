@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        10%{?dist}
+Release:        12%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -42,6 +42,11 @@ BuildRequires:  freeglut-devel
 BuildRequires:  freetype-devel
 BuildRequires:  gdal-devel
 BuildRequires:  hdf5-devel
+# Viskores ships standalone in our COPR (sibling vtk-viskores package).
+# Drop bundled Viskores and consume the external package — VTK's
+# AcceleratorsVTKmFilters module finds it via the viskores::cont/
+# cont_testing/filter/worklet imported targets we ship.
+BuildRequires:  viskores-devel
 BuildRequires:  jsoncpp-devel
 BuildRequires:  json-devel
 BuildRequires:  libGL-devel
@@ -88,7 +93,6 @@ Provides:       bundled(metaio)
 Provides:       bundled(scn)
 Provides:       bundled(token)
 Provides:       bundled(verdict)
-Provides:       bundled(viskores)
 Provides:       bundled(xdmf2)
 Provides:       bundled(xdmf3)
 
@@ -120,6 +124,8 @@ Requires:       qt6-qtdeclarative-devel
 # or the downstream configure will fail.
 Requires:       boost-devel
 Requires:       cgnslib-devel
+Requires:       cli11-devel
+Requires:       viskores-devel
 Requires:       double-conversion-devel%{?_isa}
 Requires:       expat-devel%{?_isa}
 Requires:       fmt-devel%{?_isa}
@@ -187,7 +193,7 @@ for x in vtkcli11 vtkdoubleconversion vtkexpat \
           vtkfmt vtkjpeg vtkjsoncpp vtklibharu \
           vtklibproj vtklibxml2 vtklz4 vtklzma vtknetcdf vtknlohmannjson \
           vtkogg vtkpegtl vtkpng vtkpugixml vtksqlite vtktheora vtktiff \
-          vtkutf8 vtkzlib
+          vtkutf8 vtkviskores vtkzlib
 do
   rm -rf ThirdParty/*/${x}
 done
@@ -289,7 +295,7 @@ export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
     -DVTK_MODULE_USE_EXTERNAL_VTK_scn:BOOL=OFF \
     -DVTK_MODULE_USE_EXTERNAL_VTK_token:BOOL=OFF \
     -DVTK_MODULE_USE_EXTERNAL_VTK_verdict:BOOL=OFF \
-    -DVTK_MODULE_USE_EXTERNAL_VTK_vtkviskores:BOOL=OFF
+    -DVTK_MODULE_USE_EXTERNAL_VTK_vtkviskores:BOOL=ON
 
 %cmake_build
 
@@ -314,10 +320,8 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_datadir}/licenses/VTK/
 %doc README.md
 %{_libdir}/libvtk*.so.*
-# Bundled Viskores libraries — required by VTK_AcceleratorsVTKmFilters.
-# Naming is libviskores_<name>-.so.* (the trailing dash before .so is from
-# VTK_CUSTOM_LIBRARY_SUFFIX="" interacting with Viskores's hyphenated suffix).
-%{_libdir}/libviskores*.so.*
+# Viskores libs now ship from the sibling viskores package — drop the
+# libviskores*.so.* glob that was previously here.
 # Qt libs are in the -qt subpackage
 %exclude %{_libdir}/libvtkGUISupportQt*.so.*
 %exclude %{_libdir}/libvtkRenderingQt*.so.*
@@ -327,8 +331,6 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_includedir}/vtk/
 %{_libdir}/cmake/vtk/
 %{_libdir}/libvtk*.so
-%{_libdir}/libviskores*.so
-%{_libdir}/pkgconfig/viskores.pc
 %{_bindir}/vtk*
 
 %files -n python3-%{name}
@@ -343,6 +345,27 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Tue Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-12
+- Rebuild for rawhide's Python 3.15 transition. The -11 python3-vtk in copr_base
+  still required python(abi)=3.14 (an older same-NVR build shadowed the rebuilt
+  one in the aggregate repo metadata), blocking paraview's rawhide builddep.
+  Bump the release so the fresh python3-vtk (python 3.15) strictly supersedes.
+
+* Mon Jun  1 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-11
+- Unbundle Viskores. Consume the new sibling COPR package
+  viskores-1.1.0-2 instead of building bundled vtkviskores. Drops
+  Provides: bundled(viskores), drops libviskores* from %%files (now
+  owned by viskores package), flips
+  VTK_MODULE_USE_EXTERNAL_VTK_vtkviskores:BOOL=ON, removes the
+  vtkviskores ThirdParty subtree in %%prep, adds BR: viskores-devel.
+  Tracks [[vtk-viskores-split-backlog]].
+- Add Requires: cli11-devel + viskores-devel to vtk-devel. Closes the
+  recurring transitive-BR fires caused by VTK -7+ enabling the cli11
+  module while vtk-devel didn't yet Require cli11-devel. Affected
+  itksnap -0.11, ANTs -12, ANTs3 -3, ITK6 b02-8. Tracks
+  [[vtk-devel-transitive-requires]].
+
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-10
 - Stop stripping libviskores_cont_testing-*. ViskoresTargets.cmake
   (installed by VTK's cmake config) exports a viskores::cont_testing
