@@ -1,6 +1,10 @@
+# scikit-build-core builds the .so via CMake; the debug sources are not tracked
+# into debugsourcefiles.list (empty -> FTBFS), so disable the debug package.
+%global debug_package %{nil}
+
 Name:           python-babelviscofdtd
 Version:        1.2.6
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        GPU/CPU 3D FDTD solution of viscoelastic equation
 
 License:        BSD-3-Clause
@@ -9,8 +13,10 @@ Source0:        https://github.com/ProteusMRIgHIFU/BabelViscoFDTD/archive/main.t
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-pip
-BuildRequires:  python3-setuptools
-BuildRequires:  python3-wheel
+# pyproject.toml uses build-backend = scikit_build_core.build (not setuptools),
+# which drives cmake via the ninja generator.
+BuildRequires:  python3-scikit-build-core
+BuildRequires:  ninja-build
 BuildRequires:  python3-numpy
 BuildRequires:  python3-scipy
 BuildRequires:  python3-h5py
@@ -51,16 +57,21 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 %files -n python3-babelviscofdtd
 %license LICENSE
 %doc README.md
+# The scikit-build-core backend nests the compiled _FDTDStaggered*.so
+# extensions inside the package dir (wheel.packages = ["BabelViscoFDTD"]), so
+# this dir entry captures them; the old top-level .so glob no longer applies.
 %{python3_sitearch}/BabelViscoFDTD
-# The cython-built .so extensions ARE installed at top-level sitearch (in
-# addition to inside BabelViscoFDTD/) — the pyproject build emits BOTH.
-# (Earlier diagnosis assumed only one location; build log confirms both.)
-%{python3_sitearch}/_FDTDStaggered3D_with_relaxation_*.so
 # The dist-info version drifts because Source0 fetches main.tar.gz (not a tag);
 # the wheel build uses whatever pyproject.toml says in that snapshot. Glob it.
 %{python3_sitearch}/babelviscofdtd-*.dist-info
 
 %changelog
+* Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-4
+- Fix BackendUnavailable FTBFS: pyproject.toml uses
+  build-backend = scikit_build_core.build, but the spec only BuildRequired
+  setuptools/wheel. BuildRequire python3-scikit-build-core (+ ninja-build, its
+  default cmake generator) so %%pyproject_wheel can load the backend. Unblocks
+  BabelBrain (BabelViscoFDTD is its core solver)
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-3
 - Restore _FDTDStaggered*.so glob in %%files: the wheel actually
