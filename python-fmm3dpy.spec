@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        2.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Fast Multipole Method in Python (FMM3D wrapper)
 
 License:        Apache-2.0
@@ -15,6 +15,7 @@ BuildRequires:  gcc
 BuildRequires:  gcc-c++
 BuildRequires:  gcc-gfortran
 BuildRequires:  python3-devel
+BuildRequires:  python3-pip
 BuildRequires:  python3-numpy
 BuildRequires:  python3-meson-python
 
@@ -51,6 +52,11 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib}
 %license LICENSE
 
 %changelog
+* Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-2
+- Add BuildRequires: python3-pip. %pyproject_wheel needs pip, which recent
+  Fedora pyproject-rpm-macros no longer pull in implicitly ("No module named
+  pip" FTBFS). Unblocks the SimNIBS chain (fmm3dpy -> pygpc -> ... -> simnibs)
+
 * Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-1
 - Update to 2.1.0 (major version bump, now uses meson-python build system)
 - Switch source from GitHub FMM3D repo to PyPI sdist
