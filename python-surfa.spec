@@ -2,7 +2,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.6.3
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Utilities for medical image and surface processing
 
 License:        MIT
@@ -67,5 +67,10 @@ PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib} \
 # License is MIT (declared in setup.py) but upstream has no standalone license file
 
 %changelog
+* Fri Jun 12 2026 Morgan Hough <morgan.hough@gmail.com> - 0.6.3-2
+- Rebuild for rawhide's Python 3.15 transition. The -1 build required
+  python(abi)=3.14, blocking the rawhide SimNIBS chain (python-samseg
+  BuildRequires python3-surfa and could not resolve on rawhide).
+
 * Tue Mar 10 2026 Morgan Hough <morgan.hough@gmail.com> - 0.6.3-1
 - Initial package

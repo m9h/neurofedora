@@ -158,5 +158,5 @@ for f in os.listdir(so_dir):
 - Fix: use C++17 for ITK 5.4 / GCC 15 compatibility
 - Add surfa, scikit-learn, numba runtime Requires
 
-* Tue Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4a0-1
+* Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4a0-1
 - Initial package for SimNIBS dependency

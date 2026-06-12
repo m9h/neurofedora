@@ -2,7 +2,7 @@
 
 Name:           simnibs
 Version:        4.6.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Simulation of Non-Invasive Brain Stimulation
 
 License:        GPL-3.0-only
@@ -215,6 +215,11 @@ print(f'Found {len(so_files)} extension modules: {so_files}')
 %{_bindir}/simnibs_gui
 
 %changelog
+* Thu Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-4
+- Refresh rebuild against the Python 3.15 rebuilds of its dependency chain
+  (python-charm-gems, python-samseg, python-surfa, python-pygpc, python-fmm3dpy)
+  so rawhide resolves consistently. No spec/source changes.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.6.0-3
 - CGAL 6 (rawhide/F45): port _mesh_volumes.cpp create_labeled_image_mesh_domain
   to the named-parameter form (matches existing _cgal_intersect.cpp patches)

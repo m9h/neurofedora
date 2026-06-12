@@ -5,7 +5,7 @@
 
 Name:           python-%{pypi_name}
 Version:        1.3.3
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Python bindings for the GEMS segmentation package
 
 License:        GPL-3.0-only
@@ -126,6 +126,11 @@ export PYTHONPATH=%{buildroot}%{python3_sitearch}
 %license LICENSE
 
 %changelog
+* Fri Jun 12 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.3-4
+- Rebuild for rawhide's Python 3.15 transition (the -3 build was built against
+  python 3.14, stale on rawhide). Refreshes the SimNIBS chain so python-samseg
+  and simnibs resolve and install on rawhide.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.3.3-3
 - Drop vtk-devel <9.3 pin (system VTK 9.2.6 Qt5 retired on F44+); charm-gems
   pulls vtk transitively via ITK VtkGlue, doesn't use it directly

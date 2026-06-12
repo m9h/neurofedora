@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.4.4
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Sensitivity and uncertainty analysis of simulation-based models
 
 License:        GPL-3.0-only
@@ -64,6 +64,10 @@ PYTHONPATH=%{buildroot}%{python3_sitearch}:%{buildroot}%{python3_sitelib} \
 %license LICENSE
 
 %changelog
+* Fri Jun 12 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.4-3
+- Rebuild for rawhide's Python 3.15 transition (the -2 build required
+  python(abi)=3.14, stale on rawhide). Refreshes the SimNIBS chain.
+
 * Tue Mar 10 2026 Morgan Hough <morgan.hough@gmail.com> - 0.4.4-2
 - Add scikit-learn, tqdm BuildRequires and Requires (needed at import time)
 - Simplify check to basic import (avoid chasing all transitive deps)

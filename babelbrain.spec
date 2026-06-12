@@ -2,7 +2,7 @@
 
 Name:           babelbrain
 Version:        0.8.1
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        GUI for modeling transcranial ultrasound neuromodulation
 
 License:        BSD-3-Clause
@@ -145,6 +145,11 @@ rm -f %{buildroot}%{python3_sitelib}/BabelBrain/ExternalBin/*/run_mac_transformi
 %{python3_sitelib}/babelbrain-%{version}.dist-info
 
 %changelog
+* Thu Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.1-4
+- Refresh rebuild against the Python 3.15 rebuilds of its compute deps
+  (python-babelviscofdtd 1.2.6-4, python-fmm3dpy 2.1.0-2) so rawhide
+  resolves consistently. No spec/source changes.
+
 * Sun Feb 01 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.1-3
 - Fix package summary length and spelling issues
 
