@@ -14,7 +14,7 @@
 #   JsonCpp, RapidJSON, LibArchive, TBB, Qt6 -> Fedora system
 #   Python     -> bundled by Slicer itself (this v1)
 #
-# Parallel-install layout under %{_prefix}/lib/slicer-%{version}/ to leave
+# Parallel-install layout under the prefix lib/slicer dir to leave
 # room for slicer 6.x someday.
 
 # NOTE: Slicer 5.10.0 release is Qt5-only (find_package(Qt5) hardcoded in
@@ -31,6 +31,11 @@
 # Slicer ships ~600 MB of shared libs + bundled Python — debuginfo balloons
 # to several GB. Disable.
 %define debug_package %{nil}
+
+# Bug #8 backstop: even after rewriting shebangs (in %install), guard against
+# RPM's automatic script-dependency generator ever emitting an unsatisfiable
+# Requires: /usr/bin/python-real (no Fedora package provides that interpreter).
+%global __requires_exclude ^/usr/bin/python-real$
 
 # Disable LTO. Fedora's default -flto=auto -ffat-lto-objects roughly doubles
 # C++ compile time (fat objects build both a normal .o and LTO bytecode) and
@@ -58,7 +63,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        40%{?dist}
+Release:        41%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -446,14 +451,25 @@ EOF
 %install
 %cmake_install
 
-# Slicer source bug #5: several installed wizard/utility scripts (e.g.
-# libexec/Slicer-5.11/ExtensionWizard.py, ModuleWizard.py) carry an ambiguous
-# "#!/usr/bin/env python" shebang, which Fedora's brp-mangle-shebangs rejects
-# ("ambiguous python shebang ... Change it to python3"), failing %install.
-# Slicer runs these through its own launcher/Python, so the shebang is cosmetic
-# -- normalize any bare-python shebang (line 1) in the installed tree to python3.
-find %{buildroot}%{slicer_inst} -type f -name '*.py' \
-    -exec sed -i '1s|^\(#!.*\)python$|\1python3|' {} +
+# Slicer source bug #5/#8: several installed wizard/utility scripts (e.g.
+# libexec/Slicer-5.11/ExtensionWizard.py, ModuleWizard.py, and the ScriptedCLI
+# Wizard template TemplateKey.py) carry non-system python shebangs:
+#  - "#!/usr/bin/env python"  -> brp-mangle-shebangs rejects (ambiguous), fails %install (bug #5)
+#  - "#!/usr/bin/python-real" -> RPM's script-dep generator turns it into an
+#    unsatisfiable Requires: /usr/bin/python-real, making the package
+#    UNINSTALLABLE even though the build succeeds (bug #8).
+# Slicer runs these through its own launcher/Python, so the shebang is cosmetic.
+# Normalize EVERY non-system python shebang (bare python, pythonX.Y, python-real)
+# on line 1 to /usr/bin/python3. Prefilter with grep -I so we only sed real text
+# files that actually start with "#!" (never binaries in the tree).
+find %{buildroot}%{slicer_inst} -type f -print0 | while IFS= read -r -d '' f; do
+    # Read only line 1; only invoke sed on files whose shebang names python
+    # (keeps binaries/data files untouched -- never sed a .so).
+    IFS= read -r line0 < "$f" 2>/dev/null || continue
+    case "$line0" in
+        '#!'*python*) sed -i -E '1s|^#!.*/(env[[:space:]]+)?python[0-9.]*(-real)?$|#!/usr/bin/python3|' "$f" ;;
+    esac
+done
 
 # Profile.d hook
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/slicer.sh
@@ -475,7 +491,7 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 # route it to -devel. (bug #7: the old lib/cmake/ path matched nothing.)
 %exclude %{slicer_inst}/lib/Slicer-5.11/CMake/
 # bug #6: Slicer installs Qt6 designer/iconengine/style plugins into the system
-# Qt6 plugin tree (outside %{slicer_inst}); package them explicitly.
+# Qt6 plugin tree (outside the slicer_inst prefix); package them explicitly.
 %{_libdir}/qt6/plugins/designer/libqMRMLWidgetsPlugins.so
 %{_libdir}/qt6/plugins/designer/libqSlicer*Plugins.so
 %{_libdir}/qt6/plugins/iconengines/libqSlicerIconEnginePlugin.so
@@ -486,6 +502,18 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Thu Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-41
+- Fix bug #8: the -40 RPM built successfully but was UNINSTALLABLE. The
+  ScriptedCLI Wizard template (share/Slicer-5.11/Wizard/.../TemplateKey.py)
+  ships a "#!/usr/bin/python-real" shebang; RPM's script-dependency generator
+  turned that into Requires: /usr/bin/python-real, which no package provides.
+  The -40 bug #5 sed was too narrow (only *.py shebangs ending in bare "python")
+  so "python-real" slipped through. Broaden the %install shebang normalization to
+  every non-system python shebang (bare python, pythonX.Y, python-real, env
+  python), prefiltered with grep -I so only real "#!" text files are touched.
+  Add %global __requires_exclude ^/usr/bin/python-real$ as a backstop.
+- Reword a comment that tripped rpmbuild's macro-in-comment warning.
+
 * Wed Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-40
 - No code change from -39 (bug #3-#7 fixes carry forward, still unexercised:
   -39 stalled in the compile before reaching %install/%files).
