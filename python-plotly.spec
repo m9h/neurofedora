@@ -76,9 +76,8 @@ find . -name '*.py' -exec sed -i \
   shebangs to /usr/bin/python3 in %%prep before brp runs.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-2
-- Fix %%autosetup -n: upstream tarball expands to plotly.py-%{version},
-  not plotly-%{version}.
+- Fix %%autosetup -n: upstream tarball expands to plotly.py-%%{version},
+  not plotly-%%{version}.
 
-* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-1
 - Drop all -x extras: anywidget, colorcet, kaleido, polars not in Fedora.
-%autochangelog
