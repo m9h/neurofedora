@@ -41,9 +41,24 @@
 # CPUs (the cap existed only to contain LTO memory pressure).
 %global _lto_cflags %{nil}
 
+# Cap build parallelism to bound peak compile/link memory. With all-core -j,
+# the ~16 simultaneous Qt/VTK-heavy module compiles that start at ninja step
+# ~705 (right after the CLI-link phase) exhaust RAM on low-memory COPR builders
+# and the build swap-thrashes to a dead stall there (10587493 timed out at 705
+# while thrashing; 10587875 hard-stalled at 705 for ~4h). A high-RAM builder
+# completes fine (10586961 reached 2843) -- so it is the builder-RAM lottery.
+# Bounds peak memory so ANY builder finishes; the slower wall clock is fine now
+# that we submit with a raised --timeout (86400s). -j4 cleared step 705 on a
+# higher-RAM builder (build 10588367 reached 2843) but a RAM-poorer builder
+# still swap-stalled there ~1.5h with zero output (build 10591218) -- the lottery
+# just has a lower threshold than the all-core case. -j2 halves peak memory
+# again so even the smallest builders get through the Qt/VTK module-compile
+# burst at ~705. If -j2 still stalls, drop to -j1 (or add -fuse-ld=mold).
+%global _smp_mflags -j2
+
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        34%{?dist}
+Release:        40%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -260,6 +275,33 @@ for f in Libs/vtkTeem/CMakeLists.txt \
     sed -i 's| ${CMAKE_CURRENT_BINARY_DIR}/${configure_header_file}||' "$f"
 done
 
+# Slicer source bug #3: Base/QTCore/Testing/Python/CMakeLists.txt installs its
+# generic Python test template (qSlicerModuleGenericTest.py.in) from
+# ${CMAKE_CURRENT_BINARY_DIR}, but nothing ever stages it there — the file is a
+# verbatim template living in the source tree (that CMakeLists registers the
+# templates dir as CMAKE_CURRENT_SOURCE_DIR, and its BUILD_TESTING block that
+# might otherwise have copied it is empty). With BUILD_TESTING=OFF and the
+# development install enabled, %install aborts: "file INSTALL cannot find
+# .../qSlicerModuleGenericTest.py.in". Install it from the source tree.
+# (grep-verified as the sole occurrence of this install-from-binary .in bug.)
+sed -i 's|${CMAKE_CURRENT_BINARY_DIR}/qSlicerModuleGenericTest.py.in|${CMAKE_CURRENT_SOURCE_DIR}/qSlicerModuleGenericTest.py.in|' \
+    Base/QTCore/Testing/Python/CMakeLists.txt
+
+# Slicer source bug #4: SlicerCPack.cmake installs the Qt-designer launcher by
+# copying the CTKAppLauncher binary from ${CTKAppLauncher_DIR}/bin/ — correct in
+# the superbuild, where the launcher build tree and its CMake config share a
+# prefix. Fedora's commontk-applauncher splits them: the binary is in %{_bindir}
+# (/usr/bin/CTKAppLauncher) while the CMake config (= CTKAppLauncher_DIR) is in
+# %{_libdir}/cmake/CTKAppLauncher. So %install aborts: "file INSTALL cannot find
+# /usr/lib64/cmake/CTKAppLauncher/bin/CTKAppLauncher". Point this install rule at
+# the real binary location. NOTE: the only other launcher install (the Python
+# launcher in SlicerBlockInstallPython.cmake) is gated on NOT Slicer_USE_SYSTEM_
+# python and is therefore not included in this build; likewise the DCMTK/QtTesting/
+# PythonQt/TBB/OpenSSL/LibArchive install blocks are all NOT Slicer_USE_SYSTEM_*
+# guarded and skipped here -- this is the sole firing build-tree-path rule.
+sed -i 's|${CTKAppLauncher_DIR}/bin/${_launcher}|%{_bindir}/${_launcher}|' \
+    CMake/SlicerCPack.cmake
+
 %build
 # Libs/vtkITK includes gdcmDict.h directly but only pulls GDCM transitively via
 # find_package(ITK ... ITKIOGDCM) + include(${ITK_USE_FILE}); with our system
@@ -404,6 +446,15 @@ EOF
 %install
 %cmake_install
 
+# Slicer source bug #5: several installed wizard/utility scripts (e.g.
+# libexec/Slicer-5.11/ExtensionWizard.py, ModuleWizard.py) carry an ambiguous
+# "#!/usr/bin/env python" shebang, which Fedora's brp-mangle-shebangs rejects
+# ("ambiguous python shebang ... Change it to python3"), failing %install.
+# Slicer runs these through its own launcher/Python, so the shebang is cosmetic
+# -- normalize any bare-python shebang (line 1) in the installed tree to python3.
+find %{buildroot}%{slicer_inst} -type f -name '*.py' \
+    -exec sed -i '1s|^\(#!.*\)python$|\1python3|' {} +
+
 # Profile.d hook
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/slicer.sh
 
@@ -420,13 +471,92 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{_sysconfdir}/profile.d/slicer.sh
 %{slicer_inst}/
 %exclude %{slicer_inst}/include/
-%exclude %{slicer_inst}/lib/cmake/
+# Slicer's CMake config installs under lib/Slicer-5.11/CMake/ (not lib/cmake/);
+# route it to -devel. (bug #7: the old lib/cmake/ path matched nothing.)
+%exclude %{slicer_inst}/lib/Slicer-5.11/CMake/
+# bug #6: Slicer installs Qt6 designer/iconengine/style plugins into the system
+# Qt6 plugin tree (outside %{slicer_inst}); package them explicitly.
+%{_libdir}/qt6/plugins/designer/libqMRMLWidgetsPlugins.so
+%{_libdir}/qt6/plugins/designer/libqSlicer*Plugins.so
+%{_libdir}/qt6/plugins/iconengines/libqSlicerIconEnginePlugin.so
+%{_libdir}/qt6/plugins/styles/libqSlicerBaseQTGUIStylePlugins.so
 
 %files devel
 %{slicer_inst}/include/
-%{slicer_inst}/lib/cmake/
+%{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Wed Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-40
+- No code change from -39 (bug #3-#7 fixes carry forward, still unexercised:
+  -39 stalled in the compile before reaching %install/%files).
+- Drop build parallelism -j4 -> -j2. -j4 cleared the step-705 module-compile
+  burst on a higher-RAM builder but a RAM-poorer builder swap-stalled there
+  ~1.5h with zero log output (build 10591218, canceled). -j2 halves peak memory
+  again so the smallest COPR builders also get through; raised --timeout absorbs
+  the longer wall clock.
+
+* Wed Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-39
+- Pre-validated %files against the -37 build's full install manifest (6022
+  install lines) instead of burning another ~4h compile to discover mismatches.
+  Found and fixed two:
+- bug #6: 20 files install outside %{slicer_inst} into the system Qt6 plugin
+  tree (18 designer + 1 iconengine + 1 style plugin); package them explicitly,
+  else %install fails with "installed (but unpackaged) file(s) found".
+- bug #7: Slicer's CMake config installs under lib/Slicer-5.11/CMake/, not the
+  lib/cmake/ assumed by the -devel %files (which matched nothing -> "file not
+  found"). Point both the %exclude and the -devel entry at the real path.
+- No code change from -38; bug #5 shebang fix and the -j4 cap carry forward.
+
+* Wed Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-38
+- BREAKTHROUGH: the -37 build (-j4 cap) COMPILED CLEAN 2843/2843 with NO stall
+  at step 705 (memory cap fixed the swap-death) AND %cmake_install ran to
+  completion -- bug #3 and bug #4 (CTKAppLauncher) both confirmed FIXED. The
+  build now fails only in Fedora's post-install policy scripts.
+- Fix Slicer source bug #5: brp-mangle-shebangs aborts %install on the ambiguous
+  "#!/usr/bin/env python" shebang in installed scripts (ExtensionWizard.py et
+  al.; 14 such files in-tree, all *.py). Normalize bare-python shebangs to
+  python3 in the installed tree after %cmake_install. Slicer invokes these via
+  its own launcher so the shebang is cosmetic.
+
+* Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-37
+- No code change from -36 (bug #4 launcher fix unchanged and still unexercised).
+- Cap build parallelism: %%global _smp_mflags -j4. The -36 builds repeatedly
+  died at ninja step ~705 -- where the ~150-CLI-link phase ends and ~16 parallel
+  Qt/VTK-heavy module compiles begin -- by exhausting RAM on low-memory COPR
+  builders (10587493 timed out thrashing at 705; 10587875 hard-stalled at 705
+  ~4h with zero log output). A high-RAM builder finished the same compile
+  (10586961 reached 2843), confirming a builder-RAM lottery, not a code fault.
+  -j4 bounds peak memory so any builder completes; the raised --timeout (86400s)
+  absorbs the slower wall clock.
+
+* Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-36
+- The -35 build (f44, run 10586961) COMPILED CLEAN (2843/2843) and cleared the
+  bug #3 install fix, advancing deep into %install before failing on the next
+  wall: "file INSTALL cannot find /usr/lib64/cmake/CTKAppLauncher/bin/
+  CTKAppLauncher" (CMake/LastConfigureStep/cmake_install.cmake).
+- Fix Slicer source bug #4: SlicerCPack.cmake installs the designer launcher
+  from ${CTKAppLauncher_DIR}/bin/, a superbuild assumption; Fedora's
+  commontk-applauncher ships the binary in %{_bindir} while its CMake config
+  lives in %{_libdir}/cmake/CTKAppLauncher. Sed the install rule to %{_bindir}.
+- Verified via guard analysis that all other build-tree-path install blocks
+  (Python launcher, DCMTKApps/Libs, QtTesting, PythonQt, TBB, OpenSSL,
+  LibArchive) are NOT Slicer_USE_SYSTEM_* gated and skipped in this config, so
+  this is expected to be the last superbuild-path %install wall.
+- (rawhide remains blocked separately on py3.15 vs the COPR's py3.14 vtk; this
+  build targets fedora-44-x86_64 only.)
+
+* Tue Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-35
+- MILESTONE: the -34 build COMPILED CLEAN (the PythonQt include fix worked) —
+  all 2843 ninja steps finished and it died in %install, not the compile.
+- Fix Slicer source bug #3: Base/QTCore/Testing/Python/CMakeLists.txt installs
+  qSlicerModuleGenericTest.py.in from ${CMAKE_CURRENT_BINARY_DIR}, but the file
+  is a verbatim template that only exists in the source tree (its BUILD_TESTING
+  staging block is empty). With BUILD_TESTING=OFF + development install on,
+  %install aborted with "file INSTALL cannot find .../qSlicerModuleGenericTest
+  .py.in". Sed the install path to ${CMAKE_CURRENT_SOURCE_DIR}. Grep-verified as
+  the only install-from-binary-dir .in occurrence in the tree, so no further
+  siblings should fail the remaining %install steps.
+
 * Wed Jun 03 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-34
 - The -33 build cleared the QtTesting include wall (got ~2000 objects deeper,
   to 13300/?) and failed compiling qSlicerSubjectHierarchyModule.cxx:
