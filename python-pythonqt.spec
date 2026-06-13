@@ -23,7 +23,7 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.14.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.15.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
@@ -45,6 +45,14 @@ Patch0:         pythonqt-simplecpp-linux-defines.patch
 # Cap TypeInfo::resolveType recursion at 64 frames. Without this, Qt 6.11
 # cyclic type alias chains exhaust the stack and segfault.
 Patch1:         pythonqt-resolvetype-depth-cap.patch
+
+# Make the per-module wrap loop self-trimming: only compile a Qt module's
+# wrappers (and define PYTHONQT_WITH_<MOD>) if the generator actually emitted
+# its _init.cpp. Qt6 restructured some modules (e.g. QtOpenGL) to yield no
+# wrappable classes; without this, enabling such a module fails configure on a
+# missing source and would leave PythonQt_QtAll::init() referencing an
+# undefined PythonQt_init_Qt<MOD>.
+Patch2:         pythonqt-wrap-only-generated-modules.patch
 
 BuildRequires:  cmake >= 3.20.6
 BuildRequires:  ninja-build
@@ -72,6 +80,13 @@ BuildRequires:  cmake(Qt6PrintSupport)
 BuildRequires:  cmake(Qt6Core5Compat)
 BuildRequires:  cmake(Qt6Test)
 BuildRequires:  cmake(Qt6UiTools)
+# Pulled in transitively once the per-module wrappers below are enabled:
+# the Qt6 "gui" wraplib depends on Widgets/OpenGL/PrintSupport, and the
+# svg wrapper depends on SvgWidgets (see qt_wrapped_lib_depends_* in
+# upstream CMakeLists). Qt6Widgets/OpenGLWidgets/Multimedia are already
+# listed above; add the remaining -Widgets companions explicitly.
+BuildRequires:  cmake(Qt6SvgWidgets)
+BuildRequires:  cmake(Qt6PrintSupport)
 
 Requires:       qt6-qtbase
 
@@ -187,6 +202,46 @@ cd "${SRCDIR}"
 sed -i 's|return ( theWrappedObject->qHash(key, seed));|return ( ::qHash(*theWrappedObject, seed));|' \
     generated_cpp_qt6/generated_cpp/com_trolltech_qt_gui_builtin/com_trolltech_qt_gui_builtin0.cpp
 
+# Fix a second generator bug exposed once the full QtCore wrapper is compiled:
+# Qt 6.8+ made QElapsedTimer's relational operators hidden friends
+# (friend bool operator<(QElapsedTimer, QElapsedTimer)). The generator
+# mis-wrapped operator< as a two-arg member returning QElapsedTimer:
+#   QElapsedTimer __lt__(QElapsedTimer*, const QElapsedTimer& lhs, const QElapsedTimer& rhs)
+#   { return ( theWrappedObject->operator<(lhs, rhs)); }
+# which fails to compile ('QElapsedTimer has no member operator<'). Every other
+# wrapped class emits the correct one-arg form; rewrite this one to match.
+# (Only QElapsedTimer is affected — verified across the whole generated tree.)
+sed -i \
+    -e 's|QElapsedTimer  PythonQtWrapper_QElapsedTimer::__lt__(QElapsedTimer\* theWrappedObject, const QElapsedTimer\&  lhs, const QElapsedTimer\&  rhs)|bool  PythonQtWrapper_QElapsedTimer::__lt__(QElapsedTimer* theWrappedObject, const QElapsedTimer\&  rhs)|' \
+    -e 's|return ( theWrappedObject->operator<(lhs, rhs));|return ( (*theWrappedObject)< rhs);|' \
+    generated_cpp_qt6/generated_cpp/com_trolltech_qt_core/com_trolltech_qt_core0.cpp
+sed -i \
+    's|QElapsedTimer  __lt__(QElapsedTimer\* theWrappedObject, const QElapsedTimer\&  lhs, const QElapsedTimer\&  rhs);|bool  __lt__(QElapsedTimer* theWrappedObject, const QElapsedTimer\&  rhs);|' \
+    generated_cpp_qt6/generated_cpp/com_trolltech_qt_core/com_trolltech_qt_core0.h
+
+# Further generator bugs exposed by compiling the full QtGui wrapper, all from
+# Qt6 API changes the v4.0.1 generator predates. Each target string is unique
+# across the whole generated tree (verified). Fixing the bodies only; the
+# declared signatures stay valid.
+#  (a) QPolygonF::translate() returns void in Qt6 (translated() is the
+#      value-returning one). The wrapper declares a QPolygonF return, so do the
+#      in-place translate and return the object.
+#  (b) QQuaternion operator+/operator== became hidden friends; the generator
+#      emitted bogus two-operand member calls. Use the free operators.
+sed -i \
+    -e 's|return ( theWrappedObject->translate(offset));|theWrappedObject->translate(offset); return (*theWrappedObject);|' \
+    -e 's|return ( theWrappedObject->operator+(q1, q2));|return ( q1 + q2 );|' \
+    -e 's|return ( theWrappedObject->operator==(q1, q2));|return ( q1 == q2 );|' \
+    generated_cpp_qt6/generated_cpp/com_trolltech_qt_gui/com_trolltech_qt_gui7.cpp
+
+#  (c) QMediaFormat::mimeType() returns QMimeType, which the generated
+#      multimedia wrapper only forward-declares. Pull in the full definition.
+#      It must go in the header: AUTOMOC generates moc_*.cpp from the header
+#      and instantiates QMimeType there too, so a .cpp-only include is not
+#      enough. The .cpp includes this header, so one edit covers both.
+sed -i '1a #include <QMimeType>' \
+    generated_cpp_qt6/generated_cpp/com_trolltech_qt_multimedia/com_trolltech_qt_multimedia0.h
+
 # Step 3: Build the runtime library against the freshly-generated wrappers.
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -194,6 +249,26 @@ sed -i 's|return ( theWrappedObject->qHash(key, seed));|return ( ::qHash(*theWra
     -DPythonQt_GENERATED_PATH:PATH="${SRCDIR}/generated_cpp_qt6/generated_cpp" \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DBUILD_TESTING:BOOL=OFF \
+    `# Compile the per-module Qt wrappers into libPythonQt (not just the` \
+    `# minimal *_builtin subset). Each enabled module defines` \
+    `# PYTHONQT_WITH_<MOD>, which makes PythonQt_QtAll::init() actually` \
+    `# register that module's classes. CTK's ctkAbstractPythonManager` \
+    `# already calls PythonQt_QtAll::init() unconditionally — without these` \
+    `# flags that call is a no-op, so "import qt; qt.QWidget" fails in` \
+    `# Slicer's scripted modules (DICOM, Segment Editor, etc.).` \
+    `# NOTE: do NOT use PythonQt_Wrap_QtAll=ON — it force-enables qml/quick/` \
+    `# webkit, whose wrappers we trim in %prep, leaving PythonQt_init_QtQml` \
+    `# undefined at link time. Enable only the modules we actually generate.` \
+    `# Widgets maps to the "gui" wraplib in Qt6 (qtlib_to_wraplib_Widgets).` \
+    -DPythonQt_Wrap_Qtcore:BOOL=ON \
+    -DPythonQt_Wrap_Qtgui:BOOL=ON \
+    -DPythonQt_Wrap_Qtnetwork:BOOL=ON \
+    -DPythonQt_Wrap_Qtsql:BOOL=ON \
+    -DPythonQt_Wrap_Qtsvg:BOOL=ON \
+    -DPythonQt_Wrap_Qtopengl:BOOL=ON \
+    -DPythonQt_Wrap_Qtxml:BOOL=ON \
+    -DPythonQt_Wrap_Qtuitools:BOOL=ON \
+    -DPythonQt_Wrap_Qtmultimedia:BOOL=ON \
     -DPythonQt_INSTALL_LIBRARY_DIR:PATH=%{_lib} \
     -DPythonQt_INSTALL_ARCHIVE_DIR:PATH=%{_lib} \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON
@@ -221,6 +296,36 @@ sed -e 's|@VERSION@|%{version}|g' \
 %{_libdir}/cmake/PythonQt/
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.15.20260329git7ef4c5ee
+- Compile the full per-module Qt wrappers into libPythonQt, not just the
+  minimal com_trolltech_qt_{core,gui}_builtin subset. Enable
+  PythonQt_Wrap_Qt{core,gui,network,sql,svg,opengl,xml,uitools,multimedia}.
+  Each flag defines PYTHONQT_WITH_<MOD>, which is what makes the (already
+  exported but previously empty) PythonQt_QtAll::init() register those
+  modules' classes. Fixes 3D Slicer bug #9b: CTK's ctkAbstractPythonManager
+  calls PythonQt_QtAll::init() unconditionally, so before this change
+  "import qt" worked but qt.QWidget/QDialog/QTimer were missing, breaking
+  every GUI scripted module (DICOM, Segment Editor effects, ...).
+  Widgets folds into the "gui" wraplib under Qt6.
+- Deliberately NOT using PythonQt_Wrap_QtAll=ON: it force-enables
+  qml/quick/webkit, whose generated wrappers we trim in %prep, which would
+  leave PythonQt_init_QtQml&co undefined at link time.
+- Add BuildRequires cmake(Qt6SvgWidgets), cmake(Qt6PrintSupport) — the
+  gui/svg wraplibs depend on them once wrapping is enabled.
+- Add Patch2 (pythonqt-wrap-only-generated-modules): the upstream wrap loop
+  appends each enabled module's _init.cpp unconditionally. Qt6 yields no
+  QtOpenGL wrappers, so enabling opengl failed configure on a missing source.
+  Guard the whole per-module block on the generated _init.cpp existing, so the
+  build self-trims to whatever the generator actually produced and
+  PythonQt_QtAll::init() stays consistent with the compiled modules.
+- Post-process four more generator bugs surfaced by compiling the full
+  QtCore/QtGui/QtMultimedia wrappers against Qt 6.11 (the generator predates
+  these Qt6 API changes): QElapsedTimer::operator< (hidden friend, mis-wrapped
+  as a 2-arg member), QQuaternion operator+/operator== (hidden friends),
+  QPolygonF::translate (returns void in Qt6), and a missing <QMimeType>
+  include in the multimedia wrapper. All are narrow sed fixes on unique
+  generated strings.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.14.20260329git7ef4c5ee
 - Also set legacy uppercase variables in PythonQtConfig.cmake.
   CTK's ctkMacroWrapPythonQt.cmake uses PYTHONQT_FOUND (uppercase)

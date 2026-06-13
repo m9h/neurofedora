@@ -1,0 +1,35 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -266,12 +266,19 @@
+ 
+   if (${PythonQt_Wrap_Qt${qt_wrapped_lib}})
+ 
++    set(file_prefix com_trolltech_qt_${qt_wrapped_lib}/com_trolltech_qt_${qt_wrapped_lib})
++
++    # Only wrap this module if the generator actually emitted its sources.
++    # Qt6 restructured some modules (e.g. QtOpenGL) so the typesystem yields
++    # no classes and hence no _init.cpp; enabling such a module would append a
++    # non-existent source (configure error) and defining PYTHONQT_WITH_<MOD>
++    # would make PythonQt_QtAll::init() reference an undefined PythonQt_init_Qt<MOD>.
++    if(EXISTS ${PythonQt_GENERATED_PATH}/${file_prefix}_init.cpp)
++
+     # Variable expected by PythonQt_QtAll.cpp
+     string(TOUPPER ${qt_wrapped_lib} qt_wrapped_lib_uppercase)
+     ADD_DEFINITIONS(-DPYTHONQT_WITH_${qt_wrapped_lib_uppercase})
+ 
+-    set(file_prefix com_trolltech_qt_${qt_wrapped_lib}/com_trolltech_qt_${qt_wrapped_lib})
+-
+     foreach(index RANGE 0 12)
+ 
+       # Source files
+@@ -288,6 +295,10 @@
+ 
+     list(APPEND sources ${PythonQt_GENERATED_PATH}/${file_prefix}_init.cpp)
+ 
++    else()
++      message(STATUS "PythonQt: skipping Qt${qt_wrapped_lib} wrap - no generated _init.cpp")
++    endif()
++
+   endif()
+ endforeach()
+ 

@@ -7,7 +7,7 @@
 
 Name:           vtkAddon
 Version:        0.1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        VTK extension classes for 3D Slicer
 
 # 3D Slicer Contribution and Software License Agreement (BSD-style)
@@ -22,6 +22,9 @@ BuildRequires:  cmake >= 3.20
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  vtk-devel
+# Python wrapping: the VTK_WRAP_PYTHON3 macro needs the wrapper tool from
+# vtk-devel plus the VTK python link libs (python3-vtk) and Python headers.
+BuildRequires:  python3-vtk
 # VTK cmake config transitive deps (COPR vtk-devel doesn't Require these)
 BuildRequires:  python3-devel
 BuildRequires:  json-devel
@@ -74,6 +77,16 @@ Requires:       vtk-devel
 Development headers and CMake config files for building applications
 that use %{name}.
 
+%package -n     python3-vtkAddon
+Summary:        Python bindings for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       python3-vtk
+
+%description -n python3-vtkAddon
+VTK Python wrapper (vtkAddonPython) for the vtkAddon classes. Required by
+3D Slicer's Python environment, whose bin/Python/vtkAddon.py does
+"from vtkAddonPython import *".
+
 %prep
 %autosetup -n %{name}-%{commit}
 
@@ -97,7 +110,17 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DCMAKE_SKIP_INSTALL_RPATH=ON \
     -DvtkAddon_INSTALL_NO_DEVELOPMENT=OFF \
     -DvtkAddon_INSTALL_LIB_DIR=%{_lib} \
-    -DvtkAddon_INSTALL_CMAKE_DIR=%{_lib}/cmake/vtkAddon
+    -DvtkAddon_INSTALL_CMAKE_DIR=%{_lib}/cmake/vtkAddon \
+    `# Build the VTK Python wrapper (vtkAddonPython.so). 3D Slicer's` \
+    `# bin/Python/vtkAddon.py does "from vtkAddonPython import *"; in a` \
+    `# non-superbuild RPM Slicer does NOT wrap the external vtkAddon, so` \
+    `# the module must come from this package (3dslicer bug #9c). Install` \
+    `# it into the system sitearch, which Slicer's embedded interpreter` \
+    `# already has on sys.path (numpy/SimpleITK load from there).` \
+    -DVTK_WRAP_PYTHON:BOOL=ON \
+    -DvtkAddon_WRAP_PYTHON:BOOL=ON \
+    -DvtkAddon_INSTALL_PYTHON_MODULE_LIB_DIR:PATH=%{python3_sitearch} \
+    -DvtkAddon_INSTALL_PYTHON_LIB_DIR:PATH=%{python3_sitearch}
 
 %cmake_build
 
@@ -113,7 +136,18 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_includedir}/vtkAddon/
 %{_libdir}/cmake/vtkAddon/
 
+%files -n python3-vtkAddon
+%{python3_sitearch}/vtkAddonPython.so
+
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-0.2.20251224git2ed3e222
+- Fix 3D Slicer bug #9c: build the VTK Python wrapper. Enable
+  vtkAddon_WRAP_PYTHON (vtkMacroKitPythonWrap) and ship vtkAddonPython.so in a
+  new python3-vtkAddon subpackage, installed into %{python3_sitearch}. Slicer's
+  bin/Python/vtkAddon.py does "from vtkAddonPython import *"; in a non-superbuild
+  RPM Slicer doesn't wrap the external vtkAddon, so the module never existed and
+  "import vtkAddon" failed. sitearch is already on Slicer's embedded sys.path.
+
 * Wed Mar 04 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-0.1.20251224git2ed3e22
 - Initial package (git snapshot for VTK 9.6 compatibility)
 - VTK extension classes for 3D Slicer

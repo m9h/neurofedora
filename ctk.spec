@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.14.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.15.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -272,6 +272,19 @@ install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
 sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependency(DCMTK)\nfind_dependency(ITK 5.4)\nfind_dependency(QtTesting)\n\ninclude|}' \
     %{buildroot}%{_libdir}/cmake/ctk/CTKConfig.cmake
 
+# 3D Slicer bug #9a: CTK installs the PythonQt stub modules "qt" and "ctk"
+# under %{_bindir}/Python (upstream PYTHONQT_INSTALL_DIR layout), which is NOT
+# on any default Python module path. Slicer's embedded interpreter therefore
+# cannot "import qt"/"import ctk", breaking every scripted module. Slicer's
+# interpreter DOES scan the system site-packages (numpy/SimpleITK load from
+# there), so expose the stubs by symlinking them into %{python3_sitelib}.
+# Symlink (rather than move) so the build-time layout that find_package(CTK)
+# and Slicer's configure step expect stays untouched. The stubs are guarded
+# against import outside a running Qt app, so they're inert in a plain python3.
+install -d %{buildroot}%{python3_sitelib}
+ln -s %{_bindir}/Python/qt  %{buildroot}%{python3_sitelib}/qt
+ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
+
 %files
 %doc README.md
 %license NOTICE LICENSE
@@ -297,6 +310,9 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 # but moving them breaks find_package(CTK) for Slicer).
 /usr/bin/Python/ctk/
 /usr/bin/Python/qt/
+# Symlinks onto the default Python path so Slicer can import them (bug #9a).
+%{python3_sitelib}/qt
+%{python3_sitelib}/ctk
 
 %files devel
 %{_includedir}/ctk-%{soname_version}/
@@ -312,6 +328,15 @@ sed -i '0,/^include/{s|^include|include(CMakeFindDependencyMacro)\nfind_dependen
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.15.20260126gitfd37b874
+- Fix 3D Slicer bug #9a: symlink the qt/ctk PythonQt stub modules from
+  %{_bindir}/Python into %{python3_sitelib} so Slicer's embedded interpreter
+  (which scans system site-packages) can import them. CTK's upstream
+  PYTHONQT_INSTALL_DIR layout drops them under /usr/bin/Python, off every
+  default module path, so "import qt"/"import ctk" failed in all scripted
+  modules. Symlinked (not moved) to preserve the layout find_package(CTK) and
+  Slicer's configure step expect.
+
 * Tue Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.14.20260126gitfd37b874
 - Inject find_dependency(QtTesting) into CTKConfig.cmake. CTKQtTesting's
   interface link names the bare target "qttesting"; without the find_dependency
