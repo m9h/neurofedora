@@ -131,6 +131,12 @@ hardlink -c -v '%{buildroot}%{python3_sitelib}/bids/tests/data/'
 %if %{with tests}
 # temporarily disable failing test (formulaic compat)
 k="${k-}${k+ and }not test_split"
+# These tests download a versioned BIDS schema.json over HTTP (HTTPFileSystem),
+# which is impossible in the network-isolated build chroot — deselect them.
+k="${k-}${k+ and }not test_schema_version_parameter"
+k="${k-}${k+ and }not test_entity_parsing_version_differences"
+k="${k-}${k+ and }not test_motion_datatype_evolution"
+k="${k-}${k+ and }not test_schema_version_metadata_differences"
 # test_remote_bids.py requires network
 %pytest -v \
     ${k+-k } "${k-}" \
@@ -161,6 +167,9 @@ k="${k-}${k+ and }not test_split"
   core design-matrix dep) and bsmschema 0.1.1 (new, test extra). Relax the
   test-extra pin pytest-xdist >= 3.8 to >= 3.7 (Fedora ships 3.7.0; no
   3.8-specific feature is used).
+- Deselect 4 tests that download a versioned BIDS schema.json over HTTP
+  (test_schema_version_parameter + the 3 test_schema_version_differences
+  cases) — impossible in the network-isolated build chroot.
 
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 0.22.0-1
 - Update to 0.22.0 (adopted from orphaned Fedora python-pybids; rescued from cdd59e4)
