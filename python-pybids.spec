@@ -4,7 +4,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.22.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Interface with datasets conforming to BIDS
 
 # The entire source is MIT, except:
@@ -101,6 +101,10 @@ find src/bids doc -type f -perm /0111 -execdir chmod -v a-x '{}' '+'
 # Drop test dependency on s3fs (not packaged)
 sed -r -i '/s3fs/d' pyproject.toml
 
+# Relax pytest-xdist >= 3.8 to >= 3.7 (Fedora ships 3.7.0; the test suite does
+# not depend on a 3.8-specific feature, it only uses -n parallelism).
+sed -r -i 's/"pytest-xdist >= 3\.8"/"pytest-xdist >= 3.7"/' pyproject.toml
+
 # Commit everything and tag so Versioneer reports the right version
 git add --all
 git -c user.email=copr@neurofedora -c user.name='COPR Build' \
@@ -152,5 +156,11 @@ k="${k-}${k+ and }not test_split"
 
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 0.22.0-2
+- Unblock the build: its hard deps are now packaged — formulaic 1.2.2 (new,
+  core design-matrix dep) and bsmschema 0.1.1 (new, test extra). Relax the
+  test-extra pin pytest-xdist >= 3.8 to >= 3.7 (Fedora ships 3.7.0; no
+  3.8-specific feature is used).
+
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 0.22.0-1
 - Update to 0.22.0 (adopted from orphaned Fedora python-pybids; rescued from cdd59e4)
