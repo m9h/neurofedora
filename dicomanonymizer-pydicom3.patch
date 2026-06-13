@@ -1,0 +1,21 @@
+Relax the pydicom<3 cap to allow pydicom 3.x.
+
+dicom-anonymizer 1.0.13 uses only modern pydicom APIs (dcmread, generate_uid,
+multival.MultiValue) — none of the deprecated read_file/write_file aliases that
+pydicom 3 removed. Verified functionally against pydicom 3.0.2: anonymize_dataset
+cleanly anonymizes CT/MR/RTPLAN/EMRI/liver test datasets (PatientName cleared,
+SOPInstanceUID regenerated) with no errors. The <3 cap was conservative, not a
+real incompatibility, and it blocks installation on Fedora (which ships
+pydicom 3.x).
+
+Upstream: https://github.com/KitwareMedical/dicom-anonymizer
+--- a/setup.py
++++ b/setup.py
+@@ -43,6 +43,6 @@
+     #
+     # For an analysis of "install_requires" vs pip's requirements files see:
+     # https://packaging.python.org/en/latest/guides/distributing-packages-using-setuptools/
+-    install_requires=["pydicom<3", "tqdm"],  # Optional
++    install_requires=["pydicom>=2", "tqdm"],  # Optional
+     extras_require={"dev": ["pytest", "bs4", "fire", "requests", "pre-commit", "ruff"]},
+ )

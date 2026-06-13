@@ -1,6 +1,6 @@
 Name:           python-plotly
 Version:        6.7.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        An open-source interactive data visualization library for Python
 
@@ -69,6 +69,13 @@ find . -name '*.py' -exec sed -i \
 
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-4
+- Fix "changelog not in descending chronological order" FTBFS: the spec mixed
+  three manual %%changelog entries with a trailing %%autochangelog (which pulls
+  git-derived entries and collides with the hand-written ones). Drop
+  %%autochangelog and keep the explicit history. Also fix the malformed
+  "6.7.0-" EVR (missing release number) on the initial entry.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-3
 - Fix ambiguous shebang in vendored _plotly_utils/png.py — plotly bundles
   pypng with #!/usr/bin/env python which brp-mangle-shebangs rejects on
@@ -76,8 +83,8 @@ find . -name '*.py' -exec sed -i \
   shebangs to /usr/bin/python3 in %%prep before brp runs.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-2
-- Fix %%autosetup -n: upstream tarball expands to plotly.py-%%{version},
-  not plotly-%%{version}.
+- Fix %%autosetup -n: upstream tarball expands to plotly.py-%{version},
+  not plotly-%{version}.
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-1
 - Drop all -x extras: anywidget, colorcet, kaleido, polars not in Fedora.
