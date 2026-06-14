@@ -59,7 +59,11 @@
 # just has a lower threshold than the all-core case. -j2 halves peak memory
 # again so even the smallest builders get through the Qt/VTK module-compile
 # burst at ~705. If -j2 still stalls, drop to -j1 (or add -fuse-ld=mold).
-%global _smp_mflags -j2
+# 2026-06-13: -j2 ALSO swap-stalled at 705 (build 10599211, ~39min zero output
+# on a low-RAM builder) -- the lottery threshold is below -j2 too. Drop to -j1
+# for guaranteed completion; serial compile is slow (~8-10h) but --timeout 86400
+# absorbs it, and this build (-42) is only the cosmetic launcher rename.
+%global _smp_mflags -j1
 
 Name:           3dslicer
 Version:        %{slicer_ver}
