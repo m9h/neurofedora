@@ -63,7 +63,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        41%{?dist}
+Release:        42%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -474,16 +474,23 @@ done
 # Profile.d hook
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/slicer.sh
 
-# /usr/bin/slicer wrapper
+# Launcher symlinks. Use the upstream-canonical capitalized "Slicer" plus a
+# lowercase "3dslicer" alias (matches the package name). Deliberately do NOT
+# ship a lowercase "slicer": FSL installs its own ~/fsl/.../bin/slicer (a
+# volume slice viewer), which shadows /usr/bin/slicer on PATH and caused
+# "which slicer" to resolve to FSL instead of 3D Slicer (bug: launcher
+# collision). "Slicer" and "3dslicer" are unambiguous.
 install -d %{buildroot}%{_bindir}
-ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
+ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/Slicer
+ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 # Drop the leftover Source0 reference to v%{version} since 5.10.0 tag is unused now
 # (Source0 fetches from main HEAD by commit SHA).
 
 %files
 %license License.txt
 %doc README.md
-%{_bindir}/slicer
+%{_bindir}/Slicer
+%{_bindir}/3dslicer
 %{_sysconfdir}/profile.d/slicer.sh
 %{slicer_inst}/
 %exclude %{slicer_inst}/include/
@@ -502,6 +509,18 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-42
+- Rename the launcher: ship /usr/bin/Slicer (upstream-canonical) and a
+  /usr/bin/3dslicer alias instead of the lowercase /usr/bin/slicer, which
+  collided on PATH with FSL's own "slicer" volume viewer (~/fsl/.../bin/slicer).
+- No Slicer-side change was needed for bug #9 (broken "import qt/ctk/vtkAddon"
+  and qt.QWidget in scripted modules): that is fixed entirely in the supporting
+  packages — python-pythonqt 0.15 (full Qt wrappers so PythonQt_QtAll::init
+  registers QtWidgets), ctk 0.15 (qt/ctk stubs symlinked onto python sitelib),
+  and vtkAddon 0.2 (ships vtkAddonPython.so in python3-vtkAddon). Slicer's
+  embedded interpreter already scans system site-packages, so these land on
+  its path without rebuilding Slicer.
+
 * Thu Jun 11 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-41
 - Fix bug #8: the -40 RPM built successfully but was UNINSTALLABLE. The
   ScriptedCLI Wizard template (share/Slicer-5.11/Wizard/.../TemplateKey.py)
