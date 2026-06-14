@@ -1,6 +1,6 @@
 Name:           labrecorder
-Version:        1.16.4
-Release:        5%{?dist}
+Version:        1.17.1
+Release:        1%{?dist}
 Summary:        Default recording program for the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -114,6 +114,9 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %{_datadir}/LabRecorder/LabRecorder.cfg
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.1-1
+- Update to 1.17.1 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-5
 - Drop the manual /usr/LabRecorder/ → /usr/{bin,lib64,etc} mv block.
   With liblsl 1.17.7-2 shipping LSLCMake.cmake, installLSLApp() now

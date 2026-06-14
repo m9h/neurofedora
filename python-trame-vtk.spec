@@ -1,5 +1,5 @@
 Name:           python-trame-vtk
-Version:        2.11.8
+Version:        2.11.12
 Release:        1%{?dist}
 Summary:        VTK web rendering bindings for trame
 
@@ -46,5 +46,8 @@ Requires:       python3-trame-client
 %doc README.rst
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2.11.12-1
+- Update to 2.11.12 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 2.11.8-1
 - Initial package for the trame-slicer dependency chain.

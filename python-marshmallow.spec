@@ -1,7 +1,7 @@
 %global pypi_name marshmallow
 
 Name:           python-%{pypi_name}
-Version:        4.2.2
+Version:        4.3.0
 Release:        1%{?dist}
 Summary:        A lightweight library for converting complex objects to and from simple Python datatypes
 
@@ -45,5 +45,8 @@ complex datatypes, such as objects, to and from native Python datatypes.
 %doc README.rst
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 4.3.0-1
+- Update to 4.3.0 (current upstream; freshness sweep 2026-06-14)
+
 * Wed Feb 25 2026 Morgan Hough <morgan.hough@gmail.com> - 4.2.2-1
 - Initial package for fury dependency

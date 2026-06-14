@@ -1,6 +1,6 @@
 Name:           cmdstan
-Version:        2.38.0
-Release:        2%{?dist}
+Version:        2.39.0
+Release:        1%{?dist}
 Summary:        A command-line interface to the STAN library
 
 License:        BSD
@@ -111,6 +111,9 @@ find $RPM_BUILD_ROOT%{_bindir} -type f -exec chrpath --delete {} \; || :
 %{_datadir}/%{name}
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2.39.0-1
+- Update to 2.39.0 (current upstream; freshness sweep 2026-06-14)
+
 * Sat May 23 2026 Morgan G Hough <morgan.hough@gmail.com> - 2.38.0-2
 - Keep bundled Stan eigen_3.4.0 instead of forcing system eigen3: Fedora 44+
   ships eigen3 5.0.1 which breaks Stan Math's eigen_plugins.h

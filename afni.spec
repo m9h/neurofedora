@@ -13,8 +13,8 @@
 %global _python_bytecompile_errors_terminate_build 0
 
 Name:           afni
-Version:        26.1.00
-Release:        6%{?dist}
+Version:        26.1.04
+Release:        1%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
 License:        GPL-2.0-or-later AND LicenseRef-Fedora-Public-Domain
@@ -714,6 +714,9 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.04-1
+- Update to 26.1.04 (current upstream; freshness sweep 2026-06-14)
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.00-6
 - Extend the SONAME-rename treatment to the bundled NIFTI libs (nifti2,
   niftiio, nifticdf, znz). The harness flipped the libmri.so.26 missing

@@ -1,5 +1,5 @@
 Name:           brainflow
-Version:        5.22.1
+Version:        5.22.2
 Release:        1%{?dist}
 Summary:        Biosensor Library (EEG, EMG, ECG)
 License:        MIT
@@ -105,6 +105,9 @@ find cpp_package -name "*.h" -exec cp {} %{buildroot}%{_includedir}/brainflow/ \
 %endif
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 5.22.2-1
+- Update to 5.22.2 (current upstream; freshness sweep 2026-06-14)
+
 * Mon May 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.22.1-1
 - Update to BrainFlow 5.22.1 (upstream 2026-05-18)
 

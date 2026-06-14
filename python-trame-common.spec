@@ -1,5 +1,5 @@
 Name:           python-trame-common
-Version:        1.2.3
+Version:        1.2.4
 Release:        1%{?dist}
 Summary:        Dependency-less helpers shared across trame packages
 
@@ -44,5 +44,8 @@ Summary:        %{summary}
 %doc README.md
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.4-1
+- Update to 1.2.4 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.3-1
 - Initial package for the trame-slicer dependency chain.

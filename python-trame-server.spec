@@ -1,5 +1,5 @@
 Name:           python-trame-server
-Version:        3.12.4
+Version:        3.12.5
 Release:        1%{?dist}
 Summary:        Internal server-side implementation of trame
 
@@ -51,5 +51,8 @@ Requires:       python3-wslink >= 2.5.7
 %doc README.rst
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 3.12.5-1
+- Update to 3.12.5 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 3.12.4-1
 - Initial package for the trame-slicer dependency chain.

@@ -1,5 +1,5 @@
 Name:           python-trame-client
-Version:        3.12.3
+Version:        3.13.2
 Release:        1%{?dist}
 Summary:        Internal browser-side client of trame
 
@@ -47,5 +47,8 @@ Requires:       python3-trame-common
 %doc README.rst
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 3.13.2-1
+- Update to 3.13.2 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 3.12.3-1
 - Initial package for the trame-slicer dependency chain.
