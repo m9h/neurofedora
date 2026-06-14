@@ -1,6 +1,6 @@
 Name:           python-plotly
-Version:        6.7.0
-Release:        4%{?dist}
+Version:        6.8.0
+Release:        1%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        An open-source interactive data visualization library for Python
 
@@ -31,7 +31,7 @@ Summary:        %{summary}
 
 
 %prep
-%autosetup -p1 -n plotly.py-%{version}
+%autosetup -p1 -n plotly-%{version}
 
 # Fix ambiguous shebang in vendored png.py — Fedora's brp-mangle-shebangs
 # rejects `#!/usr/bin/env python` (the literal `python` binary doesn't ship
@@ -69,6 +69,11 @@ find . -name '*.py' -exec sed -i \
 
 
 %changelog
+* Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 6.8.0-1
+- Update to 6.8.0 (current upstream). Upstream renamed the sdist top directory
+  from plotly.py-%%{version} to plotly-%%{version}; adjust %%autosetup -n
+  accordingly. narwhals>=1.15.1 floor still satisfied by COPR narwhals.
+
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 6.7.0-4
 - Fix "changelog not in descending chronological order" FTBFS: the spec mixed
   three manual %%changelog entries with a trailing %%autochangelog (which pulls
