@@ -13,11 +13,12 @@ BuildRequires:  ninja-build
 BuildRequires:  qt5-qtbase-devel
 BuildRequires:  boost-devel
 BuildRequires:  chrpath
-# This will now be satisfied by the package you just installed
-BuildRequires:  liblsl-devel >= 1.16.0 
+# 1.17.1 CMakeLists self-includes "${LSL_DIR}/LSLCMake.cmake" once
+# find_package(LSL) succeeds; liblsl >= 1.17.7-2 ships LSLCMake.cmake there.
+BuildRequires:  liblsl-devel >= 1.17.7
 BuildRequires:  desktop-file-utils
 
-Requires:       liblsl%{?_isa} >= 1.16.0
+Requires:       liblsl%{?_isa} >= 1.17.7
 Requires:       hicolor-icon-theme
 
 %description
@@ -28,39 +29,14 @@ into a single file (XDF format), with time synchronization between streams.
 %prep
 %autosetup -p1 -n App-LabRecorder-%{version}
 
-# Upstream calls installLSLApp() (from LSLCMake.cmake) but only does
-# find_package(LSL) — which loads LSLConfig.cmake but NOT LSLCMake.cmake.
-# In the upstream dev tree the macros file is included implicitly via the
-# parent liblsl CMakeLists.txt; standalone builds need an explicit include.
-#
-# The -3 attempt did `include(LSLCMake)` after find_package(LSL), assuming
-# find_package adds the lsl cmake dir to CMAKE_MODULE_PATH — it does NOT
-# (LSLConfig.cmake is an auto-generated target-export file that only
-# defines LSL::lsl, doesn't touch CMAKE_MODULE_PATH). Result: build 10517252
-# failed at configure time with "could not find requested file: LSLCMake".
-#
-# Fix: append the LSL cmake dir to CMAKE_MODULE_PATH ourselves, then include.
-# After find_package(LSL), cmake sets ${LSL_DIR} to /usr/lib64/cmake/lsl
-# (the dir containing the resolved LSLConfig.cmake).
-python3 -c '
-import re
-with open("CMakeLists.txt") as f:
-    text = f.read()
-# Find the find_package(LSL REQUIRED ... endif() block
-m = re.search(r"find_package\(LSL REQUIRED.*?endif\(\)\n", text, re.DOTALL)
-if m is None:
-    raise SystemExit("could not find find_package(LSL ...) endif() block")
-insert_at = m.end()
-patch = ("\n# Bring in installLSLApp() and friends from LSLCMake.cmake.\n"
-         "# LSLConfig.cmake (auto-generated) does NOT touch CMAKE_MODULE_PATH,\n"
-         "# so include() cannot resolve LSLCMake by short name unless we\n"
-         "# append the cmake dir ourselves. ${LSL_DIR} is set by find_package.\n"
-         "list(APPEND CMAKE_MODULE_PATH \"${LSL_DIR}\")\n"
-         "include(LSLCMake)\n")
-new_text = text[:insert_at] + patch + text[insert_at:]
-with open("CMakeLists.txt", "w") as f:
-    f.write(new_text)
-'
+# NOTE: 1.17.x reworked the liblsl discovery. The CMakeLists now resolves
+# liblsl with find_package(LSL QUIET ...) and, on success, includes the
+# macros file itself: include("${LSL_DIR}/LSLCMake.cmake") (CMakeLists.txt
+# line ~105). liblsl >= 1.17.7-2 ships LSLCMake.cmake at ${LSL_DIR}
+# (/usr/lib64/cmake/lsl), so installLSLApp()/installLSLAuxFiles() resolve
+# with no help from us. The old %%prep injection that appended ${LSL_DIR}
+# to CMAKE_MODULE_PATH and did include(LSLCMake) is now obsolete AND broke
+# %%prep (its regex no longer matched the restructured file) — dropped.
 
 %build
 # LSLAPPS_LabRecorder=ON ensures we build the main app.
@@ -115,7 +91,12 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 
 %changelog
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.1-1
-- Update to 1.17.1 (current upstream; freshness sweep 2026-06-14)
+- Update to 1.17.1 (current upstream; freshness sweep 2026-06-14).
+- Drop the obsolete %%prep LSLCMake injection: 1.17.x reworked liblsl
+  discovery and the CMakeLists now self-includes "${LSL_DIR}/LSLCMake.cmake"
+  on a successful find_package(LSL). The old python regex no longer matched
+  and was failing %%prep. Bump liblsl floor to 1.17.7 (ships LSLCMake.cmake
+  at ${LSL_DIR}, which upstream's include() now relies on).
 
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-5
 - Drop the manual /usr/LabRecorder/ → /usr/{bin,lib64,etc} mv block.
