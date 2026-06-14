@@ -1,10 +1,9 @@
-%global commit d718398f64dc4a7a29aaffe7cf7d2673ffe7af89
+%global commit b329ae79abc85a54f5cd72fb778c2a6c4c837571
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global snapdate 20260602
 
 Name:           App-XDFStreamer
-Version:        1.14.0
-Release:        1.%{snapdate}git%{shortcommit}%{?dist}
+Version:        1.15.0
+Release:        1%{?dist}
 Summary:        Replay XDF files as Lab Streaming Layer (LSL) streams
 
 License:        GPL-3.0-or-later
@@ -111,6 +110,11 @@ EOF
 %{_datadir}/applications/%{name}.desktop
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.15.0-1
+- Update to upstream release 1.15.0 (tag v1.15.0, commit b329ae7). Convert from
+  the post-1.14.0 commit snapshot to a proper tagged release (drop snapdate;
+  Release 1). Freshness sweep 2026-06-14.
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.14.0-1.20260602gitd718398
 - Initial RPM package for App-XDFStreamer (master commit d718398).
 - Inject include(LSLCMake) after find_package(LSL) for installLSLApp().
