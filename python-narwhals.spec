@@ -1,5 +1,5 @@
 Name:           python-narwhals
-Version:        2.21.2
+Version:        2.22.1
 Release:        %autorelease
 # Fill in the actual package summary to submit package to Fedora
 Summary:        Extremely lightweight compatibility layer between dataframe libraries
@@ -60,4 +60,8 @@ Summary:        %{summary}
 
 
 %changelog
+
+* Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.21.2-
+- Trim -x extras to dask,pandas,pyarrow (only ones packaged in Fedora).
+  Dropped polars, cudf, duckdb, ibis, modin, pyspark, sql, sqlframe.
 %autochangelog
