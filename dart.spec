@@ -1,8 +1,8 @@
 %global debug_package %{nil}
 
 Name:           dart
-Version:        6.16.7
-Release:        5%{?dist}
+Version:        6.18.0
+Release:        1%{?dist}
 Summary:        Dynamic Animation and Robotics Toolkit
 
 # Source is BSD-2-Clause. Bundled imgui (in dart/external/imgui/) is MIT;
@@ -239,6 +239,9 @@ export CXXFLAGS="%{optflags} -std=c++17"
 %{_libdir}/libdart-gui-osg.so
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 6.18.0-1
+- Update to 6.18.0 (current upstream; freshness sweep 2026-06-14)
+
 * Thu May 21 2026 Morgan Hough <morgan.hough@gmail.com> - 6.16.7-5
 - Fix %%files paths revealed once the compile finally completed: DART
   installs its cmake config and package.xml to %%{_datadir}/dart/ (not

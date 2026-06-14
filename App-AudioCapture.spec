@@ -1,10 +1,9 @@
-%global commit 47b51677117c1a993dd23514a5af401609ff6401
+%global commit b400f05e60d5b668021c20e7e25e060305baf7ae
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global snapdate 20260602
 
 Name:           App-AudioCapture
-Version:        0.2.0
-Release:        1.%{snapdate}git%{shortcommit}%{?dist}
+Version:        1.17.0
+Release:        1%{?dist}
 Summary:        Capture audio and stream it over the Lab Streaming Layer (LSL)
 
 License:        MIT
@@ -85,6 +84,10 @@ EOF
 %{_datadir}/applications/%{name}.desktop
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.0-1
+- Update to upstream release 1.17.0 (tag v1.17.0, commit b400f05). Convert from
+  the 0.2.0 commit snapshot to a proper tagged release. Freshness sweep 2026-06-14.
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.0-1.20260602git47b5167
 - Initial RPM package for App-AudioCapture (master commit 47b5167).
 - Force pre-installed liblsl path (disable FetchContent), strip

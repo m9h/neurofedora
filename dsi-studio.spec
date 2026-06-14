@@ -1,6 +1,6 @@
 Name:           dsi-studio
-Version:        2025.01
-Release:        4%{?dist}
+Version:        2025.04.16
+Release:        1%{?dist}
 Summary:        A Tractography Tool for Diffusion MRI
 License:        MPLv2.0
 URL:            https://dsi-studio.labsolver.org/
@@ -109,5 +109,8 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/dsi-studio.desktop
 %{_datadir}/applications/dsi-studio.desktop
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.04.16-1
+- Update to 2025.04.16 (current upstream; freshness sweep 2026-06-14)
+
 * Tue Jan 06 2026 User <user@example.com> - 2025.01-4
 - Generated dsi_studio.pro dynamically to fix upstream missing file
