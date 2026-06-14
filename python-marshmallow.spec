@@ -11,10 +11,13 @@ Source0:        %{pypi_source %{pypi_name}}
 BuildArch:      noarch
 
 BuildRequires:  python3-devel
-BuildRequires:  python3-setuptools
+# marshmallow 4.3.0 switched its build backend from setuptools to flit_core
+# (pyproject build-backend = flit_core.buildapi).
+BuildRequires:  python3-flit-core
 BuildRequires:  python3-pip
-BuildRequires:  python3-wheel
 BuildRequires:  python3-pytest
+# 4.3.0 test suite imports simplejson.
+BuildRequires:  python3-simplejson
 
 %description
 marshmallow is an ORM/ODM/framework-agnostic library for converting 
