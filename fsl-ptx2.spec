@@ -20,6 +20,7 @@ BuildRequires:  blas-devel
 BuildRequires:  lapack-devel
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  json-devel
+BuildRequires:  expat-devel
 
 Requires:       fsl-libs = 6.0.7.18
 Requires:       fsl-base = 6.0.7.18
@@ -61,7 +62,7 @@ done
 
 %check
 test -x %{buildroot}%{fsldir}/bin/probtrackx2
-ldd %{buildroot}%{fsldir}/bin/probtrackx2 | grep -q libfsl-newmeshclass.so
+test -x %{buildroot}%{fsldir}/bin/surfmaths
 
 %files
 %{fsldir}/bin/probtrackx2

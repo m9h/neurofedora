@@ -23,6 +23,7 @@ BuildRequires:  blas-devel
 BuildRequires:  lapack-devel
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  json-devel
+BuildRequires:  boost-devel
 
 Requires:       fsl-libs = 6.0.7.18
 Requires:       fsl-base = 6.0.7.18

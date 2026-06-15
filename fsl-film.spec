@@ -20,6 +20,7 @@ BuildRequires:  blas-devel
 BuildRequires:  lapack-devel
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  json-devel
+BuildRequires:  expat-devel
 BuildRequires:  ciftilib-devel
 
 Requires:       fsl-libs = 6.0.7.18

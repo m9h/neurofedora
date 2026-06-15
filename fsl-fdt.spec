@@ -61,6 +61,12 @@ cp -a "${FSLDEVDIR}/bin/." %{buildroot}%{fsldir}/bin/
 for f in reord_OM sausages replacevols fdt_matrix_ops indexer rubix basgen; do
     rm -f %{buildroot}%{fsldir}/bin/$f
 done
+# This is the CPU build: drop the GPU-path helpers that get built/installed
+# regardless (the *_gpu binaries are CPU stubs only useful with the CUDA build).
+for f in bedpostx_gpu bedpostx_postproc_gpu.sh merge_parts_gpu split_parts_gpu \
+         xfibres_gpu; do
+    rm -f %{buildroot}%{fsldir}/bin/$f
+done
 find %{buildroot}%{fsldir}/bin -xtype l -delete
 
 for exe in %{buildroot}%{fsldir}/bin/*; do
@@ -97,6 +103,7 @@ test -x %{buildroot}%{fsldir}/bin/probtrackx
 %{fsldir}/bin/bedpostx
 %{fsldir}/bin/bedpostx_postproc.sh
 %{fsldir}/bin/bedpostx_preproc.sh
+%{fsldir}/bin/bedpostx_single_slice.sh
 %{fsldir}/bin/bedpostx_datacheck
 
 %changelog
