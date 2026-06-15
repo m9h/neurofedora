@@ -73,8 +73,6 @@ ldd %{buildroot}%{fsldir}/bin/randomise | grep -q libfsl-newimage.so
 %{fsldir}/bin/unconfound
 %{fsldir}/bin/design_ttest2
 %{fsldir}/bin/randomise_parallel
-%{fsldir}/bin/tfce_support
-%{fsldir}/bin/randomise_combine
 %{fsldir}/bin/setup_masks
 
 %changelog

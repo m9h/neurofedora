@@ -14,6 +14,10 @@ Summary:        FSL cluster - cluster-based thresholding of statistic images
 License:        LicenseRef-FSL
 URL:            https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/Cluster
 Source0:        https://git.fmrib.ox.ac.uk/fsl/cluster/-/archive/%{version}/cluster-%{version}.tar.gz#/fsl-cluster-%{version}.tar.gz
+# cluster.cc #includes "misc_c/ztop_function.h" (compile-time only — misc_c is
+# NOT in cluster's link line). The misc_c module is not shipped by the
+# foundation, so provide its headers from the source archive at build time.
+Source1:        https://git.fmrib.ox.ac.uk/fsl/misc_c/-/archive/2111.0/misc_c-2111.0.tar.gz#/fsl-misc_c-2111.0.tar.gz
 
 BuildRequires:  gcc-c++
 BuildRequires:  make
@@ -36,12 +40,18 @@ Part of the FMRIB Software Library (FSL).
 
 %prep
 %autosetup -p1 -n cluster-%{version}
+# Unpack misc_c alongside (for its headers only).
+tar xzf %{SOURCE1}
 
 %build
 export FSLDIR=%{fsldir}
 export FSLCONFDIR=%{fsldir}/config
 export FSLDEVDIR=%{_builddir}/_stage
 mkdir -p "${FSLDEVDIR}"
+# Make misc_c's headers resolvable as "misc_c/<hdr>.h" via -I${FSLDEVDIR}/include
+# (FSL's build adds that to the include path). misc_c links nothing here.
+mkdir -p "${FSLDEVDIR}/include/misc_c"
+cp -p misc_c-2111.0/*.h "${FSLDEVDIR}/include/misc_c/"
 export CFLAGS="%{optflags}"
 export CXXFLAGS="%{optflags}"
 export LDFLAGS="%{?build_ldflags}"
