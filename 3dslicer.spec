@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        42%{?dist}
+Release:        43%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -76,6 +76,13 @@ Source0:        https://github.com/Slicer/Slicer/archive/%{slicer_commit}/Slicer
 
 # Profile environment hook (sets $Slicer_HOME, prepends bin to PATH)
 Source1:        slicer.sh
+
+# Generator that turns the build-tree SlicerConfig.cmake (which Slicer installs
+# verbatim, with every path pointing at the vanished build tree and NO imported
+# targets) into a relocatable install-tree config + SlicerTargets.cmake, so C++
+# extensions can find_package(Slicer) against this install. Upstream only ever
+# wired up the build-tree variant; this is the install-tree half it never did.
+Source10:       gen-install-config.py
 
 # Python 3.14 (F44/rawhide) removed the private _PyInterpreterState_GetConfigCopy
 # / _PyInterpreterState_SetConfig functions that qSlicerCoreApplication used to
@@ -455,6 +462,61 @@ EOF
 %install
 %cmake_install
 
+# ---------------------------------------------------------------------------
+# (-43) Make 3dslicer-devel usable for building C++ extensions against the
+# INSTALL tree. Upstream Slicer only supports building extensions against a
+# build tree: SlicerGenerateSlicerConfig.cmake configures SlicerConfig.cmake
+# ONLY for ${Slicer_BINARY_DIR} (and Slicer installs that build-tree file
+# verbatim), and there is no install(EXPORT SlicerTargets). So the installed
+# config points every path at the vanished build tree and ships no imported
+# targets. We repair all three gaps here.
+_sdir=%{_builddir}/Slicer-%{slicer_commit}
+_bdir="$_sdir/%{_vpath_builddir}"
+_scmake=%{buildroot}%{slicer_inst}/lib/Slicer-5.11/CMake
+
+# 1. Ship the FULL source CMake/ + Extensions/CMake/ — the installed subset is
+#    missing extension-support modules (SlicerBlockAdditionalLauncherSettings,
+#    SlicerBlockUploadExtensionPrerequisites, SlicerExtensionDescriptionSpec,
+#    ...), plus the qSlicerExport.h.in export-header template and the CPack
+#    bundle-fixup template that UseSlicer.cmake / the module-build macros need.
+cp -an "$_sdir"/CMake/. "$_scmake"/ || :
+# Merge Extensions/CMake into the same dir so every extension-support module is
+# reachable via Slicer_CMAKE_DIR (== Slicer_EXTENSIONS_CMAKE_DIR) on the module
+# path — UseSlicer.cmake include()s several of them by bare name.
+cp -an "$_sdir"/Extensions/CMake/. "$_scmake"/ || :
+
+# 2. Ship the VTK wrap-hierarchy files (.txt) generated in the build tree —
+#    needed to python-wrap an extension's VTK classes against Slicer's libs.
+mkdir -p %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy
+find "$_bdir" -name '*HierarchyPerKit.txt' -o -name '*-hierarchy.txt' \
+     -o -name 'vtk*Hierarchy.txt' 2>/dev/null \
+  | while read -r h; do cp -an "$h" \
+      %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy/ 2>/dev/null || :; done
+
+# 3. Synthesize the relocatable install-tree SlicerConfig.cmake (overwrites the
+#    broken build-tree one) + a SlicerTargets.cmake with IMPORTED targets for
+#    the installed libs. No --root => the config derives its prefix from its own
+#    location at load time (fully relocatable).
+python3 %{SOURCE10} \
+    %{buildroot}%{slicer_inst}/lib/Slicer-5.11/SlicerConfig.cmake \
+    %{buildroot}%{slicer_inst}/lib/Slicer-5.11
+
+# 4. CLI module discovery: Slicer's CLI executables land in bin/ but the
+#    launcher scans lib/Slicer-5.11/cli-modules (which ends up empty), so CLI
+#    modules are unfindable. Symlink the cli-modules dir's expected contents
+#    from the installed CLI binaries + their .xml descriptors.
+_clidir=%{buildroot}%{slicer_inst}/lib/Slicer-5.11/cli-modules
+mkdir -p "$_clidir"
+for x in %{buildroot}%{slicer_inst}/bin/*.xml; do
+    [ -e "$x" ] || continue
+    b=$(basename "$x" .xml)
+    if [ -e "%{buildroot}%{slicer_inst}/bin/$b" ]; then
+        ln -sf ../../../bin/"$b"     "$_clidir/$b"
+        ln -sf ../../../bin/"$b.xml" "$_clidir/$b.xml"
+    fi
+done
+# ---------------------------------------------------------------------------
+
 # Slicer source bug #5/#8: several installed wizard/utility scripts (e.g.
 # libexec/Slicer-5.11/ExtensionWizard.py, ModuleWizard.py, and the ScriptedCLI
 # Wizard template TemplateKey.py) carry non-system python shebangs:
@@ -513,6 +575,20 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-43
+- Make 3dslicer-devel usable for building C++ extensions against the INSTALL
+  tree (upstream only supports build-tree extension builds). %install now:
+  (1) generates a relocatable install-tree SlicerConfig.cmake + SlicerTargets
+  .cmake (imported targets) via gen-install-config.py, replacing the broken
+  build-tree config Slicer ships verbatim; (2) ships the full source CMake/ +
+  Extensions/CMake/ (the install was missing extension-support modules, the
+  qSlicerExport.h.in export template, and the CPack bundle-fixup template);
+  (3) ships the VTK wrap-hierarchy files needed to python-wrap extension VTK
+  classes. Validated through configure against the SlicerOpenIGTLink build.
+- Fix CLI module discovery: Slicer's CLI executables install to bin/ but the
+  launcher scans lib/Slicer-5.11/cli-modules (which was empty), so CLI modules
+  were unfindable; symlink them into cli-modules.
+
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-42
 - Rename the launcher: ship /usr/bin/Slicer (upstream-canonical) and a
   /usr/bin/3dslicer alias instead of the lowercase /usr/bin/slicer, which

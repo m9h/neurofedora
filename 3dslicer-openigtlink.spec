@@ -126,6 +126,7 @@ sed -i \
     -DOpenIGTLink_DIR:PATH=%{_libdir}/cmake/OpenIGTLink \
     -DOpenIGTLinkIO_DIR:PATH=%{_libdir}/cmake/igtlio \
     -DSlicerOpenIGTLink_USE_VP9:BOOL=OFF \
+    -DBUILD_TESTING:BOOL=OFF \
     -DCMAKE_INSTALL_PREFIX:PATH=%{slicer_inst}
 %cmake_build
 

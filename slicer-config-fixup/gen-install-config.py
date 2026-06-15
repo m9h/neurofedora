@@ -50,7 +50,9 @@ SCALAR_MAP = {
     "Slicer_LOGOS_RESOURCE":        None,
     "Slicer_CXX_MODULE_TEST_TEMPLATES_DIR":    None,
     "Slicer_PYTHON_MODULE_TEST_TEMPLATES_DIR": None,
-    "Slicer_VTK_WRAP_HIERARCHY_DIR":           None,
+    # VTK wrap-hierarchy files for python-wrapping extension VTK classes; the
+    # foundation -43 %install ships the build-tree hierarchy files here.
+    "Slicer_VTK_WRAP_HIERARCHY_DIR": "lib/%s/hierarchy" % SLICER_SUBDIR,
 }
 
 # special: launch commands are "<launcher>;--launch"
