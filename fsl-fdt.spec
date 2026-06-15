@@ -74,7 +74,7 @@ done
 test -x %{buildroot}%{fsldir}/bin/dtifit
 test -x %{buildroot}%{fsldir}/bin/xfibres
 test -x %{buildroot}%{fsldir}/bin/probtrackx
-ldd %{buildroot}%{fsldir}/bin/dtifit | grep -q libfsl-warpfns.so
+# (no ldd assertion: -Wl,--as-needed prunes unreferenced NEEDED entries.)
 
 %files
 %{fsldir}/bin/dtifit

@@ -95,7 +95,7 @@ export CXXFLAGS="%{optflags} -include ${PWD}/std-compat.h -fpermissive"
 # This is a CLI-tools package: drop the static dev libraries and headers the
 # build also installs (the tools are statically linked and self-contained).
 rm -rf %{buildroot}%{_includedir}/Shape
-rm -f  %{buildroot}%{_libdir}/*.a
+find %{buildroot} -name '*.a' -delete
 
 # Strip any residual build-tree RPATHs the SEM macros may leave.
 find %{buildroot} -type f -perm -111 \
