@@ -10,7 +10,8 @@ Source0:        %{url}/archive/v%{version}/App-LabRecorder-%{version}.tar.gz
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
 BuildRequires:  ninja-build
-BuildRequires:  qt5-qtbase-devel
+# 1.17.x migrated the GUI from Qt5 to Qt6 (find_package(Qt6 REQUIRED ...)).
+BuildRequires:  qt6-qtbase-devel
 BuildRequires:  boost-devel
 BuildRequires:  chrpath
 # 1.17.1 CMakeLists self-includes "${LSL_DIR}/LSLCMake.cmake" once
@@ -39,17 +40,22 @@ into a single file (XDF format), with time synchronization between streams.
 # %%prep (its regex no longer matched the restructured file) — dropped.
 
 %build
-# LSLAPPS_LabRecorder=ON ensures we build the main app.
-# We point to the system Qt5 installation explicitly.
+# LABRECORDER_BUILD_GUI defaults ON and pulls Qt6 (auto-found in
+# %{_libdir}/cmake/Qt6). The old LSLAPPS_LabRecorder / Qt5_DIR flags were
+# removed upstream in the 1.17.x Qt6 migration.
 %cmake -GNinja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DLSLAPPS_LabRecorder=ON \
-    -DQt5_DIR=%{_libdir}/cmake/Qt5
+    -DCMAKE_BUILD_TYPE=Release
 
 %cmake_build
 
 %install
 %cmake_install
+
+# 1.17.x calls LSL_install_liblsl(DESTINATION ${INSTALL_LIBDIR}) which copies
+# the resolved liblsl (liblsl.so.*) into our libdir for redistribution. On
+# Fedora liblsl is provided by the liblsl package (a Requires), so drop the
+# bundled copy to avoid duplicate-ownership / unpackaged-file errors.
+rm -f %{buildroot}%{_libdir}/liblsl.so*
 
 # installLSLApp() / installLSLAuxFiles() from liblsl >= 1.17.7-2 place
 # binaries in %{_bindir}, libxdfwriter.so in %{_libdir}, and aux files
@@ -83,7 +89,6 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
 %doc README.md
 %{_bindir}/LabRecorder
 %{_bindir}/LabRecorderCLI
-%{_bindir}/testxdfwriter
 %{_libdir}/libxdfwriter.so*
 %{_datadir}/applications/%{name}.desktop
 %dir %{_datadir}/LabRecorder
@@ -97,6 +102,14 @@ chrpath --delete %{buildroot}%{_bindir}/LabRecorderCLI
   on a successful find_package(LSL). The old python regex no longer matched
   and was failing %%prep. Bump liblsl floor to 1.17.7 (ships LSLCMake.cmake
   at ${LSL_DIR}, which upstream's include() now relies on).
+- Migrate Qt5 -> Qt6: 1.17.x switched the GUI to find_package(Qt6 REQUIRED).
+  Swap qt5-qtbase-devel -> qt6-qtbase-devel and drop the obsolete
+  -DLSLAPPS_LabRecorder / -DQt5_DIR cmake flags (LABRECORDER_BUILD_GUI is ON
+  by default; Qt6 is auto-found).
+- Drop /usr/bin/testxdfwriter from %%files: 1.17.x no longer installs the
+  xdfwriter test helper.
+- Strip the bundled liblsl.so.* that LSL_install_liblsl() copies into our
+  libdir: liblsl is provided by the liblsl package, not vendored here.
 
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 1.16.4-5
 - Drop the manual /usr/LabRecorder/ → /usr/{bin,lib64,etc} mv block.
