@@ -94,6 +94,8 @@ BuildRequires:  gd-devel
 BuildRequires:  libpng-devel
 # giftiio parses GIFTI XML via expat.
 BuildRequires:  expat-devel
+# newmesh's giftiInterface.cc #includes boost/lexical_cast.hpp.
+BuildRequires:  boost-devel
 
 Requires:       fsl-base = %{version}-%{release}
 Requires:       fsl-libs = %{version}-%{release}

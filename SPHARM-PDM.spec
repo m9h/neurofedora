@@ -18,6 +18,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  chrpath
+BuildRequires:  git-core
 # The three superbuild dependencies — all provided as system packages, so we
 # disable the (offline-fatal) superbuild and build the inner project directly.
 BuildRequires:  InsightToolkit5-devel
@@ -54,7 +55,30 @@ This build uses the system ITK, VTK and SlicerExecutionModel (no superbuild).
 %prep
 %autosetup -n %{name}-%{commit}
 
+# CMake/CMakeLists.txt does nothing but file(DOWNLOAD) a Windows-only
+# FindVcvars.cmake from GitHub at configure time (fatal offline). FindVcvars is
+# never used on Linux — neutralise the whole sub-CMakeLists.
+echo '# FindVcvars download removed: Windows-only, unused on Linux, offline build' \
+    > CMake/CMakeLists.txt
+
+# GCC 16 rejects this legacy code's unqualified std names (e.g. MeshMath.cxx
+# uses bare `cout`/`endl`, relying on a `using namespace std` that older
+# standard headers pulled in transitively). Force-include a small compat header
+# that brings the std names into scope for every translation unit.
+cat > std-compat.h <<'EOF'
+#pragma once
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
+#include <cmath>
+#include <cstring>
+#include <string>
+using namespace std;
+EOF
+
 %build
+export CXXFLAGS="%{optflags} -include ${PWD}/std-compat.h -fpermissive"
 %cmake -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DSPHARM-PDM_SUPERBUILD:BOOL=OFF \
@@ -68,17 +92,18 @@ This build uses the system ITK, VTK and SlicerExecutionModel (no superbuild).
 %install
 %cmake_install
 
+# This is a CLI-tools package: drop the static dev libraries and headers the
+# build also installs (the tools are statically linked and self-contained).
+rm -rf %{buildroot}%{_includedir}/Shape
+rm -f  %{buildroot}%{_libdir}/*.a
+
 # Strip any residual build-tree RPATHs the SEM macros may leave.
-find %{buildroot} -type f \( -name '*.so' -o -perm -111 \) \
+find %{buildroot} -type f -perm -111 \
     -exec chrpath --delete {} \; 2>/dev/null || :
 
 %files
-%license LICENSE
-%doc README.md
-# NOTE: exact install layout (cli-modules vs bin/lib) confirmed from the first
-# build's file manifest; refine on iteration.
+%license License.txt
 %{_bindir}/*
-%{_libdir}/*.so*
 
 %changelog
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.1.20251104git6565932
