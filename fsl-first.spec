@@ -13,7 +13,7 @@
 
 Name:           fsl-first
 Version:        2203.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        FSL FIRST - model-based subcortical segmentation
 
 License:        LicenseRef-FSL
@@ -33,6 +33,9 @@ BuildRequires:  json-devel
 
 Requires:       fsl-libs = 6.0.7.18
 Requires:       fsl-base = 6.0.7.18
+# FIRST cannot segment without its shape/appearance models; pull them by
+# default but keep the tool installable lean (soft dependency).
+Recommends:     fsl-first-data
 
 %description
 FIRST is a model-based segmentation/registration tool for the subcortical
@@ -99,6 +102,10 @@ ldd %{buildroot}%{fsldir}/bin/first | grep -q libfsl-newimage.so
 %{fsldir}/bin/first3Dview
 
 %changelog
+* Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2203.1-2
+- Recommends fsl-first-data (the 336 shape/appearance models FIRST needs at
+  runtime); the tool installs lean but dnf pulls the models by default.
+
 * Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2203.1-1
 - Initial package: FSL FIRST subcortical segmentation (first, first_utils,
   first_mult_bcorr + run_first/run_first_all scripts), layered on the fsl
