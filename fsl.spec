@@ -11,7 +11,9 @@
 
 %global fsldir          %{_prefix}/lib/fsl
 %global __provides_exclude_from ^%{fsldir}/lib/.*\\.so$
-%global __requires_exclude       ^libfsl-.*\\.so.*$
+# Drop auto-Requires on the foundation's own unversioned libfsl-*.so AND on
+# libgdc.so (the bundled GDChart lib; resolved via ldconfig within fsl-libs).
+%global __requires_exclude       ^(libfsl-.*|libgdc)\\.so.*$
 
 # Per-module upstream versions (the self-consistent set shipped in FSL 6.0.7.x)
 %global ver_base        2504.3
@@ -26,10 +28,18 @@
 %global ver_meshclass   2111.0
 %global ver_basisfield  2203.4
 %global ver_warpfns     2501.0
+# Library modules added at -6 to unblock the first and melodic tools:
+#   first   needs shapeModel + fslvtkio + first_lib
+#   melodic needs miscplot + miscpic (both built from libvis) + libgdc (GDChart)
+%global ver_libgdc      2111.0
+%global ver_fslvtkio    2111.0
+%global ver_first_lib   2111.1
+%global ver_shapemodel  2111.1
+%global ver_libvis      2111.2
 
 Name:           fsl
 Version:        6.0.7.18
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        FMRIB Software Library - core libraries and build system
 
 # FSL itself is non-commercial (LicenseRef-FSL); armawrap bundles Armadillo
@@ -52,6 +62,11 @@ Source11:       fsl-profile.csh
 Source12:       fsl-ld.so.conf
 Source13:       https://git.fmrib.ox.ac.uk/fsl/basisfield/-/archive/%{ver_basisfield}/basisfield-%{ver_basisfield}.tar.gz#/fsl-basisfield-%{ver_basisfield}.tar.gz
 Source14:       https://git.fmrib.ox.ac.uk/fsl/warpfns/-/archive/%{ver_warpfns}/warpfns-%{ver_warpfns}.tar.gz#/fsl-warpfns-%{ver_warpfns}.tar.gz
+Source15:       https://git.fmrib.ox.ac.uk/fsl/libgdc/-/archive/%{ver_libgdc}/libgdc-%{ver_libgdc}.tar.gz#/fsl-libgdc-%{ver_libgdc}.tar.gz
+Source16:       https://git.fmrib.ox.ac.uk/fsl/fslvtkio/-/archive/%{ver_fslvtkio}/fslvtkio-%{ver_fslvtkio}.tar.gz#/fsl-fslvtkio-%{ver_fslvtkio}.tar.gz
+Source17:       https://git.fmrib.ox.ac.uk/fsl/first_lib/-/archive/%{ver_first_lib}/first_lib-%{ver_first_lib}.tar.gz#/fsl-first_lib-%{ver_first_lib}.tar.gz
+Source18:       https://git.fmrib.ox.ac.uk/fsl/shapeModel/-/archive/%{ver_shapemodel}/shapeModel-%{ver_shapemodel}.tar.gz#/fsl-shapeModel-%{ver_shapemodel}.tar.gz
+Source19:       https://git.fmrib.ox.ac.uk/fsl/libvis/-/archive/%{ver_libvis}/libvis-%{ver_libvis}.tar.gz#/fsl-libvis-%{ver_libvis}.tar.gz
 
 # Export newimage's euclideanDistanceTransform overloads (hidden-visibility
 # instantiations are not exported from the shared lib; needed by avwutils).
@@ -65,6 +80,9 @@ BuildRequires:  chrpath
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  blas-devel
 BuildRequires:  lapack-devel
+# libgdc (GDChart) and libvis (miscplot/miscpic plotting) link system gd + libpng.
+BuildRequires:  gd-devel
+BuildRequires:  libpng-devel
 
 Requires:       fsl-base = %{version}-%{release}
 Requires:       fsl-libs = %{version}-%{release}
@@ -102,6 +120,11 @@ Provides:       bundled(fsl-newimage) = %{ver_newimage}
 Provides:       bundled(fsl-meshclass) = %{ver_meshclass}
 Provides:       bundled(fsl-basisfield) = %{ver_basisfield}
 Provides:       bundled(fsl-warpfns) = %{ver_warpfns}
+Provides:       bundled(fsl-libgdc) = %{ver_libgdc}
+Provides:       bundled(fsl-fslvtkio) = %{ver_fslvtkio}
+Provides:       bundled(fsl-first_lib) = %{ver_first_lib}
+Provides:       bundled(fsl-shapeModel) = %{ver_shapemodel}
+Provides:       bundled(fsl-libvis) = %{ver_libvis}
 
 %description libs
 The core FSL shared libraries that nearly every FSL tool links against:
@@ -143,6 +166,11 @@ patch -p1 -d fsl-newimage < %{PATCH1}
 setup_mod %{SOURCE9} meshclass
 setup_mod %{SOURCE13} basisfield
 setup_mod %{SOURCE14} warpfns
+setup_mod %{SOURCE15} libgdc
+setup_mod %{SOURCE16} fslvtkio
+setup_mod %{SOURCE17} first_lib
+setup_mod %{SOURCE18} shapeModel
+setup_mod %{SOURCE19} libvis
 
 %build
 cd %{_builddir}/%{name}-%{version}
@@ -173,11 +201,22 @@ export LDFLAGS="%{?build_ldflags}"
 # meshclass links newimage/miscmaths/NewNifti/cprob/utils/znz; basisfield links
 # miscmaths/newimage/utils; warpfns links basisfield/meshclass/newimage/... so
 # the registration libraries come after the leaf libraries they depend on.
-for mod in znzlib cprob newran armawrap newnifti utils miscmaths newimage meshclass basisfield warpfns; do
+# Dependency order for the -6 additions: libgdc (gd/png only) before libvis;
+# first_lib before fslvtkio (fslvtkio.h #includes first_lib/first_newmat_vec.h),
+# and both before shapeModel (links first_lib + vtkio). libvis links libgdc.
+for mod in znzlib cprob newran armawrap newnifti utils miscmaths newimage meshclass basisfield warpfns libgdc first_lib fslvtkio shapeModel; do
     echo "=== building fsl-${mod} ==="
     make -C "fsl-${mod}" %{?_smp_mflags}
     make -C "fsl-${mod}" install
 done
+
+# libvis: build ONLY the miscplot/miscpic shared libraries needed by melodic.
+# Skip its XFILE viz binaries (slicer/overlay/pngappend/fsl_tsplot/...) — the
+# foundation ships libraries only, and FSL's install step skips XFILES that
+# were not built.
+echo "=== building fsl-libvis (libraries only) ==="
+make -C "fsl-libvis" libfsl-miscplot.so libfsl-miscpic.so %{?_smp_mflags}
+make -C "fsl-libvis" install
 
 %install
 ST=%{_builddir}/%{name}-%{version}/_stage
@@ -194,7 +233,8 @@ install -m 0644 "${ST}/LICENCE.FSL" %{buildroot}%{fsldir}/LICENCE.FSL
 # build-stage component, keeping only $ORIGIN so the libraries locate their
 # siblings relative to their own install dir (%{fsldir}/lib) after relocation.
 for so in %{buildroot}%{fsldir}/lib/*.so; do
-    chrpath -r '$ORIGIN' "$so"
+    # Tolerate any .so that carries no rpath tag (chrpath -r errors otherwise).
+    chrpath -r '$ORIGIN' "$so" 2>/dev/null || :
     # FSL's makefiles install a couple of libraries 0644; normalise every
     # shared object to 0755 (rpmlint: shared-library-not-executable).
     chmod 0755 "$so"
@@ -214,6 +254,14 @@ test -e %{buildroot}%{fsldir}/lib/libfsl-basisfield.so
 test -e %{buildroot}%{fsldir}/lib/libfsl-warpfns.so
 test -e %{buildroot}%{fsldir}/include/newimage/newimageall.h
 test -e %{buildroot}%{fsldir}/include/meshclass/meshclass.h
+# -6 library modules (first: shapeModel/vtkio/first_lib; melodic: miscplot/
+# miscpic from libvis + GDChart).
+test -e %{buildroot}%{fsldir}/lib/libfsl-first_lib.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-vtkio.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-shapeModel.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-miscplot.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-miscpic.so
+test -e %{buildroot}%{fsldir}/lib/libgdc.so
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
@@ -236,6 +284,16 @@ test -e %{buildroot}%{fsldir}/include/meshclass/meshclass.h
 %{fsldir}/include
 
 %changelog
+* Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-6
+- Foundation expansion to unblock the first and melodic tools. Add five FSL
+  library modules (all from the public FMRIB GitLab) to fsl-libs/fsl-libs-devel:
+  first_lib (2111.1), fslvtkio (2111.0 -> libfsl-vtkio.so), shapeModel (2111.1)
+  for FIRST; and libvis (2111.2 -> libfsl-miscplot.so + libfsl-miscpic.so) plus
+  its GDChart dependency libgdc (2111.0 -> libgdc.so) for MELODIC. libvis builds
+  libraries only (its slicer/overlay/pngappend viz binaries are not shipped from
+  the foundation). Add gd-devel + libpng-devel BuildRequires; exclude the
+  bundled libgdc.so from auto-Requires.
+
 * Tue Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-5
 - Export newimage's euclideanDistanceTransform overloads from
   libfsl-newimage.so (fsl-newimage-edt-export.patch). edt.cc force-instantiates
