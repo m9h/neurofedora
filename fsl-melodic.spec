@@ -101,13 +101,12 @@ ldd %{buildroot}%{fsldir}/bin/melodic | grep -q libfsl-miscplot.so
 %{fsldir}/bin/fsl_mvlm
 %{fsldir}/bin/fsl_regfilt
 %{fsldir}/bin/fsl_schurprod
-%{fsldir}/bin/melodicreport
 %{fsldir}/bin/dual_regression
 %{fsldir}/lib/libfsl-ggmix.so
 
 %changelog
 * Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2111.3-1
 - Initial package: FSL MELODIC probabilistic ICA (melodic + fsl_glm/fsl_sbca/
-  fsl_mvlm/fsl_regfilt/fsl_schurprod + melodicreport/dual_regression scripts and
-  the private libfsl-ggmix.so), layered on the fsl foundation 6.0.7.18-6 which
+  fsl_mvlm/fsl_regfilt/fsl_schurprod + dual_regression script and the private
+  libfsl-ggmix.so), layered on the fsl foundation 6.0.7.18-6 which
   adds the miscplot/miscpic (libvis) + GDChart libraries. Links CiftiLib.
