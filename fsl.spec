@@ -36,10 +36,16 @@
 %global ver_first_lib   2111.1
 %global ver_shapemodel  2111.1
 %global ver_libvis      2111.2
+# Library modules added at -7 for the FILM / probtrackx / surface tools:
+#   giftiio (GIFTI I/O) -> newmesh (libfsl-newmeshclass, for probtrackx/ptx2)
+#   and fslsurface (libfsl-surface, for film). All three are FMRIB-public libs.
+%global ver_giftiio     2111.1
+%global ver_newmesh     2111.2
+%global ver_fslsurface  2111.1
 
 Name:           fsl
 Version:        6.0.7.18
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        FMRIB Software Library - core libraries and build system
 
 # FSL itself is non-commercial (LicenseRef-FSL); armawrap bundles Armadillo
@@ -67,6 +73,9 @@ Source16:       https://git.fmrib.ox.ac.uk/fsl/fslvtkio/-/archive/%{ver_fslvtkio
 Source17:       https://git.fmrib.ox.ac.uk/fsl/first_lib/-/archive/%{ver_first_lib}/first_lib-%{ver_first_lib}.tar.gz#/fsl-first_lib-%{ver_first_lib}.tar.gz
 Source18:       https://git.fmrib.ox.ac.uk/fsl/shapeModel/-/archive/%{ver_shapemodel}/shapeModel-%{ver_shapemodel}.tar.gz#/fsl-shapeModel-%{ver_shapemodel}.tar.gz
 Source19:       https://git.fmrib.ox.ac.uk/fsl/libvis/-/archive/%{ver_libvis}/libvis-%{ver_libvis}.tar.gz#/fsl-libvis-%{ver_libvis}.tar.gz
+Source20:       https://git.fmrib.ox.ac.uk/fsl/giftiio/-/archive/%{ver_giftiio}/giftiio-%{ver_giftiio}.tar.gz#/fsl-giftiio-%{ver_giftiio}.tar.gz
+Source21:       https://git.fmrib.ox.ac.uk/fsl/newmesh/-/archive/%{ver_newmesh}/newmesh-%{ver_newmesh}.tar.gz#/fsl-newmesh-%{ver_newmesh}.tar.gz
+Source22:       https://git.fmrib.ox.ac.uk/fsl/fslsurface/-/archive/%{ver_fslsurface}/fslsurface-%{ver_fslsurface}.tar.gz#/fsl-fslsurface-%{ver_fslsurface}.tar.gz
 
 # Export newimage's euclideanDistanceTransform overloads (hidden-visibility
 # instantiations are not exported from the shared lib; needed by avwutils).
@@ -83,6 +92,8 @@ BuildRequires:  lapack-devel
 # libgdc (GDChart) and libvis (miscplot/miscpic plotting) link system gd + libpng.
 BuildRequires:  gd-devel
 BuildRequires:  libpng-devel
+# giftiio parses GIFTI XML via expat.
+BuildRequires:  expat-devel
 
 Requires:       fsl-base = %{version}-%{release}
 Requires:       fsl-libs = %{version}-%{release}
@@ -125,6 +136,9 @@ Provides:       bundled(fsl-fslvtkio) = %{ver_fslvtkio}
 Provides:       bundled(fsl-first_lib) = %{ver_first_lib}
 Provides:       bundled(fsl-shapeModel) = %{ver_shapemodel}
 Provides:       bundled(fsl-libvis) = %{ver_libvis}
+Provides:       bundled(fsl-giftiio) = %{ver_giftiio}
+Provides:       bundled(fsl-newmesh) = %{ver_newmesh}
+Provides:       bundled(fsl-fslsurface) = %{ver_fslsurface}
 
 %description libs
 The core FSL shared libraries that nearly every FSL tool links against:
@@ -171,6 +185,9 @@ setup_mod %{SOURCE16} fslvtkio
 setup_mod %{SOURCE17} first_lib
 setup_mod %{SOURCE18} shapeModel
 setup_mod %{SOURCE19} libvis
+setup_mod %{SOURCE20} giftiio
+setup_mod %{SOURCE21} newmesh
+setup_mod %{SOURCE22} fslsurface
 
 %build
 cd %{_builddir}/%{name}-%{version}
@@ -218,6 +235,19 @@ echo "=== building fsl-libvis (libraries only) ==="
 make -C "fsl-libvis" libfsl-miscplot.so libfsl-miscpic.so %{?_smp_mflags}
 make -C "fsl-libvis" install
 
+# -7 additions: giftiio (libraries only — skip its gifti_tool/gifti_test
+# binaries), then newmesh (needs giftiio), then fslsurface (libraries only —
+# skip fslsurfacemaths; needs giftiio + shapeModel + vtkio + meshclass).
+echo "=== building fsl-giftiio (library only) ==="
+make -C "fsl-giftiio" libfsl-giftiio.so %{?_smp_mflags}
+make -C "fsl-giftiio" install
+echo "=== building fsl-newmesh ==="
+make -C "fsl-newmesh" %{?_smp_mflags}
+make -C "fsl-newmesh" install
+echo "=== building fsl-fslsurface (libraries only) ==="
+make -C "fsl-fslsurface" libfsl-surface.so libfsl-surface_backcompat.so %{?_smp_mflags}
+make -C "fsl-fslsurface" install
+
 %install
 ST=%{_builddir}/%{name}-%{version}/_stage
 
@@ -262,6 +292,10 @@ test -e %{buildroot}%{fsldir}/lib/libfsl-shapeModel.so
 test -e %{buildroot}%{fsldir}/lib/libfsl-miscplot.so
 test -e %{buildroot}%{fsldir}/lib/libfsl-miscpic.so
 test -e %{buildroot}%{fsldir}/lib/libgdc.so
+# -7 surface/gifti libraries.
+test -e %{buildroot}%{fsldir}/lib/libfsl-giftiio.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-newmeshclass.so
+test -e %{buildroot}%{fsldir}/lib/libfsl-surface.so
 
 %post libs -p /sbin/ldconfig
 %postun libs -p /sbin/ldconfig
@@ -284,6 +318,15 @@ test -e %{buildroot}%{fsldir}/lib/libgdc.so
 %{fsldir}/include
 
 %changelog
+* Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-7
+- Foundation expansion for the FILM / probtrackx / surface tools. Add three
+  more FMRIB library modules to fsl-libs/fsl-libs-devel: giftiio (2111.1 ->
+  libfsl-giftiio.so, GIFTI I/O via expat), newmesh (2111.2 ->
+  libfsl-newmeshclass.so, needed by ptx2/probtrackx) and fslsurface (2111.1 ->
+  libfsl-surface.so + _backcompat, needed by film). giftiio and fslsurface build
+  libraries only (skip their gifti_tool/fslsurfacemaths binaries). Add
+  expat-devel BuildRequires.
+
 * Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.7.18-6
 - Foundation expansion to unblock the first and melodic tools. Add five FSL
   library modules (all from the public FMRIB GitLab) to fsl-libs/fsl-libs-devel:
