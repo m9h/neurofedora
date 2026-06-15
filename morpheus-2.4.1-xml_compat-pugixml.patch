@@ -1,26 +1,16 @@
-Subject: Replace bundled xmlParser (AFPL) with pugixml (MIT) via xml_compat wrapper
-Author:  Morgan Hough <morgan.hough@gmail.com>
-Origin:  Local morpheus fork — memory/morpheus_xmlparser_replacement.md
-
-Wraps morpheus's small subset of xmlParser usage (XMLNode, XMLResults,
-XMLError, XMLAttribute, XMLClear, XMLParserBase64Tool) on top of system
-pugixml (MIT-licensed, in Fedora). Replaces the AFPL-licensed xmlParser
-bundle, which Fedora cannot ship. Generated from a diff of vanilla
-morpheus-2.3.9 against the same tree with the wrapper applied, so the
-patch is byte-exact and applies under `patch --fuzz=0` (the strict
-default mock/rpmbuild uses).
-
---- a/3rdparty/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
-+++ b/3rdparty/CMakeLists.txt	2026-05-24 22:12:00.478037562 -0700
+diff -ruN pristine/3rdparty/CMakeLists.txt morpheus-v2.4.1/3rdparty/CMakeLists.txt
+--- pristine/3rdparty/CMakeLists.txt	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/3rdparty/CMakeLists.txt	2026-06-14 20:03:29.332476166 -0700
 @@ -1,5 +1,5 @@
  add_subdirectory(muParser)
 -add_subdirectory(xmlParser)
 +# xmlParser removed — replaced by pugixml via xml_compat wrapper (AFPL -> MIT license)
  add_subdirectory(tiny-process)
  add_subdirectory(gnuplot_i)
- SET(XTENSOR_USE_XSIMD 1)
---- a/3rdparty/xmlParser/AFPL_License.html	2025-02-28 03:17:39.000000000 -0800
-+++ b/3rdparty/xmlParser/AFPL_License.html	1969-12-31 16:00:00.000000000 -0800
+ 
+diff -ruN pristine/3rdparty/xmlParser/AFPL_License.html morpheus-v2.4.1/3rdparty/xmlParser/AFPL_License.html
+--- pristine/3rdparty/xmlParser/AFPL_License.html	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/3rdparty/xmlParser/AFPL_License.html	1969-12-31 16:00:00.000000000 -0800
 @@ -1,499 +0,0 @@
 -<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
 -<html>
@@ -521,12 +511,14 @@ default mock/rpmbuild uses).
 -     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
 -     SECTION 108(a)(3)).
 --->
---- a/3rdparty/xmlParser/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
-+++ b/3rdparty/xmlParser/CMakeLists.txt	1969-12-31 16:00:00.000000000 -0800
+diff -ruN pristine/3rdparty/xmlParser/CMakeLists.txt morpheus-v2.4.1/3rdparty/xmlParser/CMakeLists.txt
+--- pristine/3rdparty/xmlParser/CMakeLists.txt	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/3rdparty/xmlParser/CMakeLists.txt	1969-12-31 16:00:00.000000000 -0800
 @@ -1 +0,0 @@
 -add_library(xmlParser xmlParser.cpp)
---- a/3rdparty/xmlParser/xmlParser.cpp	2025-02-28 03:17:39.000000000 -0800
-+++ b/3rdparty/xmlParser/xmlParser.cpp	1969-12-31 16:00:00.000000000 -0800
+diff -ruN pristine/3rdparty/xmlParser/xmlParser.cpp morpheus-v2.4.1/3rdparty/xmlParser/xmlParser.cpp
+--- pristine/3rdparty/xmlParser/xmlParser.cpp	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/3rdparty/xmlParser/xmlParser.cpp	1969-12-31 16:00:00.000000000 -0800
 @@ -1,2892 +0,0 @@
 -/**
 - ****************************************************************************
@@ -3420,8 +3412,9 @@ default mock/rpmbuild uses).
 -    return (unsigned char*)buf;
 -}
 -
---- a/3rdparty/xmlParser/xmlParser.h	2025-02-28 03:17:39.000000000 -0800
-+++ b/3rdparty/xmlParser/xmlParser.h	1969-12-31 16:00:00.000000000 -0800
+diff -ruN pristine/3rdparty/xmlParser/xmlParser.h morpheus-v2.4.1/3rdparty/xmlParser/xmlParser.h
+--- pristine/3rdparty/xmlParser/xmlParser.h	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/3rdparty/xmlParser/xmlParser.h	1969-12-31 16:00:00.000000000 -0800
 @@ -1,735 +0,0 @@
 -
 -/****************************************************************************/
@@ -4158,8 +4151,9 @@ default mock/rpmbuild uses).
 -#undef XMLDLLENTRY
 -
 -#endif
---- a/morpheus/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
-+++ b/morpheus/CMakeLists.txt	2026-05-24 22:12:00.478851819 -0700
+diff -ruN pristine/morpheus/CMakeLists.txt morpheus-v2.4.1/morpheus/CMakeLists.txt
+--- pristine/morpheus/CMakeLists.txt	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/morpheus/CMakeLists.txt	2026-06-14 20:03:29.334573318 -0700
 @@ -35,7 +35,7 @@
  TARGET_LINK_LIBRARIES_PATCHED(MorpheusSIM PRIVATE MorpheusCore)
  
@@ -4169,7 +4163,7 @@ default mock/rpmbuild uses).
  
  IF(HAVE_OPENMP)
  	if (CMAKE_VERSION VERSION_LESS 3.10)
-@@ -105,7 +105,7 @@
+@@ -132,7 +132,7 @@
  	## We guess the static library dependencies from the corresponding dynamic library dependencies
  	#		message(FATAL_ERROR "Static binary build only supported on *nix systems") 
  	IF(UNIX)
@@ -4178,7 +4172,7 @@ default mock/rpmbuild uses).
  						 COMMAND grep "libtiff.so "
  						 OUTPUT_VARIABLE TIFF_DYN_LIB
  		)
-@@ -143,7 +143,7 @@
+@@ -170,7 +170,7 @@
  		ENDIF()
  		IF("libwebp" IN_LIST TIFF_DEPENDS)
  			message(STATUS "LibTIFF requires webp")
@@ -4187,8 +4181,9 @@ default mock/rpmbuild uses).
  		ENDIF()
  		IF("libzstd" IN_LIST TIFF_DEPENDS)
  			message(STATUS "LibTIFF requires zstd")
---- a/morpheus/core/exceptions.h	2025-02-28 03:17:39.000000000 -0800
-+++ b/morpheus/core/exceptions.h	2026-05-24 22:12:00.479631312 -0700
+diff -ruN pristine/morpheus/core/exceptions.h morpheus-v2.4.1/morpheus/core/exceptions.h
+--- pristine/morpheus/core/exceptions.h	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/morpheus/core/exceptions.h	2026-06-14 20:03:29.334710315 -0700
 @@ -4,7 +4,6 @@
  #include <stdexcept>
  #include <mutex>
@@ -4197,8 +4192,9 @@ default mock/rpmbuild uses).
  #include "xml_functions.h"
  
  
---- a/morpheus/core/simulation.cpp	2025-02-28 03:17:39.000000000 -0800
-+++ b/morpheus/core/simulation.cpp	2026-05-24 22:12:00.480418309 -0700
+diff -ruN pristine/morpheus/core/simulation.cpp morpheus-v2.4.1/morpheus/core/simulation.cpp
+--- pristine/morpheus/core/simulation.cpp	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/morpheus/core/simulation.cpp	2026-06-14 20:03:29.334891002 -0700
 @@ -9,7 +9,6 @@
  #include "cpm_p.h"
  #include "ml_conversion.h"
@@ -4252,16 +4248,16 @@ default mock/rpmbuild uses).
  }
  
  // Prints to the provided buffer a nice number of bytes (KB, MB, GB, etc)
-@@ -359,8 +358,6 @@
+@@ -360,8 +359,6 @@
  		("perf-stats", "Generate performance stats in json format.")
- 		("outdir", po::value<std::string>(), "override output directory.")
+ 		("outdir", po::value<std::string>(), "Override output directory.")
  		("model-graph", po::value<std::string>()->implicit_value("dot"), "Generate the model graph in the given format [dot,svg,pdf,png].")
 -		("num-threads", po::value<int>(), "Thread count for parallel computation. Defaults to OMP_NUM_THREADS.")
 -		("num-cpm-threads", po::value<int>(), "Thread count for parallel CPM computation. Defaults to 'num-threads'.")
  		("help,h", "show this help page.");
  	
  	po::options_description hidden;
-@@ -430,28 +427,10 @@
+@@ -431,28 +428,10 @@
  	else {
  		generate_symbol_graph_and_exit = false;
  	}
@@ -4290,7 +4286,7 @@ default mock/rpmbuild uses).
  		if ( access( output_directory.c_str(), R_OK | W_OK) != 0) {
  			throw  string("Error: output directory '") + output_directory + "' does not exist or is not writable.";
  		}
-@@ -465,14 +444,12 @@
+@@ -466,14 +445,12 @@
      }
  
  	string filename = cmd_line["file"].as<string>();
@@ -4311,7 +4307,7 @@ default mock/rpmbuild uses).
  	}
  	
  	generate_performance_stats = cmd_line.count("perf-stats");
-@@ -510,10 +487,31 @@
+@@ -515,10 +492,31 @@
  // 	}
  // 	cout << endl;
  	
@@ -4347,16 +4343,16 @@ default mock/rpmbuild uses).
  };
  
  bool init(string model, map<string,string> overrides) {
-@@ -548,7 +546,7 @@
+@@ -553,7 +551,7 @@
+ 	}
  	current_scope = global_scope.get();
- 	
- 	setRandomSeeds(XMLNode::emptyNode());
+ 
 -#pragma omp parallel num_threads(TP::teamSize())
 +#pragma omp parallel 
  	{
  		TP::setTeamNum(omp_get_thread_num());
  	}
-@@ -679,7 +677,7 @@
+@@ -690,7 +688,7 @@
  	global_lattice = lattice_plugin->getLattice();
  	
  	CPM::init();
@@ -4365,7 +4361,7 @@ default mock/rpmbuild uses).
  	// all model constituents are loaded. let's initialize them (i.e. interlink)
  	for (auto glob : global_section_plugins) {
  #ifdef NO_CORE_CATCH
-@@ -826,7 +824,7 @@
+@@ -837,7 +835,7 @@
  		exit(-1);
  	}
  	gzclose(zfile);
@@ -4374,8 +4370,9 @@ default mock/rpmbuild uses).
  }
  
  void wipe()
---- a/morpheus/plugins/analysis/tiff_plotter.cpp	2025-02-28 03:17:39.000000000 -0800
-+++ b/morpheus/plugins/analysis/tiff_plotter.cpp	2026-05-24 22:12:00.481210364 -0700
+diff -ruN pristine/morpheus/plugins/analysis/tiff_plotter.cpp morpheus-v2.4.1/morpheus/plugins/analysis/tiff_plotter.cpp
+--- pristine/morpheus/plugins/analysis/tiff_plotter.cpp	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/morpheus/plugins/analysis/tiff_plotter.cpp	2026-06-14 20:03:29.335187219 -0700
 @@ -652,7 +652,7 @@
  		//cout << "OME-TIFF Header" << endl;
  		//cout << string(ome_data) << endl;
@@ -4385,8 +4382,9 @@ default mock/rpmbuild uses).
  	}
  	else if (file_desc.header == Header::IMAGEJ) {
  
---- a/xmlutils/CMakeLists.txt	2025-02-28 03:17:39.000000000 -0800
-+++ b/xmlutils/CMakeLists.txt	2026-05-24 22:12:00.482006498 -0700
+diff -ruN pristine/xmlutils/CMakeLists.txt morpheus-v2.4.1/xmlutils/CMakeLists.txt
+--- pristine/xmlutils/CMakeLists.txt	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/xmlutils/CMakeLists.txt	2026-06-14 20:03:29.335317555 -0700
 @@ -1,6 +1,7 @@
 -set(xml_util_src 
 +set(xml_util_src
@@ -4412,8 +4410,9 @@ default mock/rpmbuild uses).
 +    target_link_libraries(runXmlCompatTests XMLUtils gtest)
 +ENDIF()
  
---- a/xmlutils/xml_compat.cpp	1969-12-31 16:00:00.000000000 -0800
-+++ b/xmlutils/xml_compat.cpp	2026-05-24 22:12:00.477151260 -0700
+diff -ruN pristine/xmlutils/xml_compat.cpp morpheus-v2.4.1/xmlutils/xml_compat.cpp
+--- pristine/xmlutils/xml_compat.cpp	1969-12-31 16:00:00.000000000 -0800
++++ morpheus-v2.4.1/xmlutils/xml_compat.cpp	2026-06-14 20:03:29.335375525 -0700
 @@ -0,0 +1,956 @@
 +//////
 +//
@@ -5371,8 +5370,9 @@ default mock/rpmbuild uses).
 +    if (outByteLen) *outByteLen = outSize;
 +    return out;
 +}
---- a/xmlutils/xml_compat.h	1969-12-31 16:00:00.000000000 -0800
-+++ b/xmlutils/xml_compat.h	2026-05-24 22:12:00.474812691 -0700
+diff -ruN pristine/xmlutils/xml_compat.h morpheus-v2.4.1/xmlutils/xml_compat.h
+--- pristine/xmlutils/xml_compat.h	1969-12-31 16:00:00.000000000 -0800
++++ morpheus-v2.4.1/xmlutils/xml_compat.h	2026-06-14 20:03:29.335859094 -0700
 @@ -0,0 +1,234 @@
 +//////
 +//
@@ -5608,8 +5608,9 @@ default mock/rpmbuild uses).
 +};
 +
 +#endif // XML_COMPAT_H
---- a/xmlutils/xml_functions.h	2025-02-28 03:17:39.000000000 -0800
-+++ b/xmlutils/xml_functions.h	2026-05-24 22:12:00.482810799 -0700
+diff -ruN pristine/xmlutils/xml_functions.h morpheus-v2.4.1/xmlutils/xml_functions.h
+--- pristine/xmlutils/xml_functions.h	2026-05-19 08:53:02.000000000 -0700
++++ morpheus-v2.4.1/xmlutils/xml_functions.h	2026-06-14 20:03:29.335944502 -0700
 @@ -16,7 +16,7 @@
  // #include "config.h"
  #include "string_functions.h"

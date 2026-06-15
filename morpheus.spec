@@ -10,29 +10,20 @@
 %global __requires_exclude ^lib(XMLUtils|MorpheusMLconv|muParser|gnuplot_interface|tiny-process-library|qtsingleapp)\.so
 
 Name:           morpheus
-Version:        2.3.9
-Release:        8%{?dist}
+Version:        2.4.1
+Release:        1%{?dist}
 Summary:        Modeling environment for multicellular systems biology
 
 License:        BSD-3-Clause
 URL:            https://morpheus.gitlab.io
 Source0:        morpheus-%{version}.tar.gz
-# Bundled header-only libraries (Fedora 43 xtensor 0.27.0 has incompatible
-# header layout — restructured include/ hierarchy breaks Morpheus includes)
-Source1:        xtl-0.7.5.tar.gz
-Source2:        xsimd-10.0.0.tar.gz
-Source3:        xtensor-0.24.6.tar.gz
 
 # Replace bundled xmlParser (Aladdin Free Public License — Fedora-rejected)
-# with a thin pugixml wrapper. Was developed against 2.3.7 in the local
-# morpheus fork (see memory/morpheus_xmlparser_replacement.md); applies
-# cleanly through at least 2.3.9. The .spec's -2.3.7-1 changelog claimed
-# this work shipped, but the wrapper files (xmlutils/xml_compat.{h,cpp})
-# were only ever in the local working tree — never committed, never
-# tarballed back as a patch — so the 2.3.9 bump regressed back to the
-# AFPL xmlParser code and shipped libxmlParser.so as a runtime dep that
-# nothing on F44 can satisfy (broken-dep skip on the harness install run).
-Patch0:         morpheus-2.3.7-xml_compat-pugixml.patch
+# with a thin pugixml wrapper (see memory/morpheus_xmlparser_replacement.md).
+# Regenerated for 2.4.1 (the 2.3.7-era patch only applied with fuzz=3, above
+# %%patch's limit). Exceptions.h still #include "xmlParser/xmlParser.h" in
+# 2.4.1, so the wrapper is still required.
+Patch0:         morpheus-2.4.1-xml_compat-pugixml.patch
 
 BuildRequires:  cmake >= 3.5
 BuildRequires:  gcc-c++
@@ -40,6 +31,13 @@ BuildRequires:  patchelf
 BuildRequires:  make
 BuildRequires:  boost-devel
 BuildRequires:  pugixml-devel
+# 2.4.x supports modern system xtensor (find_package(xtensor 0.26.0) sets
+# XTENSOR_NEW_HEADERS). Fedora 44: xtensor 0.27.0 / xtl 0.8.1 / xsimd 13.2.0.
+# With all three targets present the cmake gate uses the system path and
+# skips the (offline-fatal) FetchContent fallback — so we unbundle here.
+BuildRequires:  xtensor-devel
+BuildRequires:  xtl-devel
+BuildRequires:  xsimd-devel
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  libtiff-devel
 BuildRequires:  libxslt
@@ -59,9 +57,6 @@ Requires:       gnuplot
 Provides:       bundled(muParser)
 Provides:       bundled(gnuplot_i)
 Provides:       bundled(tiny-process-library)
-Provides:       bundled(xtensor) = 0.24.6
-Provides:       bundled(xtl) = 0.7.5
-Provides:       bundled(xsimd) = 10.0.0
 
 %description
 Morpheus is a modeling and simulation environment for the study of
@@ -95,52 +90,16 @@ models.
 %patch -P 0 -p1
 
 # Morpheus bundles muParser, gnuplot_i, tiny-process-lib, qtsingleapp.
-# Fedora 43 xtensor 0.27.0 restructured its include layout (xtensor/containers/
-# instead of xtensor/) making it incompatible with Morpheus.  Bundle the
-# versions Morpheus was developed against (all header-only, MIT/BSD).
+#
+# xtensor/xtl/xsimd are UNBUNDLED for 2.4.x: morpheus/CMakeLists.txt does
+# FIND_PACKAGE(xtl)/FIND_PACKAGE(xsimd)/FIND_PACKAGE(xtensor 0.26.0) and only
+# falls back to the FetchContent download path if any of those targets is
+# missing. Fedora 44 provides all three (xtensor 0.27.0 / xtl 0.8.1 /
+# xsimd 13.2.0), and 2.4.x handles the new header layout via the
+# XTENSOR_NEW_HEADERS code path — so the system path is taken with no help
+# from us and no network access.
 
-# Extract bundled xtensor-stack headers alongside the source tree
-tar xzf %{SOURCE1} -C 3rdparty/
-tar xzf %{SOURCE2} -C 3rdparty/
-tar xzf %{SOURCE3} -C 3rdparty/
-
-# Disable system xtensor detection — force bundled path
-sed -i 's/FIND_PACKAGE(xtensor QUIET)/# FIND_PACKAGE(xtensor QUIET)/' 3rdparty/CMakeLists.txt
-sed -i 's/IF(\${xtensor_DIR} STREQUAL "xtensor_DIR-NOTFOUND" )/IF(TRUE)/' 3rdparty/CMakeLists.txt
-
-# Replace xtl download with local header copy
-cat > 3rdparty/xtl/CMakeLists.txt << 'XTLEOF'
-SET(XTL_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdparty/include)
-add_library(xtl INTERFACE)
-target_include_directories(xtl INTERFACE ${XTL_INCLUDE_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/xtl-0.7.5/include/xtl
-     DESTINATION ${XTL_INCLUDE_DIR})
-message(STATUS "Using bundled xtl from ${XTL_INCLUDE_DIR}/xtl")
-XTLEOF
-
-# Replace xsimd download with local header copy
-cat > 3rdparty/xsimd/CMakeLists.txt << 'XSIMDEOF'
-SET(XSIMD_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdparty/include)
-add_library(xsimd INTERFACE)
-target_include_directories(xsimd INTERFACE ${XSIMD_INCLUDE_DIR})
-file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/xsimd-10.0.0/include/xsimd
-     DESTINATION ${XSIMD_INCLUDE_DIR})
-message(STATUS "Using bundled xsimd from ${XSIMD_INCLUDE_DIR}/xsimd")
-XSIMDEOF
-
-# Replace xtensor download with local header copy
-cat > 3rdparty/xtensor/CMakeLists.txt << 'XTENSOREOF'
-SET(XTENSOR_INCLUDE_DIR ${CMAKE_BINARY_DIR}/3rdparty/include)
-add_library(xtensor INTERFACE)
-target_include_directories(xtensor INTERFACE ${XTENSOR_INCLUDE_DIR})
-target_compile_definitions(xtensor INTERFACE XTENSOR_USE_XSIMD=1 XTENSOR_OPENMP_TRESHOLD=1000)
-target_link_libraries(xtensor INTERFACE xsimd xtl)
-file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/xtensor-0.24.6/include/xtensor
-     DESTINATION ${XTENSOR_INCLUDE_DIR})
-message(STATUS "Using bundled xtensor from ${XTENSOR_INCLUDE_DIR}/xtensor")
-XTENSOREOF
-
-# Disable xtensor download option
+# Belt-and-braces: make sure the offline-fatal FetchContent fallback is off.
 sed -i 's/OPTION(DOWNLOAD_XTENSOR "Download latest xtensor source" ON)/OPTION(DOWNLOAD_XTENSOR "Download latest xtensor source" OFF)/' CMakeLists.txt
 
 # Fix static Boost linkage: upstream sets Boost_USE_STATIC_LIBS ON when BUILD_TESTING=OFF
@@ -222,6 +181,18 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/morpheus.desktop || t
 %{_datadir}/morpheus/
 
 %changelog
+* Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2.4.1-1
+- Update to 2.4.1 (freshness sweep; was stuck at 2.3.9).
+- Regenerate the xmlParser->pugixml patch against 2.4.1: the 2.3.7-era patch
+  only applied with fuzz=3 (above %%patch's fuzz limit), which is why the 2.4.1
+  bump had been deferred. exceptions.h still includes xmlParser in 2.4.1 so the
+  wrapper is still needed.
+- UNBUNDLE xtensor/xtl/xsimd: 2.4.x's morpheus/CMakeLists.txt finds system
+  xtl/xsimd/xtensor (>= 0.26.0 -> XTENSOR_NEW_HEADERS) and only FetchContent-
+  downloads if a target is missing. Fedora 44 ships xtensor 0.27.0 / xtl 0.8.1
+  / xsimd 13.2.0, so depend on them (BuildRequires xtensor/xtl/xsimd-devel),
+  drop Source1/2/3 + the bundled-header %%prep hacks and the bundled() Provides.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.9-8
 - Set RUNPATH=$ORIGIN on every bundled .so in %%{_libdir}/morpheus/
   (was: --remove-rpath, which left siblings unable to find each other).
