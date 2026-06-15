@@ -63,7 +63,9 @@ make install
 # The stage bin also contains topup/applytopup (built above) — ship ONLY eddy.
 mkdir -p %{buildroot}%{fsldir}/bin
 cp -a "${FSLDEVDIR}/bin/eddy_cpu" %{buildroot}%{fsldir}/bin/
-cp -a "${FSLDEVDIR}/bin/eddy"     %{buildroot}%{fsldir}/bin/
+# The eddy wrapper script isn't staged by `make install`; install it from the
+# source tree.
+install -m 0755 eddy %{buildroot}%{fsldir}/bin/eddy
 find %{buildroot}%{fsldir}/bin -xtype l -delete
 for exe in %{buildroot}%{fsldir}/bin/*; do
     [ -f "$exe" ] || continue

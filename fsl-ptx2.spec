@@ -52,6 +52,8 @@ export FSLDEVDIR=%{_builddir}/_stage
 make install
 mkdir -p %{buildroot}%{fsldir}/bin
 cp -a "${FSLDEVDIR}/bin/." %{buildroot}%{fsldir}/bin/
+# CPU build: drop the GPU variant.
+rm -f %{buildroot}%{fsldir}/bin/probtrackx2_gpu
 find %{buildroot}%{fsldir}/bin -xtype l -delete
 for exe in %{buildroot}%{fsldir}/bin/*; do
     [ -f "$exe" ] || continue
@@ -69,6 +71,11 @@ test -x %{buildroot}%{fsldir}/bin/surfmaths
 %{fsldir}/bin/surfmaths
 %{fsldir}/bin/surf2surf
 %{fsldir}/bin/surf2volume
+%{fsldir}/bin/fdt_matrix_merge
+%{fsldir}/bin/find_the_biggest
+%{fsldir}/bin/label2surf
+%{fsldir}/bin/proj_thresh
+%{fsldir}/bin/surf_proj
 
 %changelog
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2111.5-1
