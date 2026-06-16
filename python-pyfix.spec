@@ -38,6 +38,8 @@ Provides:       fsl-fix = %{version}-%{release}
 %autosetup -n %{pypi_name}-%{version}
 
 %generate_buildrequires
+# setuptools-scm reads the version from git, absent in the release tarball.
+export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %pyproject_buildrequires
 
 %build
