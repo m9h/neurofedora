@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        44%{?dist}
+Release:        45%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -494,6 +494,22 @@ find "$_bdir" -name '*Hierarchy.txt' 2>/dev/null \
   | while read -r h; do cp -an "$h" \
       %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy/ 2>/dev/null || :; done
 
+# 2b. Ship the generated *Export.h headers (CMake GenerateExportHeader output,
+#     e.g. vtkMRMLExport.h) that Slicer's install rules omit — public library
+#     headers #include them, so a C++ extension can't compile without them.
+#     Self-discovering: for each installed library include dir, find which
+#     *Export.h its headers reference and copy that file next to them.
+for _d in %{buildroot}%{slicer_inst}/include/* \
+          %{buildroot}%{slicer_inst}/include/Slicer-5.11/*; do
+    [ -d "$_d" ] || continue
+    grep -rhoE '#include "[A-Za-z0-9_]+Export\.h"' "$_d" 2>/dev/null \
+      | sed -E 's/.*"([^"]+)".*/\1/' | sort -u | while read -r _eh; do
+        [ -e "$_d/$_eh" ] && continue
+        _src=$(find "$_bdir" "$_sdir" -name "$_eh" 2>/dev/null | head -1)
+        [ -n "$_src" ] && install -m0644 "$_src" "$_d/$_eh" || :
+    done
+done
+
 # 3. Synthesize the relocatable install-tree SlicerConfig.cmake (overwrites the
 #    broken build-tree one) + a SlicerTargets.cmake with IMPORTED targets for
 #    the installed libs. No --root => the config derives its prefix from its own
@@ -576,6 +592,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-45
+- Complete C++ extension-build support (found while bringing up SlicerOpenIGTLink):
+  (1) ship the generated *Export.h headers (vtkMRMLExport.h + ~129 others) that
+  Slicer's install omits but public library headers #include — self-discovered
+  per installed include dir; (2) the install-tree config now sets
+  Slicer_VTK_WRAP_HIERARCHY_DIR to ${CMAKE_BINARY_DIR} (an extension's own
+  writable wrap-hierarchy OUTPUT dir; deps still resolve via the per-target
+  install paths); (3) add Teem to Slicer_EXTERNAL_PROJECTS_NO_USEFILE (Fedora's
+  teem ships no TeemUse.cmake). With these, a C++ extension configures, wraps,
+  and compiles against the system install.
+
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-44
 - Fix the VTK wrap-hierarchy shipping (was a no-op in -43): the build-tree files
   are named <Target>Hierarchy.txt (MRMLCoreHierarchy.txt, vtkTeemHierarchy.txt,

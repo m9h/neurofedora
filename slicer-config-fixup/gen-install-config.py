@@ -135,6 +135,12 @@ def root_expr(root):
 def map_value(varname, value, root):
     """Return the replacement value (a CMake string list) for a broken set()."""
     rexpr = root_expr(root)
+    if varname == "Slicer_VTK_WRAP_HIERARCHY_DIR":
+        # OUTPUT dir for the consuming extension's own wrap-hierarchy files — must
+        # be the extension's (writable) build dir, not the read-only install. The
+        # dependency hierarchy files are referenced by explicit install paths via
+        # the per-target *_WRAP_HIERARCHY_FILE vars, so they still resolve.
+        return "${CMAKE_BINARY_DIR}"
     if varname in LAUNCH_VARS:
         return "%s/Slicer;--launch" % rexpr
     if varname in SCALAR_MAP:
@@ -236,6 +242,13 @@ def transform(text, root):
     hint_block = "\n".join(hint_lines) + "\n"
     body = re.sub(r'(\n# Include external projects\n)',
                   hint_block + r'\1', body, count=1)
+
+    # Teem has no TeemUse.cmake in Fedora, so UseSlicer's include(${Teem_USE_FILE})
+    # fails — add Teem to the NO_USEFILE list (modern CMake needs no use-file).
+    body = re.sub(r'(set\(Slicer_EXTERNAL_PROJECTS_NO_USEFILE )([^)]*)\)',
+                  lambda m: m.group(1) + m.group(2) +
+                  ('' if 'Teem' in m.group(2) else ';Teem') + ')',
+                  body, count=1)
 
     # Point the targets-file include at our generated SlicerTargets.cmake
     body = re.sub(r'if\(EXISTS "[^"]*SlicerTargets\.cmake"',
