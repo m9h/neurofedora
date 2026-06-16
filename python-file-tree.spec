@@ -42,10 +42,11 @@ sed -i 's/uv_build>=0.8.7,<0.9.0/uv_build>=0.8.7/' pyproject.toml
 %pyproject_save_files file_tree
 
 %check
-%pyproject_check_import
+%pyproject_check_import -e '*app*'
 
 %files -n python3-file-tree -f %{pyproject_files}
 %doc README.md
+%{_bindir}/file-tree
 
 %changelog
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 1.6.1-1

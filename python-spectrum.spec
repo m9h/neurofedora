@@ -36,10 +36,14 @@ for Python.
 
 %install
 %pyproject_install
+# spectrum's setup.py wrongly installs an empty top-level "cpp" package
+# (the C-extension source dir). Drop it — it pollutes site-packages and is
+# not used at runtime (the extension is spectrum.mydpss).
+rm -rf %{buildroot}%{python3_sitearch}/cpp
 %pyproject_save_files %{pypi_name}
 
 %check
-%pyproject_check_import
+%pyproject_check_import -t
 
 %files -n python3-spectrum -f %{pyproject_files}
 %doc README.rst

@@ -18,6 +18,7 @@ Source1:        https://github.com/physimals/fabber_core/archive/%{fabber_commit
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  chrpath
+BuildRequires:  git-core
 BuildRequires:  fsl-base = 6.0.7.18
 BuildRequires:  fsl-libs-devel = 6.0.7.18
 BuildRequires:  fsl-fabber-core
@@ -50,7 +51,10 @@ export FSLCONFDIR=%{fsldir}/config
 export FSLDEVDIR=%{_builddir}/_stage
 mkdir -p "${FSLDEVDIR}"
 export CFLAGS="%{optflags}"
-export CXXFLAGS="%{optflags}"
+# The model sources #include "fabber_core/<hdr>"; -I.. resolves them against the
+# bundled ../fabber_core source (the modern Makefile path omits the -I.. that
+# the legacy path had).
+export CXXFLAGS="%{optflags} -I.."
 export LDFLAGS="%{?build_ldflags}"
 make %{?_smp_mflags}
 
