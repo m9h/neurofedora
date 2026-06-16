@@ -147,6 +147,14 @@ def map_value(varname, value, root):
     if varname in INCLUDE_MAP:
         dirs = INCLUDE_MAP[varname]
         return ";".join("%s/%s" % (rexpr, d) for d in dirs)
+    # Per-target VTK wrap-hierarchy files: remap the build-tree
+    # <Target>Hierarchy.txt to the dir the foundation -43 %install ships them in,
+    # so python-wrapped extension modules can resolve their link hierarchy.
+    if varname.endswith("_WRAP_HIERARCHY_FILE"):
+        m = re.search(r'/([^/"\s]+Hierarchy\.txt)', value)
+        if m:
+            return "%s/lib/%s/hierarchy/%s" % (rexpr, SLICER_SUBDIR, m.group(1))
+        return ""
     # Unknown broken var (loadable-module internals etc.) -> neutralize
     return ""
 

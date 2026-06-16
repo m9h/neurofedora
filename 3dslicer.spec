@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        43%{?dist}
+Release:        44%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -488,8 +488,9 @@ cp -an "$_sdir"/Extensions/CMake/. "$_scmake"/ || :
 # 2. Ship the VTK wrap-hierarchy files (.txt) generated in the build tree —
 #    needed to python-wrap an extension's VTK classes against Slicer's libs.
 mkdir -p %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy
-find "$_bdir" -name '*HierarchyPerKit.txt' -o -name '*-hierarchy.txt' \
-     -o -name 'vtk*Hierarchy.txt' 2>/dev/null \
+# The files are named <Target>Hierarchy.txt (MRMLCoreHierarchy.txt,
+# vtkTeemHierarchy.txt, ...) in the build root — NOT *-hierarchy.txt.
+find "$_bdir" -name '*Hierarchy.txt' 2>/dev/null \
   | while read -r h; do cp -an "$h" \
       %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy/ 2>/dev/null || :; done
 
@@ -575,6 +576,15 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-44
+- Fix the VTK wrap-hierarchy shipping (was a no-op in -43): the build-tree files
+  are named <Target>Hierarchy.txt (MRMLCoreHierarchy.txt, vtkTeemHierarchy.txt,
+  ...), not *-hierarchy.txt, so the -43 find matched nothing and hierarchy/
+  shipped empty. Correct the find, and the install-tree config now remaps every
+  <Target>_WRAP_HIERARCHY_FILE into lib/Slicer-5.11/hierarchy so python-wrapped
+  C++ extension modules (e.g. OpenIGTLinkIF MRML) can resolve their link
+  hierarchy. Completes install-tree extension-build support.
+
 * Sun Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-43
 - Make 3dslicer-devel usable for building C++ extensions against the INSTALL
   tree (upstream only supports build-tree extension builds). %install now:
