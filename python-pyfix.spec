@@ -55,7 +55,7 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %pyproject_save_files %{pypi_name}
 
 %check
-%pyproject_check_import
+%pyproject_check_import -e '*tests*'
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %doc README.md
