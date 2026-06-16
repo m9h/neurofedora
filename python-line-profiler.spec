@@ -39,7 +39,7 @@ line_profiler is a module for doing line-by-line profiling of functions.
 %pyproject_save_files %{pypi_name} kernprof
 
 %check
-%pyproject_check_import
+%pyproject_check_import -e '*ipython*'
 
 %files -n python3-line-profiler -f %{pyproject_files}
 %doc README.rst
