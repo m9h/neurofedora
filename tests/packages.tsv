@@ -161,3 +161,16 @@ vespa-paraview-plugin	lib	test -f /usr/lib64/paraview*/plugins/VESPAPlugin/VESPA
 
 # ─── Layer-specific neuroimaging ──────────────────────────────────────────────
 laynii	cli	LN2_LAYERS 2>&1	equi-distant
+
+# ─── 3D Slicer foundation + extension ecosystem ───────────────────────────────
+3dslicer	gui	test -x /usr/lib/slicer/Slicer
+3dslicer-devel	lib	test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerConfig.cmake && test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerTargets.cmake
+openigtlink	lib	test -e /usr/lib64/libOpenIGTLink.so.3
+openigtlink-devel	lib	test -f /usr/lib64/cmake/OpenIGTLink/OpenIGTLinkConfig.cmake
+openigtlinkio	lib	test -e /usr/lib64/libigtlioLogic.so
+openigtlinkio-devel	lib	test -f /usr/lib64/cmake/igtlio/OpenIGTLinkIOConfig.cmake
+python3-mcp-slicer	cli	/usr/bin/python3 -c "import mcp_slicer; print('mcp_slicer ok')"	mcp_slicer ok
+3dslicer-openlifu	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/OpenLIFUData.py
+3dslicer-elastix	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/Elastix.py
+3dslicer-totalsegmentator	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/TotalSegmentator.py
+3dslicer-openigtlink	gui	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so

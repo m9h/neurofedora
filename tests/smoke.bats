@@ -389,3 +389,69 @@ _require_installed() {
     run --separate-stderr bash -c "LN2_LAYERS 2>&1"
     grep -qE "equi-distant" <<<"$output\n$stderr" || { echo "expected /equi-distant/ in output, got: $output $stderr"; false; }
 }
+
+@test "3dslicer (gui): test -x /usr/lib/slicer/Slicer" {
+    _require_installed "3dslicer"
+    run --separate-stderr bash -c "test -x /usr/lib/slicer/Slicer"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "3dslicer-devel (lib): test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerConfig.cmake && test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerTargets.cmake" {
+    _require_installed "3dslicer-devel"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerConfig.cmake && test -f /usr/lib/slicer/lib/Slicer-5.11/SlicerTargets.cmake"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "openigtlink (lib): test -e /usr/lib64/libOpenIGTLink.so.3" {
+    _require_installed "openigtlink"
+    run --separate-stderr bash -c "test -e /usr/lib64/libOpenIGTLink.so.3"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "openigtlink-devel (lib): test -f /usr/lib64/cmake/OpenIGTLink/OpenIGTLinkConfig.cmake" {
+    _require_installed "openigtlink-devel"
+    run --separate-stderr bash -c "test -f /usr/lib64/cmake/OpenIGTLink/OpenIGTLinkConfig.cmake"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "openigtlinkio (lib): test -e /usr/lib64/libigtlioLogic.so" {
+    _require_installed "openigtlinkio"
+    run --separate-stderr bash -c "test -e /usr/lib64/libigtlioLogic.so"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "openigtlinkio-devel (lib): test -f /usr/lib64/cmake/igtlio/OpenIGTLinkIOConfig.cmake" {
+    _require_installed "openigtlinkio-devel"
+    run --separate-stderr bash -c "test -f /usr/lib64/cmake/igtlio/OpenIGTLinkIOConfig.cmake"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "python3-mcp-slicer (cli): /usr/bin/python3 -c \"import mcp_slicer; print('mcp_slicer ok')\"" {
+    _require_installed "python3-mcp-slicer"
+    run --separate-stderr bash -c "/usr/bin/python3 -c \"import mcp_slicer; print('mcp_slicer ok')\""
+    grep -qE "mcp_slicer ok" <<<"$output\n$stderr" || { echo "expected /mcp_slicer ok/ in output, got: $output $stderr"; false; }
+}
+
+@test "3dslicer-openlifu (data): test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/OpenLIFUData.py" {
+    _require_installed "3dslicer-openlifu"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/OpenLIFUData.py"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "3dslicer-elastix (data): test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/Elastix.py" {
+    _require_installed "3dslicer-elastix"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/Elastix.py"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "3dslicer-totalsegmentator (data): test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/TotalSegmentator.py" {
+    _require_installed "3dslicer-totalsegmentator"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/TotalSegmentator.py"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
+
+@test "3dslicer-openigtlink (gui): test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so" {
+    _require_installed "3dslicer-openigtlink"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}
