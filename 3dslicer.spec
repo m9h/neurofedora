@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        46%{?dist}
+Release:        47%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -612,6 +612,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-47
+- Generate imported targets for the loadable-module libraries too (scan
+  qt-loadable-modules), so C++ extensions linking module libs by name (e.g.
+  vtkSlicerMarkupsModuleMRML) resolve instead of emitting bare -l. Add
+  Qt6::Core5Compat to the q* imported targets' interface (legacy QRegExp etc.).
+  Folds the SlicerOpenIGTLink %prep shims into the foundation.
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-46
 - Ship the Base/Logic + all loadable-module public C++ headers (+ generated
   export headers) that Slicer omits but C++ extensions #include widely
