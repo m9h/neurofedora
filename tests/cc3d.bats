@@ -194,6 +194,15 @@ print("all plugins import OK")
     case "$status" in 124|143|0) : ;; *) echo "unexpected exit=$status"; tail -20 <<<"$output$stderr"; false ;; esac
 }
 
+@test "cc3d-player5 (regression): main() forces QT_QPA_PLATFORM=xcb when a display is present" {
+    _require_installed "cc3d-player5"
+    # Guards the Wayland fix: Qt must use xcb (X11) so it agrees with VTK's
+    # X11/GLX render window, else the Player dies with X BadWindow. Xvfb CI is
+    # X11 so it can't reproduce the Wayland crash; assert the default is present.
+    run --separate-stderr bash -c "grep -q 'QT_QPA_PLATFORM' /usr/lib/python3.14/site-packages/cc3d/player5/__main__.py"
+    [ "$status" -eq 0 ] || { echo "xcb default missing from player __main__ — Wayland BadWindow fix regressed"; false; }
+}
+
 @test "cc3d-player5 (gui): launches under Xvfb without crashing" {
     _require_installed "cc3d-player5"
     _require_xvfb
