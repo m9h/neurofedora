@@ -6,7 +6,7 @@
 
 Name:           cc3d-player5
 Version:        4.9.0
-Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
+Release:        0.3.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        CC3D Player — interactive CompuCell3D simulation viewer
 
 # LICENSE.txt is the GNU LGPL.
@@ -93,6 +93,17 @@ sed -i 's/^        argv = \[\]$/        argv = sys.argv[1:]/' \
     %{buildroot}%{python3_sitelib}/cc3d/player5/__main__.py
 grep -q 'argv = sys.argv\[1:\]' %{buildroot}%{python3_sitelib}/cc3d/player5/__main__.py
 
+# Force the Qt xcb (X11) platform when an X display is available. On Wayland,
+# Qt picks the wayland backend while VTK still creates an X11/GLX render window;
+# the two disagree and Qt dies with "X Error: BadWindow (X_ConfigureWindow)".
+# Aligning Qt on xcb fixes it. This must apply to EVERY launch path, including
+# Twedit's `python -m cc3d.player5 ...` handoff, so patch main() itself (the
+# cc3d-demo wrapper sets it too, but the -m path bypasses the wrapper).
+# Respects an explicit QT_QPA_PLATFORM and a headless (no DISPLAY) setup.
+sed -i 's|^    app = CQApplication(argv)|    import os as _os\n    if _os.environ.get("DISPLAY") and "QT_QPA_PLATFORM" not in _os.environ:\n        _os.environ["QT_QPA_PLATFORM"] = "xcb"\n    app = CQApplication(argv)|' \
+    %{buildroot}%{python3_sitelib}/cc3d/player5/__main__.py
+grep -q 'QT_QPA_PLATFORM' %{buildroot}%{python3_sitelib}/cc3d/player5/__main__.py
+
 # Install the cc3d-demo helper, baking in the real demos directory path.
 install -Dpm0755 %{SOURCE1} %{buildroot}%{_bindir}/cc3d-demo
 sed -i 's|@DEMOS_ROOT@|%{_datadir}/compucell3d/Demos|' %{buildroot}%{_bindir}/cc3d-demo
@@ -108,6 +119,12 @@ sed -i 's|@DEMOS_ROOT@|%{_datadir}/compucell3d/Demos|' %{buildroot}%{_bindir}/cc
 %{python3_sitelib}/cc3d_player5-%{version}.dist-info/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.3.rc.20260617gitb45b043
+- Force Qt xcb platform when an X display is present: on Wayland, Qt used the
+  wayland backend while VTK created an X11/GLX window, killing the Player with
+  "X Error: BadWindow (X_ConfigureWindow)" (notably when Twedit launched it via
+  python -m cc3d.player5). Patch main() so all launch paths get xcb.
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617gitb45b043
 - Rebuild to deliver the -i entry-point fix, anyio+requests Requires, and the
   cc3d-demo launcher; 0.1 was never bumped across rebuilds so dnf would not
