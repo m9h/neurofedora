@@ -1,13 +1,13 @@
 # Disable LTO - causes linker issues with VTK on Fedora 43+
 %global _lto_cflags %{nil}
 
-%global commit 2ed3e2226cf25958b4dbf8bf917b2f7793ecd6a2
+%global commit 1407f01043d0df0cecbf6a0655d23a8f8833d4ff
 %global shortcommit %(c=%{commit}; echo ${c:0:8})
-%global snapdate 20251224
+%global snapdate 20260603
 
 Name:           vtkAddon
 Version:        0.1.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        VTK extension classes for 3D Slicer
 
 # 3D Slicer Contribution and Software License Agreement (BSD-style)
@@ -140,6 +140,11 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{python3_sitearch}/vtkAddonPython.so
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-0.3.20260603git1407f010
+- Bump to master 1407f010: the previous pin (2ed3e222, Dec 2025) predates
+  install(EXPORT vtkAddonTargets), so vtkAddonTargets.cmake was never shipped
+  and consumers that include() it (IGSIO) failed. Master ships it; also closer
+  to the packaged Slicer commit. Unblocks the SlicerIGT (igsio) chain.
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-0.2.20251224git2ed3e222
 - Fix 3D Slicer bug #9c: build the VTK Python wrapper. Enable
   vtkAddon_WRAP_PYTHON (vtkMacroKitPythonWrap) and ship vtkAddonPython.so in a
