@@ -135,6 +135,12 @@ Requires: python3-twisted
 Requires: python3-autobahn
 # ParaView requires svg support via icon plugins, so no direct linking involved
 Requires: qt6-qtsvg%{?_isa}
+# The auto-generated libvtk*.so.1 Requires are stripped by __requires_exclude
+# below, so depend on the serial VTK explicitly (pvpython/pvbatch and the GUI
+# link libvtkParallelCore.so.1 etc.). python3-vtk supplies the vtkmodules that
+# paraview.simple / servermanager import at runtime.
+Requires: vtk%{?_isa}
+Requires: python3-vtk%{?_isa}
 
 # Bundled KWSys
 # https://fedorahosted.org/fpc/ticket/555
@@ -485,6 +491,17 @@ hardlink -cfv %{buildroot}%{_pkgdocdir}
 # Cleanup docs and link to where paraview will find it
 ln -s ../doc/paraview %{buildroot}/%{_datadir}/paraview/doc
 
+# pvpython/pvbatch self-location computes an empty install prefix, so their
+# sys.path never includes ParaView's private python dir
+# (%{_libdir}/paraview/pythonX.Y/site-packages) and "from paraview.simple import"
+# fails (ModuleNotFoundError: No module named 'paraview'). Their sys.path DOES
+# include the standard sitearch (via the /lib64 -> /usr/lib64 usrmerge symlink),
+# so drop a .pth there that adds the private dir back onto the path. Fixes all
+# pvpython/pvbatch (and system python3) ParaView scripting.
+mkdir -p %{buildroot}%{python3_sitearch}
+echo "%{_libdir}/%{name}/python%{python3_version}/site-packages" \
+  > %{buildroot}%{python3_sitearch}/paraview-private.pth
+
 
 %pre
 #Handle changing from directory to file
@@ -506,6 +523,7 @@ fi
 %{_bindir}/smTestDriver
 %{_libdir}/%{name}/
 %exclude %{_libdir}/%{name}/*.a
+%{python3_sitearch}/paraview-private.pth
 
 %files data
 %license Copyright.txt
@@ -564,6 +582,18 @@ fi
 
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-10
+- Fix pvpython/pvbatch scripting (CDash paraview component 2/10 -> green):
+  their broken self-location left ParaView's private python dir off sys.path,
+  so "from paraview.simple import ..." failed (No module named 'paraview').
+  Drop a paraview-private.pth in the standard sitearch (which IS on their
+  sys.path via /lib64->/usr/lib64) pointing at the private dir. Verified in a
+  clean f44 mock chroot.
+- Add explicit Requires: vtk + python3-vtk. The __requires_exclude strips the
+  auto-generated libvtk*.so.1 deps, so a clean "dnf install paraview" pulled no
+  VTK and pvpython died at startup on libvtkParallelCore.so.1; python3-vtk
+  supplies the vtkmodules paraview.simple imports.
+
 * Mon Jun 01 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-9
 - Add PARAVIEW_USE_QT=OFF to MPI cmake options. Build 10530394 surfaced
   yet another required VTK module (VTK::GUISupportQt) which only exists
