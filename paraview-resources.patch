@@ -1,0 +1,13 @@
+diff -up ParaView-v6.1.0-RC1/Remoting/Core/vtkPVFileInformation.cxx.resources ParaView-v6.1.0-RC1/Remoting/Core/vtkPVFileInformation.cxx
+--- ParaView-v6.1.0-RC1/Remoting/Core/vtkPVFileInformation.cxx.resources	2026-02-10 19:43:20.000000000 -0700
++++ ParaView-v6.1.0-RC1/Remoting/Core/vtkPVFileInformation.cxx	2026-02-27 19:33:33.559308492 -0700
+@@ -1256,7 +1256,8 @@ std::string vtkPVFileInformation::GetPar
+     ".."
+ #else
+     "share/paraview-" PARAVIEW_VERSION,
+-    "share/paraview-" PARAVIEW_VERSION_SHORT
++    "share/paraview-" PARAVIEW_VERSION_SHORT,
++    "share/paraview"
+ #endif
+   };
+ 

@@ -1,0 +1,12 @@
+diff -up ParaView-v5.8.0/CMakeLists.txt.cmakedir ParaView-v5.8.0/CMakeLists.txt
+--- ParaView-v5.8.0/CMakeLists.txt.cmakedir	2020-02-26 17:55:43.830906529 -0700
++++ ParaView-v5.8.0/CMakeLists.txt	2020-02-26 18:05:08.407505870 -0700
+@@ -343,7 +343,7 @@ if (PARAVIEW_VERSIONED_INSTALL)
+ endif ()
+ 
+ set(paraview_cmake_destination
+-  "${CMAKE_INSTALL_LIBDIR}/cmake/paraview${paraview_version_suffix}")
++  "${CMAKE_INSTALL_CMAKEDIR}/paraview${paraview_version_suffix}")
+ 
+ set(PARAVIEW_CUSTOM_LIBRARY_SUFFIX "<DEFAULT>"
+   CACHE STRING "Custom library file name suffix (defaults to the version number)")
