@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        45%{?dist}
+Release:        46%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -510,6 +510,26 @@ for _d in %{buildroot}%{slicer_inst}/include/* \
     done
 done
 
+# 2c. Ship the Base/Logic + ALL loadable-module public C++ headers (and their
+#     generated export/configure headers). Slicer installs almost none of these,
+#     but C++ extensions #include them widely (vtkSlicerBaseLogic.h,
+#     vtkSlicerColorLogic.h, vtkMRMLMarkupsNode.h, ...). Flatten into
+#     include/Slicer-5.11, which is on every extension's include path. Source
+#     headers first, then build-tree generated headers (*Export.h, *Configure.h).
+_si=%{buildroot}%{slicer_inst}/include/Slicer-5.11
+for _base in "$_sdir" "$_bdir"; do
+    for _hd in "$_base"/Base/Logic \
+               "$_base"/Modules/Loadable/*/Logic \
+               "$_base"/Modules/Loadable/*/MRML \
+               "$_base"/Modules/Loadable/*/MRMLDM \
+               "$_base"/Modules/Loadable/*/Widgets \
+               "$_base"/Modules/Loadable/*/VTKWidgets; do
+        [ -d "$_hd" ] || continue
+        find "$_hd" -maxdepth 1 -name '*.h' \
+          -exec cp -an {} "$_si/" \; 2>/dev/null || :
+    done
+done
+
 # 3. Synthesize the relocatable install-tree SlicerConfig.cmake (overwrites the
 #    broken build-tree one) + a SlicerTargets.cmake with IMPORTED targets for
 #    the installed libs. No --root => the config derives its prefix from its own
@@ -592,6 +612,17 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-46
+- Ship the Base/Logic + all loadable-module public C++ headers (+ generated
+  export headers) that Slicer omits but C++ extensions #include widely
+  (vtkSlicerBaseLogic.h, vtkSlicerColorLogic.h, vtkMRMLMarkupsNode.h, ...);
+  flattened into include/Slicer-5.11. Scoped from SlicerOpenIGTLink + SlicerIGT
+  + SlicerDMRI header needs, so the full set lands at once.
+- The install-tree imported targets (SlicerTargets.cmake) now carry
+  INTERFACE_INCLUDE_DIRECTORIES=/usr/include/vtkAddon, so extensions linking
+  MRML/Slicer libs inherit the system vtkAddon include dir (MRMLCore public
+  headers #include vtkAddon's vtkLoggingMacros.h).
+
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-45
 - Complete C++ extension-build support (found while bringing up SlicerOpenIGTLink):
   (1) ship the generated *Export.h headers (vtkMRMLExport.h + ~129 others) that

@@ -266,12 +266,18 @@ def gen_targets(root):
          "# This file lives at <prefix>/lib/Slicer-5.11/ alongside the .so libraries.",
          'get_filename_component(_slicer_libdir "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)',
          ""]
+    # Public headers of these libs (e.g. MRMLCore's vtkMRMLNode.h) #include vtkAddon
+    # headers (vtkLoggingMacros.h, ...), which the in-tree build propagated via the
+    # real targets' interface includes. Carry that on the imported targets so an
+    # extension linking them inherits the system vtkAddon include dir.
+    L += ['set(_slicer_iface_inc "/usr/include/vtkAddon")', '']
     for t in TARGET_LIBS:
         L += [
             'if(NOT TARGET %s)' % t,
             '  add_library(%s SHARED IMPORTED)' % t,
             '  set_target_properties(%s PROPERTIES' % t,
-            '    IMPORTED_LOCATION "${_slicer_libdir}/lib%s.so")' % t,
+            '    IMPORTED_LOCATION "${_slicer_libdir}/lib%s.so"' % t,
+            '    INTERFACE_INCLUDE_DIRECTORIES "${_slicer_iface_inc}")',
             'endif()',
             '',
         ]
