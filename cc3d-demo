@@ -1,0 +1,82 @@
+#!/usr/bin/bash
+# cc3d-demo — copy a bundled CompuCell3D demo into a writable workspace and open
+# it in the CC3D Player.
+#
+# Bundled demos ship under a read-only system directory, but the Player writes a
+# per-simulation settings DB (Simulation/_settings.sqlite) next to the project,
+# which fails on the read-only copy. This helper copies the demo's project
+# directory to a writable workspace and opens it there.
+set -euo pipefail
+
+DEMOS_ROOT="@DEMOS_ROOT@"
+WORKSPACE="${CC3D_DEMO_DIR:-$HOME/cc3d-demos}"
+
+usage() {
+    cat <<EOF
+Usage: cc3d-demo <demo> [extra cc3d-player5 args...]
+       cc3d-demo --list
+
+  <demo>  A demo under ${DEMOS_ROOT}, given as either:
+            - a project directory containing a .cc3d, e.g.
+              BookChapterDemos_ComputationalMethodsInCellBiology/Angiogenesis
+            - a path to a .cc3d file (absolute, or relative to the demos root)
+
+The demo's project directory is copied into:
+  ${WORKSPACE}            (override with \$CC3D_DEMO_DIR)
+and opened in cc3d-player5.
+EOF
+}
+
+if [ $# -lt 1 ] || [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
+    usage
+    exit 0
+fi
+
+if [ "$1" = "--list" ] || [ "$1" = "-l" ]; then
+    echo "Demos under ${DEMOS_ROOT}:"
+    find "${DEMOS_ROOT}" -name '*.cc3d' -type f -printf '%P\n' 2>/dev/null | sort
+    exit 0
+fi
+
+arg="$1"; shift
+
+# Resolve the requested demo to an absolute .cc3d file.
+resolve_cc3d() {
+    local a="$1" cand base
+    if [ -f "$a" ] && [ "${a##*.}" = "cc3d" ]; then echo "$a"; return 0; fi
+    if [ -f "${DEMOS_ROOT}/$a" ] && [ "${a##*.}" = "cc3d" ]; then echo "${DEMOS_ROOT}/$a"; return 0; fi
+    for base in "$a" "${DEMOS_ROOT}/$a"; do
+        if [ -d "$base" ]; then
+            cand=$(find "$base" -maxdepth 1 -name '*.cc3d' -type f | head -1)
+            [ -n "$cand" ] && { echo "$cand"; return 0; }
+        fi
+    done
+    return 1
+}
+
+if ! src_cc3d=$(resolve_cc3d "$arg"); then
+    echo "cc3d-demo: could not find a .cc3d for '$arg' under ${DEMOS_ROOT}" >&2
+    echo "Try: cc3d-demo --list" >&2
+    exit 1
+fi
+
+proj_dir=$(dirname "$src_cc3d")
+proj_name=$(basename "$proj_dir")
+dest_dir="${WORKSPACE}/${proj_name}"
+
+mkdir -p "${WORKSPACE}"
+rm -rf "${dest_dir}"
+cp -r "${proj_dir}" "${dest_dir}"
+chmod -R u+w "${dest_dir}"
+
+dest_cc3d="${dest_dir}/$(basename "$src_cc3d")"
+
+# Prefer the native X11 (xcb) Qt backend: the Qt5 Player + Qt6-linked VTK can
+# emit a noisy (harmless) X BadWindow under XWayland; xcb avoids it. Only force
+# it when an X display is available and the user has not chosen a platform.
+if [ -n "${DISPLAY:-}" ] && [ -z "${QT_QPA_PLATFORM:-}" ]; then
+    export QT_QPA_PLATFORM=xcb
+fi
+
+echo "cc3d-demo: opening ${dest_cc3d}"
+exec cc3d-player5 -i "${dest_cc3d}" "$@"

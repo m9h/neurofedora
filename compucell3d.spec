@@ -5,22 +5,32 @@
 
 # Upstream hardcodes USE_LIBRARY_VERSIONS=OFF and sets empty SOVERSION.
 # We override this to inject proper SOVERSION for Fedora shared lib policy.
-# When USE_LIBRARY_VERSIONS=ON, upstream sets SOVERSION=MAJOR.MINOR (4.7).
-%global cc3d_soversion 4.8
+# When USE_LIBRARY_VERSIONS=ON, upstream sets SOVERSION=MAJOR.MINOR (4.9).
+%global cc3d_soversion 4.9
+
+# 4.9.0 is a release candidate: upstream ships it on the release/4.9.0 branch
+# and as binary RC installers on SourceForge, but has NOT cut a 4.9.0 git tag
+# yet (newest tag is 4.8.0-fix-3). We therefore build a pre-release snapshot
+# from the branch tip commit. Bump %%commit0 (and the changelog/date) when the
+# branch advances; switch Source0 back to the tag and Release to 1 once 4.9.0
+# is tagged.
+%global commit0 780374e5e17145de12452aeabd224710134fa53f
+%global shortcommit0 %(c=%{commit0}; echo ${c:0:7})
 
 Name:           compucell3d
-Version:        4.8.0
-Release:        1%{?dist}
+Version:        4.9.0
+Release:        0.1.rc.20260615git%{shortcommit0}%{?dist}
 Summary:        Multi-scale virtual tissue simulation environment
 
 License:        MIT
 URL:            https://github.com/CompuCell3D/CompuCell3D
-Source0:        https://github.com/CompuCell3D/CompuCell3D/archive/refs/tags/%{version}/CompuCell3D-%{version}.tar.gz
+Source0:        %{url}/archive/%{commit0}/CompuCell3D-%{commit0}.tar.gz
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.14
 BuildRequires:  ninja-build
 BuildRequires:  chrpath
+BuildRequires:  patchelf
 BuildRequires:  zlib-devel
 BuildRequires:  swig
 BuildRequires:  python3-devel
@@ -87,12 +97,37 @@ Summary:        Python 3 bindings and runtime for CompuCell3D
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python3-numpy
 Requires:       python3-vtk
+# Runtime imports of the cc3d engine (per upstream conda meta.yaml run: deps).
+# Without these the engine fails to import before a simulation can start.
+Requires:       python3-lxml
+Requires:       python3-scipy
+Requires:       python3-pandas
+Requires:       python3-jinja2
+Requires:       python3-psutil
+Requires:       python3-deprecated
+# webcolors is an optional cosmetic dep (named-colour parsing in logging);
+# missing it only prints a warning, so pull it weakly.
+Recommends:     python3-webcolors
+# NOTE: upstream also lists cc3d-network-solvers and simservice; both are
+# absent from Fedora and only needed for SBML/RoadRunner and service-mode
+# simulations respectively. The engine imports them lazily and warns (not
+# fatal) when missing, so they are intentionally not required here.
 
 %description -n python3-%{name}
 Python 3 SWIG bindings and the cc3d Python package for scripting
 CompuCell3D cellular Potts model simulations.  Includes the cc3d Python
 module, SWIG wrapper modules (CompuCell, CC3DXML, PlayerPython, etc.),
 and plugin/steppable shared libraries.
+
+Example simulations are installed under %{_datadir}/compucell3d/Demos/.
+To run one headlessly (engine only) pass its .cc3d project to the bundled
+runner, for example the Angiogenesis demo under the Demos subdirectory
+BookChapterDemos_ComputationalMethodsInCellBiology/Angiogenesis/:
+
+  cc3d_runScript.sh -i <demo-dir>/Angiogenesis.cc3d
+
+To run the same example interactively with rendering, install the
+cc3d-player5 package (see that package).
 
 %package devel
 Summary:        Development headers for CompuCell3D
@@ -103,7 +138,7 @@ C++ development headers and CMake config files for building plugins and
 steppables against the CompuCell3D simulation engine.
 
 %prep
-%autosetup -n CompuCell3D-%{version}
+%autosetup -n CompuCell3D-%{commit0}
 
 # --- Fix C++ standard for GCC 15 / Fedora 43 ---
 # Upstream sets C++11; GCC 15 requires C++17 for missing implicit includes.
@@ -199,6 +234,26 @@ popd
 find %{buildroot} -type f \( -name '*.so' -o -name '*.so.*' \) \
     -exec chrpath --delete {} \; 2>/dev/null || :
 
+# --- $ORIGIN RPATHs for the private cc3d/cpp library tree ---
+# The SWIG extension modules (_CompuCell.so, etc.) and the CC3D plugin/steppable
+# libraries are installed under %%{python3_sitelib}/cc3d/cpp/, which is NOT on the
+# loader path. The SWIG modules have DT_NEEDED entries for the plugin/steppable
+# libs (e.g. libCC3DBiasVectorSteppable.so.%%{cc3d_soversion}), so without an
+# RPATH the engine fails to import. Core libs in %%{_libdir} resolve via the
+# default path. Fedora permits RPATH that points into a package's own private
+# libdir, so use $ORIGIN-relative entries (no standard-dir RPATH -> rpmlint clean).
+_cpp=%{buildroot}%{python3_sitelib}/cc3d/cpp
+if [ -d "${_cpp}" ]; then
+    # Top-level SWIG modules need both sibling plugin/steppable dirs.
+    find "${_cpp}" -maxdepth 1 -name '*.so' \
+        -exec patchelf --set-rpath '$ORIGIN/CompuCell3DPlugins:$ORIGIN/CompuCell3DSteppables' {} \;
+    # Plugin and steppable libs reference each other across the two dirs.
+    find "${_cpp}/CompuCell3DPlugins" -name '*.so*' -type f \
+        -exec patchelf --set-rpath '$ORIGIN:$ORIGIN/../CompuCell3DSteppables' {} \;
+    find "${_cpp}/CompuCell3DSteppables" -name '*.so*' -type f \
+        -exec patchelf --set-rpath '$ORIGIN:$ORIGIN/../CompuCell3DPlugins' {} \;
+fi
+
 # Remove any stale .la files
 find %{buildroot} -name '*.la' -delete
 
@@ -212,11 +267,32 @@ fi
 chmod 755 %{buildroot}%{_bindir}/cc3d_runScript.sh \
           %{buildroot}%{_bindir}/cc3d_paramScan.sh
 
+# Upstream's run scripts invoke bare "python" (does not exist on Fedora) and
+# hardcode a python-version-specific PYTHONPATH. Point them at python3 and the
+# real interpreter sitelib so the engine runs in a clean Fedora environment.
+sed -i -e 's|^export PYTHON_EXEC=python$|export PYTHON_EXEC=python3|' \
+       -e 's|^export PYTHONPATH=.*$|export PYTHONPATH=%{python3_sitelib}|' \
+    %{buildroot}%{_bindir}/cc3d_runScript.sh \
+    %{buildroot}%{_bindir}/cc3d_paramScan.sh
+
 # Remove License/ReleaseNotes installed to prefix root (we use RPM tags)
 rm -f %{buildroot}%{_prefix}/License.txt \
       %{buildroot}%{_prefix}/ReleaseNotes.rst \
       %{buildroot}/License.txt \
       %{buildroot}/ReleaseNotes.rst
+
+# --- Install the bundled example simulations (Demos) ---
+# Upstream does not install these; they are the canonical way to exercise the
+# engine and the Player (e.g. the Angiogenesis example). Ship them at a stable,
+# documented path so the run command is predictable:
+#   cc3d-player5 -i %%{_datadir}/compucell3d/Demos/.../Angiogenesis/Angiogenesis.cc3d
+install -d %{buildroot}%{_datadir}/compucell3d
+cp -a CompuCell3D/core/Demos %{buildroot}%{_datadir}/compucell3d/Demos
+# These are example data, not executables: drop any shebangs/exec bits so
+# rpmlint does not flag non-interpreter scripts under %%{_datadir}.
+find %{buildroot}%{_datadir}/compucell3d/Demos -type f -name '*.py' -exec chmod 0644 {} +
+# Drop VCS/hidden cruft shipped in the demo tree (rpmlint: version-control-internal-file).
+find %{buildroot}%{_datadir}/compucell3d/Demos -name '.gitignore' -delete
 
 %check
 # Basic smoke test: verify core shared library was built with versioned SONAME
@@ -252,6 +328,9 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 # as well as plugin/steppable .so files under cc3d/cpp/CompuCell3DPlugins/
 # and cc3d/cpp/CompuCell3DSteppables/.
 %{python3_sitelib}/cc3d/
+# Bundled example simulations (Angiogenesis, cellsort, etc.) for testing the
+# engine and the Player.
+%{_datadir}/compucell3d/
 
 %files devel
 # Development headers
@@ -267,7 +346,22 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 %{_libdir}/libSerializerDE.so
 
 %changelog
-* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.8.0-1
+* Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.1.rc.20260615git780374e
+- Update to 4.9.0 release candidate (release/4.9.0 branch, commit 780374e;
+  no upstream 4.9.0 tag cut yet, so packaged as a pre-release snapshot)
+- Bump injected SOVERSION 4.8 -> 4.9 to track upstream MAJOR.MINOR scheme
+- Install bundled example simulations to %%{_datadir}/compucell3d/Demos/
+  (incl. the Angiogenesis example) and document the headless run command
+- Make the package actually runnable (build-success was masking runtime breaks):
+  * Fix cc3d_runScript.sh / cc3d_paramScan.sh to call python3 (not bare
+    "python", absent on Fedora) and use the real interpreter sitelib
+  * Add $ORIGIN RPATHs to the private cc3d/cpp SWIG/plugin/steppable libs so
+    the engine can load libCC3D*Steppable/Plugin libs at import time
+  * Add the engine's runtime python deps (lxml, scipy, pandas, jinja2,
+    psutil, deprecated) that were missing from Requires
+- Validated end-to-end by running the Angiogenesis demo headlessly
+
+* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.8.0-1
 - Update to 4.8.0
 
 * Sun Mar 15 2026 Morgan Hough <mhough@fedoraproject.org> - 4.7.0-5
