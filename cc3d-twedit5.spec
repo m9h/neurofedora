@@ -6,7 +6,7 @@
 
 Name:           cc3d-twedit5
 Version:        4.9.0
-Release:        0.1.rc.20260615git%{shortcommit0}%{?dist}
+Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        Twedit++ — model/Python editor (IDE) for CompuCell3D
 
 # LICENSE.txt is the GNU LGPL.
@@ -96,6 +96,12 @@ sed -i '1{/^#!.*\bpython/d}' \
 %{python3_sitelib}/cc3d_twedit5-%{version}.dist-info/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617gitf54bc7f
+- Rebuild to deliver the qscintilla-qt5 + chardet Requires and the distutils
+  removal patch (New Simulation Wizard); 0.1 was never bumped across rebuilds
+  so dnf would not upgrade past the first incomplete build (which launched
+  straight into ModuleNotFoundError). No source change (same commit).
+
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.1.rc.20260615gitf54bc7f
 - Update to 4.9.0 release candidate (release/4.9.0 branch, commit f54bc7f;
   no upstream 4.9.0 tag yet, so packaged as a pre-release snapshot)

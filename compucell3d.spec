@@ -19,7 +19,7 @@
 
 Name:           compucell3d
 Version:        4.9.0
-Release:        0.1.rc.20260615git%{shortcommit0}%{?dist}
+Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        Multi-scale virtual tissue simulation environment
 
 License:        MIT
@@ -346,6 +346,12 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 %{_libdir}/libSerializerDE.so
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617git780374e
+- Rebuild to deliver the runtime fixes (python3 run-script, $ORIGIN RPATHs,
+  lxml/scipy/pandas/jinja2/psutil/deprecated Requires, webcolors Recommends,
+  installed Demos); 0.1 was never bumped across rebuilds so dnf would not
+  upgrade past the first incomplete build. No source change (same commit).
+
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.1.rc.20260615git780374e
 - Update to 4.9.0 release candidate (release/4.9.0 branch, commit 780374e;
   no upstream 4.9.0 tag cut yet, so packaged as a pre-release snapshot)

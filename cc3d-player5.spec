@@ -6,7 +6,7 @@
 
 Name:           cc3d-player5
 Version:        4.9.0
-Release:        0.1.rc.20260615git%{shortcommit0}%{?dist}
+Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        CC3D Player — interactive CompuCell3D simulation viewer
 
 # LICENSE.txt is the GNU LGPL.
@@ -108,6 +108,11 @@ sed -i 's|@DEMOS_ROOT@|%{_datadir}/compucell3d/Demos|' %{buildroot}%{_bindir}/cc
 %{python3_sitelib}/cc3d_player5-%{version}.dist-info/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617gitb45b043
+- Rebuild to deliver the -i entry-point fix, anyio+requests Requires, and the
+  cc3d-demo launcher; 0.1 was never bumped across rebuilds so dnf would not
+  upgrade past the first incomplete build. No source change (same commit).
+
 * Mon Jun 15 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.1.rc.20260615gitb45b043
 - Update to 4.9.0 release candidate (release/4.9.0 branch, commit b45b043;
   no upstream 4.9.0 tag yet, so packaged as a pre-release snapshot)
