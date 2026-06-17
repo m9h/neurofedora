@@ -1,5 +1,3 @@
-%global debug_package %{nil}
-
 Name:           anima
 Version:        4.2
 Release:        1%{?dist}
@@ -9,11 +7,12 @@ Summary:        Inria medical image analysis toolbox (registration, diffusion, s
 License:        AGPL-3.0-or-later
 URL:            https://github.com/Inria-Empenn/Anima-Public
 Source0:        %{url}/archive/v%{version}/Anima-Public-%{version}.tar.gz
+# Forward-compat fixes for GCC 15+/ITK 5.4: legacy code that newer toolchains reject.
+Patch0:         anima-gcc-fixes.patch
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake
 BuildRequires:  ninja-build
-BuildRequires:  chrpath
 # Anima superbuilds these; we use the system versions instead (no superbuild).
 BuildRequires:  InsightToolkit5-devel
 BuildRequires:  vtk-devel
@@ -21,6 +20,10 @@ BuildRequires:  boost-devel
 BuildRequires:  NLopt-devel
 BuildRequires:  tinyxml2-devel
 BuildRequires:  tclap-devel
+# RPI ships the ITK-extension headers Anima's SVF registration needs
+# (itkStationaryVelocityFieldTransform, itkFixedPointInverseDisplacementField...)
+# in %%{_includedir}/RegistrationAddOn. The superbuild gets these from RPI.
+BuildRequires:  RPI-devel
 # VTK cmake config pulls these at find_package time.
 BuildRequires:  freetype-devel pugixml-devel fmt-devel utf8cpp-devel
 BuildRequires:  PEGTL-devel jsoncpp-devel nlohmann-json-devel hdf5-devel
@@ -48,7 +51,7 @@ cmake -GNinja ../Anima \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=%{_prefix} \
     -DCMAKE_INSTALL_LIBDIR=%{_lib} \
-    -DCMAKE_CXX_FLAGS="%{optflags}" \
+    -DCMAKE_CXX_FLAGS="%{optflags} -fpermissive -include cstdint -I%{_includedir}/vtk -I%{_includedir}/RegistrationAddOn" \
     -DCMAKE_C_FLAGS="%{optflags}" \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DUSE_VTK:BOOL=ON \
@@ -56,14 +59,14 @@ cmake -GNinja ../Anima \
     -DUSE_RPI:BOOL=OFF \
     -DBUILD_ANIMA_TESTING:BOOL=OFF \
     -DBUILD_ANIMA_DOCUMENTATION:BOOL=OFF \
-    -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON
+    -DCMAKE_INSTALL_RPATH_USE_LINK_PATH:BOOL=OFF \
+    -DCMAKE_INSTALL_RPATH='$ORIGIN:$ORIGIN/../%{_lib}/anima'
 cmake --build . %{?_smp_mflags} --verbose
 
 %install
 DESTDIR=%{buildroot} cmake --install anima-build
-# Strip any residual build-tree RPATHs.
-find %{buildroot} -type f \( -name '*.so' -o -name '*.so.*' -o -perm -111 \) \
-    -exec chrpath --delete {} \; 2>/dev/null || :
+# The private libAnima*.so libraries install to %{_libdir}/anima; binaries find
+# them via the baked $ORIGIN-relative RPATH. Nothing else to relocate.
 
 %check
 test -x %{buildroot}%{_bindir}/animaDTIEstimator
@@ -71,7 +74,8 @@ test -x %{buildroot}%{_bindir}/animaDTIEstimator
 %files
 %license License.txt
 %{_bindir}/anima*
-%{_libdir}/lib*.so*
+%dir %{_libdir}/anima
+%{_libdir}/anima/lib*.so
 
 %changelog
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 4.2-1

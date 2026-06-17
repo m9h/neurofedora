@@ -1,0 +1,1828 @@
+diff --git a/Anima/cmake/AnimaDependencies.cmake b/Anima/cmake/AnimaDependencies.cmake
+index bd8fc30..6d997e8 100644
+--- a/Anima/cmake/AnimaDependencies.cmake
++++ b/Anima/cmake/AnimaDependencies.cmake
+@@ -30,30 +30,32 @@ if(USE_NLOPT)
+   find_package(NLOPT REQUIRED)
+ endif()
+ 
+-# TinyXML2
+-if (BUILD_MODULE_REGISTRATION OR BUILD_MODULE_DIFFUSION)
+-	find_package(TinyXML2 REQUIRED)
+-endif()
++# TinyXML2 — needed by AnimaDataIO (always built). The BUILD_MODULE_* options are
++# defined later (AnimaModulesSetup), so guarding on them skips the find on a fresh
++# configure and leaves TinyXML2_LIBRARY empty (-> undefined tinyxml2:: symbols in
++# libAnimaDataIO). Find it unconditionally.
++find_package(TinyXML2 REQUIRED)
+ 
+ # VTK
+-if (BUILD_MODULE_REGISTRATION OR BUILD_MODULE_DIFFUSION OR BUILD_MODULE_MATHS)
+-  option(USE_VTK "Use VTK libraries (necessary for some registration tools and tractography)" OFF)
+-
+-  if(USE_VTK)
+-    find_package(VTK REQUIRED COMPONENTS vtkCommonCore vtkFiltersCore vtkIOXML vtkIOLegacy vtksys QUIET)
++# NB: the BUILD_MODULE_* options are only defined later (AnimaModulesSetup, which
++# in turn needs the include dirs found here), so guarding this block on them skips
++# VTK entirely on a fresh configure and leaves VTK_PREFIX empty (-> bare -lIOXML
++# link failures). USE_VTK is the real control; key it on that alone.
++option(USE_VTK "Use VTK libraries (necessary for some registration tools and tractography)" OFF)
+ 
+-    if (VTK_VERSION_MAJOR LESS 7)
+-      message(SEND_ERROR "VTK has to be version 7 or higher.")
+-    endif()
++if(USE_VTK)
++  # Modern VTK (>= 9) uses unprefixed component names and namespaced imported
++  # targets (VTK::CommonCore ...). The legacy vtk*-prefixed component spelling
++  # resolves inconsistently on VTK 9.6, so request the modern names and force
++  # the VTK:: prefix unconditionally.
++  find_package(VTK REQUIRED COMPONENTS CommonCore FiltersCore IOXML IOLegacy)
+ 
+-    set(VTK_PREFIX "VTK::")
+-    set(VTKSYS_LIBRARY VTK::vtksys)
+-    if (VTK_VERSION VERSION_LESS "8.90.0")
+-        include(${VTK_USE_FILE})
+-        set(VTK_PREFIX "vtk")
+-        set(VTKSYS_LIBRARY vtksys)
+-    endif()
++  if (VTK_VERSION_MAJOR LESS 7)
++    message(SEND_ERROR "VTK has to be version 7 or higher.")
+   endif()
++
++  set(VTK_PREFIX "VTK::")
++  set(VTKSYS_LIBRARY VTK::vtksys)
+ endif()
+ 
+ # Asclepios RPI
+diff --git a/Anima/cmake/ITKLibs.cmake b/Anima/cmake/ITKLibs.cmake
+index 45ecafd..1967b54 100644
+--- a/Anima/cmake/ITKLibs.cmake
++++ b/Anima/cmake/ITKLibs.cmake
+@@ -23,6 +23,11 @@ set(ITKIO_LIBRARIES
+   ITKIOTIFF
+   ITKIOVTK
+   ITKIOMRC
++  # Extra ImageIO modules enabled in the system ITK build whose factories the
++  # IO factory-register manager pulls in; link them or executables fail at link.
++  ITKIODCMTK
++  MGHIO
++  IOScanco
+ )
+ 
+ set(ITK_TRANSFORM_LIBRARIES
+diff --git a/Anima/cmake/module/set_lib_install_rules.cmake b/Anima/cmake/module/set_lib_install_rules.cmake
+index 83600ee..25fd23f 100644
+--- a/Anima/cmake/module/set_lib_install_rules.cmake
++++ b/Anima/cmake/module/set_lib_install_rules.cmake
+@@ -11,8 +11,8 @@ macro(set_lib_install_rules
+ 
+ install(TARGETS ${project_name}
+   RUNTIME DESTINATION bin
+-  LIBRARY DESTINATION lib
+-  ARCHIVE DESTINATION lib
++  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/anima
++  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}/anima
+   )
+ 
+ endmacro()
+diff --git a/Anima/diffusion/dti_estimator/animaDTIEstimationImageFilter.hxx b/Anima/diffusion/dti_estimator/animaDTIEstimationImageFilter.hxx
+index b3890eb..f5eba30 100644
+--- a/Anima/diffusion/dti_estimator/animaDTIEstimationImageFilter.hxx
++++ b/Anima/diffusion/dti_estimator/animaDTIEstimationImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDTIEstimationImageFilter.h"
+ 
+ #include <itkImageRegionIterator.h>
+diff --git a/Anima/diffusion/dti_estimator/animaDTIEstimator.cxx b/Anima/diffusion/dti_estimator/animaDTIEstimator.cxx
+index 486b4f8..499b5d8 100644
+--- a/Anima/diffusion/dti_estimator/animaDTIEstimator.cxx
++++ b/Anima/diffusion/dti_estimator/animaDTIEstimator.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDTIEstimationImageFilter.h>
++#include <iostream>
+ #include <animaGradientFileReader.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/diffusion/dti_tools/dti_scalar_maps/animaDTIScalarMaps.cxx b/Anima/diffusion/dti_tools/dti_scalar_maps/animaDTIScalarMaps.cxx
+index f67e616..fae6bc1 100644
+--- a/Anima/diffusion/dti_tools/dti_scalar_maps/animaDTIScalarMaps.cxx
++++ b/Anima/diffusion/dti_tools/dti_scalar_maps/animaDTIScalarMaps.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDTIScalarMapsImageFilter.h>
++#include <iostream>
+ 
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTI.cxx b/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTI.cxx
+index dc8acb7..f5a87ad 100644
+--- a/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTI.cxx
++++ b/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTI.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDWISimulatorFromDTIImageFilter.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ 
+diff --git a/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTIImageFilter.hxx b/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTIImageFilter.hxx
+index 0f95a6a..83cf555 100644
+--- a/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTIImageFilter.hxx
++++ b/Anima/diffusion/dti_tools/dwi_simulator_from_dti/animaDWISimulatorFromDTIImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDWISimulatorFromDTIImageFilter.h"
+ 
+ #include <itkImageRegionIterator.h>
+diff --git a/Anima/diffusion/dti_tools/flip_tensors/animaFlipTensors.cxx b/Anima/diffusion/dti_tools/flip_tensors/animaFlipTensors.cxx
+index 88e7df6..f977739 100644
+--- a/Anima/diffusion/dti_tools/flip_tensors/animaFlipTensors.cxx
++++ b/Anima/diffusion/dti_tools/flip_tensors/animaFlipTensors.cxx
+@@ -1,4 +1,5 @@
+ #include <animaFlipTensorImageFilter.h>
++#include <iostream>
+ #include <tclap/CmdLine.h>
+ #include <animaReadWriteFunctions.h>
+ #include <animaRetrieveImageTypeMacros.h>
+diff --git a/Anima/diffusion/fibers_analysis/fibers_disease_scores/animaFibersDiseaseScores.cxx b/Anima/diffusion/fibers_analysis/fibers_disease_scores/animaFibersDiseaseScores.cxx
+index a36b766..745d4c7 100644
+--- a/Anima/diffusion/fibers_analysis/fibers_disease_scores/animaFibersDiseaseScores.cxx
++++ b/Anima/diffusion/fibers_analysis/fibers_disease_scores/animaFibersDiseaseScores.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaShapesReader.h>
+ 
+diff --git a/Anima/diffusion/fibers_analysis/patient_to_group_comparison_on_tracks/animaPatientToGroupComparisonOnTracks.cxx b/Anima/diffusion/fibers_analysis/patient_to_group_comparison_on_tracks/animaPatientToGroupComparisonOnTracks.cxx
+index 187b7f2..3fb3fdd 100644
+--- a/Anima/diffusion/fibers_analysis/patient_to_group_comparison_on_tracks/animaPatientToGroupComparisonOnTracks.cxx
++++ b/Anima/diffusion/fibers_analysis/patient_to_group_comparison_on_tracks/animaPatientToGroupComparisonOnTracks.cxx
+@@ -1,4 +1,5 @@
+ #include <cmath>
++#include <iostream>
+ #include <sstream>
+ 
+ #include <animaShapesReader.h>
+diff --git a/Anima/diffusion/fibers_analysis/tracks_mcm_properties_extraction/animaTracksMCMPropertiesExtraction.cxx b/Anima/diffusion/fibers_analysis/tracks_mcm_properties_extraction/animaTracksMCMPropertiesExtraction.cxx
+index 67e9f25..1dac1f3 100644
+--- a/Anima/diffusion/fibers_analysis/tracks_mcm_properties_extraction/animaTracksMCMPropertiesExtraction.cxx
++++ b/Anima/diffusion/fibers_analysis/tracks_mcm_properties_extraction/animaTracksMCMPropertiesExtraction.cxx
+@@ -1,4 +1,5 @@
+ #include <cmath>
++#include <iostream>
+ #include <sstream>
+ 
+ #include <animaMCMFileReader.h>
+diff --git a/Anima/diffusion/mcm/animaGaussianMCMCost.cxx b/Anima/diffusion/mcm/animaGaussianMCMCost.cxx
+index d3de269..61b2430 100644
+--- a/Anima/diffusion/mcm/animaGaussianMCMCost.cxx
++++ b/Anima/diffusion/mcm/animaGaussianMCMCost.cxx
+@@ -1,4 +1,5 @@
+ #include <animaGaussianMCMCost.h>
++#include <iostream>
+ #include <cmath>
+ 
+ #include <animaBaseTensorTools.h>
+diff --git a/Anima/diffusion/mcm/animaGaussianMCMVariableProjectionCost.cxx b/Anima/diffusion/mcm/animaGaussianMCMVariableProjectionCost.cxx
+index 9931177..b9c5952 100644
+--- a/Anima/diffusion/mcm/animaGaussianMCMVariableProjectionCost.cxx
++++ b/Anima/diffusion/mcm/animaGaussianMCMVariableProjectionCost.cxx
+@@ -1,4 +1,5 @@
+ #include <animaGaussianMCMVariableProjectionCost.h>
++#include <iostream>
+ #include <cmath>
+ #include <algorithm>
+ 
+diff --git a/Anima/diffusion/mcm/animaTensorCompartment.cxx b/Anima/diffusion/mcm/animaTensorCompartment.cxx
+index f536e45..49c86ce 100644
+--- a/Anima/diffusion/mcm/animaTensorCompartment.cxx
++++ b/Anima/diffusion/mcm/animaTensorCompartment.cxx
+@@ -379,7 +379,13 @@ void TensorCompartment::Reorient(vnl_matrix <double> &orientationMatrix, bool af
+         EigVecMatrixType eigVecs;
+         EigValVectorType eigVals;
+ 
+-        eigenComputer.ComputeEigenValuesAndVectors(m_WorkVnlMatrix1,eigVals,eigVecs);
++        // ITK 5.4 SymmetricEigenAnalysis requires the matrix type to match the
++        // template arg exactly; copy the 3x3 vnl_matrix into an itk::Matrix.
++        EigVecMatrixType workMatrix;
++        for (unsigned int wi = 0;wi < 3;++wi)
++            for (unsigned int wj = 0;wj < 3;++wj)
++                workMatrix(wi,wj) = m_WorkVnlMatrix1(wi,wj);
++        eigenComputer.ComputeEigenValuesAndVectors(workMatrix,eigVals,eigVecs);
+         anima::ExtractPPDRotationFromJacobianMatrix(orientationMatrix,ppdOrientationMatrix,eigVecs);
+         anima::RotateSymmetricMatrix(m_WorkVnlMatrix1,ppdOrientationMatrix,m_WorkVnlMatrix2);
+     }
+diff --git a/Anima/diffusion/mcm_estimator/animaMCMEstimator.cxx b/Anima/diffusion/mcm_estimator/animaMCMEstimator.cxx
+index 4ff325f..2435fd6 100644
+--- a/Anima/diffusion/mcm_estimator/animaMCMEstimator.cxx
++++ b/Anima/diffusion/mcm_estimator/animaMCMEstimator.cxx
+@@ -1,4 +1,5 @@
+ #include <fstream>
++#include <iostream>
+ #include <itkTimeProbe.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/diffusion/mcm_estimator/animaMCMEstimatorImageFilter.hxx b/Anima/diffusion/mcm_estimator/animaMCMEstimatorImageFilter.hxx
+index 7d10ce0..4f87adb 100644
+--- a/Anima/diffusion/mcm_estimator/animaMCMEstimatorImageFilter.hxx
++++ b/Anima/diffusion/mcm_estimator/animaMCMEstimatorImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaMCMEstimatorImageFilter.h"
+ #include <animaMCMConstants.h>
+ 
+diff --git a/Anima/diffusion/mcm_tools/mcm_average_images/animaMCMAverageImages.cxx b/Anima/diffusion/mcm_tools/mcm_average_images/animaMCMAverageImages.cxx
+index 16328ba..95434d1 100644
+--- a/Anima/diffusion/mcm_tools/mcm_average_images/animaMCMAverageImages.cxx
++++ b/Anima/diffusion/mcm_tools/mcm_average_images/animaMCMAverageImages.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkVectorImage.h>
+ #include <animaMCMAverageImagesImageFilter.h>
+diff --git a/Anima/diffusion/mcm_tools/mcm_scalar_maps/animaMCMScalarMaps.cxx b/Anima/diffusion/mcm_tools/mcm_scalar_maps/animaMCMScalarMaps.cxx
+index bd9044c..0b6a2bf 100644
+--- a/Anima/diffusion/mcm_tools/mcm_scalar_maps/animaMCMScalarMaps.cxx
++++ b/Anima/diffusion/mcm_tools/mcm_scalar_maps/animaMCMScalarMaps.cxx
+@@ -1,4 +1,5 @@
+ #include <animaMCMFileReader.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ #include <animaMCMScalarMapsImageFilter.h>
+ 
+diff --git a/Anima/diffusion/odf/generalized_fa/animaGeneralizedFA.cxx b/Anima/diffusion/odf/generalized_fa/animaGeneralizedFA.cxx
+index c9a69e6..8b5c401 100644
+--- a/Anima/diffusion/odf/generalized_fa/animaGeneralizedFA.cxx
++++ b/Anima/diffusion/odf/generalized_fa/animaGeneralizedFA.cxx
+@@ -1,4 +1,5 @@
+ #include <animaGeneralizedFAImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/diffusion/odf/odf_estimator/animaODFEstimator.cxx b/Anima/diffusion/odf/odf_estimator/animaODFEstimator.cxx
+index c8edfee..8e6dd50 100644
+--- a/Anima/diffusion/odf/odf_estimator/animaODFEstimator.cxx
++++ b/Anima/diffusion/odf/odf_estimator/animaODFEstimator.cxx
+@@ -1,4 +1,5 @@
+ #include <animaODFEstimatorImageFilter.h>
++#include <iostream>
+ #include <itkTimeProbe.h>
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/diffusion/odf/odf_estimator/animaODFEstimatorImageFilter.hxx b/Anima/diffusion/odf/odf_estimator/animaODFEstimatorImageFilter.hxx
+index 18325b1..1786b8f 100644
+--- a/Anima/diffusion/odf/odf_estimator/animaODFEstimatorImageFilter.hxx
++++ b/Anima/diffusion/odf/odf_estimator/animaODFEstimatorImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include <cmath>
+ 
+ #include "animaODFEstimatorImageFilter.h"
+diff --git a/Anima/diffusion/tractography/animaBaseProbabilisticTractographyImageFilter.hxx b/Anima/diffusion/tractography/animaBaseProbabilisticTractographyImageFilter.hxx
+index 0e584e3..3747e54 100644
+--- a/Anima/diffusion/tractography/animaBaseProbabilisticTractographyImageFilter.hxx
++++ b/Anima/diffusion/tractography/animaBaseProbabilisticTractographyImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #include "animaBaseProbabilisticTractographyImageFilter.h"
++#include <iostream>
+ 
+ #include <itkImageRegionIteratorWithIndex.h>
+ #include <itkLinearInterpolateImageFunction.h>
+diff --git a/Anima/diffusion/tractography/animaBaseTractographyImageFilter.cxx b/Anima/diffusion/tractography/animaBaseTractographyImageFilter.cxx
+index 79b4be7..958f6bf 100644
+--- a/Anima/diffusion/tractography/animaBaseTractographyImageFilter.cxx
++++ b/Anima/diffusion/tractography/animaBaseTractographyImageFilter.cxx
+@@ -1,4 +1,5 @@
+ #include "animaBaseTractographyImageFilter.h"
++#include <iostream>
+ 
+ #include <itkImageRegionIteratorWithIndex.h>
+ #include <itkMultiThreaderBase.h>
+diff --git a/Anima/diffusion/tractography/dti_probabilistic_tractography/animaDTIProbabilisticTractography.cxx b/Anima/diffusion/tractography/dti_probabilistic_tractography/animaDTIProbabilisticTractography.cxx
+index e6dea22..8f13537 100644
+--- a/Anima/diffusion/tractography/dti_probabilistic_tractography/animaDTIProbabilisticTractography.cxx
++++ b/Anima/diffusion/tractography/dti_probabilistic_tractography/animaDTIProbabilisticTractography.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDTIProbabilisticTractographyImageFilter.h>
++#include <iostream>
+ #include <itkTimeProbe.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/diffusion/tractography/dti_tractography/animaDTITractography.cxx b/Anima/diffusion/tractography/dti_tractography/animaDTITractography.cxx
+index c7132ff..2d6ae31 100644
+--- a/Anima/diffusion/tractography/dti_tractography/animaDTITractography.cxx
++++ b/Anima/diffusion/tractography/dti_tractography/animaDTITractography.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDTITractographyImageFilter.h>
++#include <iostream>
+ #include <itkTimeProbe.h>
+ 
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/diffusion/tractography/fibers_counter/animaFibersCounter.cxx b/Anima/diffusion/tractography/fibers_counter/animaFibersCounter.cxx
+index 63a8a2a..0568297 100644
+--- a/Anima/diffusion/tractography/fibers_counter/animaFibersCounter.cxx
++++ b/Anima/diffusion/tractography/fibers_counter/animaFibersCounter.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <animaShapesReader.h>
+diff --git a/Anima/diffusion/tractography/fibers_filterer/animaFibersFilterer.cxx b/Anima/diffusion/tractography/fibers_filterer/animaFibersFilterer.cxx
+index c961f29..7c92056 100644
+--- a/Anima/diffusion/tractography/fibers_filterer/animaFibersFilterer.cxx
++++ b/Anima/diffusion/tractography/fibers_filterer/animaFibersFilterer.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <animaShapesWriter.h>
+diff --git a/Anima/diffusion/tractography/odf_probabilistic_tractography/animaODFProbabilisticTractography.cxx b/Anima/diffusion/tractography/odf_probabilistic_tractography/animaODFProbabilisticTractography.cxx
+index e792b5c..9e90310 100644
+--- a/Anima/diffusion/tractography/odf_probabilistic_tractography/animaODFProbabilisticTractography.cxx
++++ b/Anima/diffusion/tractography/odf_probabilistic_tractography/animaODFProbabilisticTractography.cxx
+@@ -1,4 +1,5 @@
+ #include <animaODFProbabilisticTractographyImageFilter.h>
++#include <iostream>
+ #include <animaGradientFileReader.h>
+ #include <itkTimeProbe.h>
+ 
+diff --git a/Anima/filtering/bias_correction/animaN4BiasCorrection.cxx b/Anima/filtering/bias_correction/animaN4BiasCorrection.cxx
+index 4e61810..641dd5b 100644
+--- a/Anima/filtering/bias_correction/animaN4BiasCorrection.cxx
++++ b/Anima/filtering/bias_correction/animaN4BiasCorrection.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ #include <itkN4BiasFieldCorrectionImageFilter.h>
+ #include <animaReadWriteFunctions.h>
+ #include <itkConstantPadImageFilter.h>
+diff --git a/Anima/filtering/clustering/animaKMeansFilter.hxx b/Anima/filtering/clustering/animaKMeansFilter.hxx
+index 0987146..632f73b 100644
+--- a/Anima/filtering/clustering/animaKMeansFilter.hxx
++++ b/Anima/filtering/clustering/animaKMeansFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaKMeansFilter.h"
+ 
+ namespace anima {
+diff --git a/Anima/filtering/denoising/non_local_means_image_filter/animaMeanAndVarianceImagesFilter.hxx b/Anima/filtering/denoising/non_local_means_image_filter/animaMeanAndVarianceImagesFilter.hxx
+index 7ee13a0..09fc6f0 100644
+--- a/Anima/filtering/denoising/non_local_means_image_filter/animaMeanAndVarianceImagesFilter.hxx
++++ b/Anima/filtering/denoising/non_local_means_image_filter/animaMeanAndVarianceImagesFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaMeanAndVarianceImagesFilter.h"
+ 
+ #include <itkConstNeighborhoodIterator.h>
+diff --git a/Anima/filtering/denoising/non_local_means_image_filter/animaNLMeans.cxx b/Anima/filtering/denoising/non_local_means_image_filter/animaNLMeans.cxx
+index 1e01f00..a3c79d0 100644
+--- a/Anima/filtering/denoising/non_local_means_image_filter/animaNLMeans.cxx
++++ b/Anima/filtering/denoising/non_local_means_image_filter/animaNLMeans.cxx
+@@ -1,4 +1,5 @@
+ #include <animaNonLocalMeansImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/filtering/denoising/non_local_means_temporal_image_filter/animaNLMeansTemporal.cxx b/Anima/filtering/denoising/non_local_means_temporal_image_filter/animaNLMeansTemporal.cxx
+index 41cbb7c..266d9a4 100644
+--- a/Anima/filtering/denoising/non_local_means_temporal_image_filter/animaNLMeansTemporal.cxx
++++ b/Anima/filtering/denoising/non_local_means_temporal_image_filter/animaNLMeansTemporal.cxx
+@@ -1,4 +1,5 @@
+ #include <animaNonLocalMeansTemporalImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/filtering/dti_tools/exp_tensors/animaExpTensors.cxx b/Anima/filtering/dti_tools/exp_tensors/animaExpTensors.cxx
+index b5400be..9959674 100644
+--- a/Anima/filtering/dti_tools/exp_tensors/animaExpTensors.cxx
++++ b/Anima/filtering/dti_tools/exp_tensors/animaExpTensors.cxx
+@@ -1,4 +1,5 @@
+ #include <animaExpTensorImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/filtering/dti_tools/log_tensors/animaLogTensors.cxx b/Anima/filtering/dti_tools/log_tensors/animaLogTensors.cxx
+index 62b4c95..8992319 100644
+--- a/Anima/filtering/dti_tools/log_tensors/animaLogTensors.cxx
++++ b/Anima/filtering/dti_tools/log_tensors/animaLogTensors.cxx
+@@ -1,4 +1,5 @@
+ #include <animaLogTensorImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/filtering/jacobian/animaJacobianMatrixImageFilter.hxx b/Anima/filtering/jacobian/animaJacobianMatrixImageFilter.hxx
+index 4d30717..a2f6f4b 100644
+--- a/Anima/filtering/jacobian/animaJacobianMatrixImageFilter.hxx
++++ b/Anima/filtering/jacobian/animaJacobianMatrixImageFilter.hxx
+@@ -4,7 +4,7 @@
+ #include <itkImageRegionConstIteratorWithIndex.h>
+ #include <itkImageRegionIterator.h>
+ 
+-#include <vnl_qr.h>
++#include <vnl/algo/vnl_qr.h>
+ 
+ namespace anima
+ {
+diff --git a/Anima/filtering/noise_generator/animaNoiseGenerator.cxx b/Anima/filtering/noise_generator/animaNoiseGenerator.cxx
+index f6dcf3e..07d55ed 100644
+--- a/Anima/filtering/noise_generator/animaNoiseGenerator.cxx
++++ b/Anima/filtering/noise_generator/animaNoiseGenerator.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ #include <animaNoiseGeneratorImageFilter.h>
+ #include <animaReadWriteFunctions.h>
+ #include <animaRetrieveImageTypeMacros.h>
+diff --git a/Anima/filtering/nyul_standardization/animaNyulStandardization.cxx b/Anima/filtering/nyul_standardization/animaNyulStandardization.cxx
+index 4f553a9..5ec9ea2 100644
+--- a/Anima/filtering/nyul_standardization/animaNyulStandardization.cxx
++++ b/Anima/filtering/nyul_standardization/animaNyulStandardization.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkHistogramMatchingImageFilter.h>
+ 
+diff --git a/Anima/filtering/regularization/animaRecursiveLineYvvGaussianImageFilter.hxx b/Anima/filtering/regularization/animaRecursiveLineYvvGaussianImageFilter.hxx
+index 1d7b42c..5f26f35 100644
+--- a/Anima/filtering/regularization/animaRecursiveLineYvvGaussianImageFilter.hxx
++++ b/Anima/filtering/regularization/animaRecursiveLineYvvGaussianImageFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaRecursiveLineYvvGaussianImageFilter.h"
+ #include <itkObjectFactory.h>
+ #include <itkImageLinearIteratorWithIndex.h>
+diff --git a/Anima/filtering/regularization/animaSmoothingRecursiveYvvGaussianImageFilter.hxx b/Anima/filtering/regularization/animaSmoothingRecursiveYvvGaussianImageFilter.hxx
+index 48e303b..6ecbaa3 100644
+--- a/Anima/filtering/regularization/animaSmoothingRecursiveYvvGaussianImageFilter.hxx
++++ b/Anima/filtering/regularization/animaSmoothingRecursiveYvvGaussianImageFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaSmoothingRecursiveYvvGaussianImageFilter.h"
+ #include <itkImageRegionIteratorWithIndex.h>
+ #include <itkProgressAccumulator.h>
+diff --git a/Anima/filtering/regularization/image_smoother/animaImageSmoother.cxx b/Anima/filtering/regularization/image_smoother/animaImageSmoother.cxx
+index 8c619d9..317039b 100644
+--- a/Anima/filtering/regularization/image_smoother/animaImageSmoother.cxx
++++ b/Anima/filtering/regularization/image_smoother/animaImageSmoother.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <itkImage.h>
+diff --git a/Anima/math-tools/arithmetic/average_images/animaAverageImages.cxx b/Anima/math-tools/arithmetic/average_images/animaAverageImages.cxx
+index 1fc844f..aa4dd1e 100644
+--- a/Anima/math-tools/arithmetic/average_images/animaAverageImages.cxx
++++ b/Anima/math-tools/arithmetic/average_images/animaAverageImages.cxx
+@@ -1,4 +1,5 @@
+ #include <animaReadWriteFunctions.h>
++#include <iostream>
+ #include <itkImageRegionIterator.h>
+ #include <itkMultiplyImageFilter.h>
+ #include <itkDivideImageFilter.h>
+diff --git a/Anima/math-tools/arithmetic/dense_transform_arithmetic/animaDenseTransformArithmetic.cxx b/Anima/math-tools/arithmetic/dense_transform_arithmetic/animaDenseTransformArithmetic.cxx
+index dcea3c6..4c24c98 100644
+--- a/Anima/math-tools/arithmetic/dense_transform_arithmetic/animaDenseTransformArithmetic.cxx
++++ b/Anima/math-tools/arithmetic/dense_transform_arithmetic/animaDenseTransformArithmetic.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkComposeDisplacementFieldsImageFilter.h>
+diff --git a/Anima/math-tools/arithmetic/image_arithmetic/animaImageArithmetic.cxx b/Anima/math-tools/arithmetic/image_arithmetic/animaImageArithmetic.cxx
+index d7330ca..88520e7 100644
+--- a/Anima/math-tools/arithmetic/image_arithmetic/animaImageArithmetic.cxx
++++ b/Anima/math-tools/arithmetic/image_arithmetic/animaImageArithmetic.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <itkImage.h>
+diff --git a/Anima/math-tools/arithmetic/linear_transform_arithmetic/animaLinearTransformArithmetic.cxx b/Anima/math-tools/arithmetic/linear_transform_arithmetic/animaLinearTransformArithmetic.cxx
+index 3fcf6c8..2ca8bd9 100644
+--- a/Anima/math-tools/arithmetic/linear_transform_arithmetic/animaLinearTransformArithmetic.cxx
++++ b/Anima/math-tools/arithmetic/linear_transform_arithmetic/animaLinearTransformArithmetic.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTransformFileReader.h>
+ #include <itkTransformFileWriter.h>
+diff --git a/Anima/math-tools/arithmetic/linear_transform_to_svf/animaLinearTransformToSVF.cxx b/Anima/math-tools/arithmetic/linear_transform_to_svf/animaLinearTransformToSVF.cxx
+index 12994c2..c785798 100644
+--- a/Anima/math-tools/arithmetic/linear_transform_to_svf/animaLinearTransformToSVF.cxx
++++ b/Anima/math-tools/arithmetic/linear_transform_to_svf/animaLinearTransformToSVF.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTransformFileReader.h>
+ #include <itkTransformFileWriter.h>
+diff --git a/Anima/math-tools/common/animaImageDataSplitter.hxx b/Anima/math-tools/common/animaImageDataSplitter.hxx
+index c7dace1..717af90 100644
+--- a/Anima/math-tools/common/animaImageDataSplitter.hxx
++++ b/Anima/math-tools/common/animaImageDataSplitter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaImageDataSplitter.h"
+ 
+ #include <itkImageRegionConstIteratorWithIndex.h>
+diff --git a/Anima/math-tools/common/animaReadWriteFunctions.h b/Anima/math-tools/common/animaReadWriteFunctions.h
+index d65f8a5..beba342 100644
+--- a/Anima/math-tools/common/animaReadWriteFunctions.h
++++ b/Anima/math-tools/common/animaReadWriteFunctions.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+ #include <itkExtractImageFilter.h>
+diff --git a/Anima/math-tools/common/animaRetrieveImageTypeMacros.h b/Anima/math-tools/common/animaRetrieveImageTypeMacros.h
+index dd98982..17e22c4 100644
+--- a/Anima/math-tools/common/animaRetrieveImageTypeMacros.h
++++ b/Anima/math-tools/common/animaRetrieveImageTypeMacros.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <itkImageIOBase.h>
+ #include <itkMacro.h>
+ #include <itkImage.h>
+diff --git a/Anima/math-tools/common_tools/collapse_image/animaCollapseImage.cxx b/Anima/math-tools/common_tools/collapse_image/animaCollapseImage.cxx
+index 7f96a88..2bc11a2 100644
+--- a/Anima/math-tools/common_tools/collapse_image/animaCollapseImage.cxx
++++ b/Anima/math-tools/common_tools/collapse_image/animaCollapseImage.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkVectorImage.h>
+diff --git a/Anima/math-tools/common_tools/concatenate_images/animaConcatenateImages.cxx b/Anima/math-tools/common_tools/concatenate_images/animaConcatenateImages.cxx
+index fca92c0..cafd043 100644
+--- a/Anima/math-tools/common_tools/concatenate_images/animaConcatenateImages.cxx
++++ b/Anima/math-tools/common_tools/concatenate_images/animaConcatenateImages.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkCommand.h>
+diff --git a/Anima/math-tools/common_tools/convert_image/animaConvertImage.cxx b/Anima/math-tools/common_tools/convert_image/animaConvertImage.cxx
+index 07faf31..42388d7 100644
+--- a/Anima/math-tools/common_tools/convert_image/animaConvertImage.cxx
++++ b/Anima/math-tools/common_tools/convert_image/animaConvertImage.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkOrientImageFilter.h>
+diff --git a/Anima/math-tools/common_tools/convert_shape/animaConvertShape.cxx b/Anima/math-tools/common_tools/convert_shape/animaConvertShape.cxx
+index f4feb56..fdfde21 100644
+--- a/Anima/math-tools/common_tools/convert_shape/animaConvertShape.cxx
++++ b/Anima/math-tools/common_tools/convert_shape/animaConvertShape.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaShapesReader.h>
+ #include <animaShapesWriter.h>
+diff --git a/Anima/math-tools/common_tools/crop_image/animaCropImage.cxx b/Anima/math-tools/common_tools/crop_image/animaCropImage.cxx
+index 59613fc..7da1786 100644
+--- a/Anima/math-tools/common_tools/crop_image/animaCropImage.cxx
++++ b/Anima/math-tools/common_tools/crop_image/animaCropImage.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkCommand.h>
+diff --git a/Anima/math-tools/common_tools/vectorize_images/animaVectorizeImages.cxx b/Anima/math-tools/common_tools/vectorize_images/animaVectorizeImages.cxx
+index 237a099..b1abdf6 100644
+--- a/Anima/math-tools/common_tools/vectorize_images/animaVectorizeImages.cxx
++++ b/Anima/math-tools/common_tools/vectorize_images/animaVectorizeImages.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <animaRetrieveImageTypeMacros.h>
+diff --git a/Anima/math-tools/data_io/animaShapesReader.cxx b/Anima/math-tools/data_io/animaShapesReader.cxx
+index 753488f..af9fe93 100644
+--- a/Anima/math-tools/data_io/animaShapesReader.cxx
++++ b/Anima/math-tools/data_io/animaShapesReader.cxx
+@@ -1,4 +1,5 @@
+ #include <animaShapesReader.h>
++#include <iostream>
+ #include <itkMacro.h>
+ 
+ #include <vtkPolyDataReader.h>
+diff --git a/Anima/math-tools/data_io/animaShapesWriter.cxx b/Anima/math-tools/data_io/animaShapesWriter.cxx
+index ba7bf79..b6a295c 100644
+--- a/Anima/math-tools/data_io/animaShapesWriter.cxx
++++ b/Anima/math-tools/data_io/animaShapesWriter.cxx
+@@ -1,4 +1,5 @@
+ #include <animaShapesWriter.h>
++#include <iostream>
+ #include <itkMacro.h>
+ 
+ #include <vtkPolyDataWriter.h>
+diff --git a/Anima/math-tools/data_io/animaTRKReader.cxx b/Anima/math-tools/data_io/animaTRKReader.cxx
+index 0846d50..a5972ff 100644
+--- a/Anima/math-tools/data_io/animaTRKReader.cxx
++++ b/Anima/math-tools/data_io/animaTRKReader.cxx
+@@ -1,6 +1,6 @@
+ #include <animaTRKReader.h>
+ #include <animaTRKHeaderStructure.h>
+-#include <vnl_matrix.h>
++#include <vnl/vnl_matrix.h>
+ #include <fstream>
+ 
+ #include <vtkPoints.h>
+diff --git a/Anima/math-tools/data_io/animaTRKWriter.cxx b/Anima/math-tools/data_io/animaTRKWriter.cxx
+index a416124..d310841 100644
+--- a/Anima/math-tools/data_io/animaTRKWriter.cxx
++++ b/Anima/math-tools/data_io/animaTRKWriter.cxx
+@@ -101,18 +101,20 @@ void TRKWriter::Update()
+     itk::SpatialOrientationAdapter orientationAdapter;
+     itk::SpatialOrientationAdapter::OrientationType orientationType = orientationAdapter.FromDirectionCosines(direction);
+ 
+-    itk::SpatialOrientation::CoordinateTerms testOrientation = (itk::SpatialOrientation::CoordinateTerms)(orientationType >> itk::SpatialOrientation::ITK_COORDINATE_TertiaryMinor);
++    // ITK 5.4 made the SpatialOrientation enums scoped (enum class); cast to
++    // unsigned int to do the bit arithmetic, then back to the enum types.
++    itk::SpatialOrientation::CoordinateTerms testOrientation = (itk::SpatialOrientation::CoordinateTerms)((unsigned int)orientationType >> (unsigned int)itk::SpatialOrientation::ITK_COORDINATE_TertiaryMinor);
+     headerStr.voxel_order[3] = '\0';
+     headerStr.voxel_order[2] = m_OrientationsMap[testOrientation];
+ 
+     itk::SpatialOrientationAdapter::OrientationType truncatedOrientationType;
+-    truncatedOrientationType = (itk::SpatialOrientationAdapter::OrientationType)(orientationType - (testOrientation << itk::SpatialOrientation::ITK_COORDINATE_TertiaryMinor));
+-    testOrientation = (itk::SpatialOrientation::CoordinateTerms)(truncatedOrientationType >> itk::SpatialOrientation::ITK_COORDINATE_SecondaryMinor);
++    truncatedOrientationType = (itk::SpatialOrientationAdapter::OrientationType)((unsigned int)orientationType - ((unsigned int)testOrientation << (unsigned int)itk::SpatialOrientation::ITK_COORDINATE_TertiaryMinor));
++    testOrientation = (itk::SpatialOrientation::CoordinateTerms)((unsigned int)truncatedOrientationType >> (unsigned int)itk::SpatialOrientation::ITK_COORDINATE_SecondaryMinor);
+ 
+     headerStr.voxel_order[1] = m_OrientationsMap[testOrientation];
+ 
+-    truncatedOrientationType = (itk::SpatialOrientationAdapter::OrientationType)(truncatedOrientationType - (testOrientation << itk::SpatialOrientation::ITK_COORDINATE_SecondaryMinor));
+-    testOrientation = (itk::SpatialOrientation::CoordinateTerms)(truncatedOrientationType >> itk::SpatialOrientation::ITK_COORDINATE_PrimaryMinor);
++    truncatedOrientationType = (itk::SpatialOrientationAdapter::OrientationType)((unsigned int)truncatedOrientationType - ((unsigned int)testOrientation << (unsigned int)itk::SpatialOrientation::ITK_COORDINATE_SecondaryMinor));
++    testOrientation = (itk::SpatialOrientation::CoordinateTerms)((unsigned int)truncatedOrientationType >> (unsigned int)itk::SpatialOrientation::ITK_COORDINATE_PrimaryMinor);
+ 
+     headerStr.voxel_order[0] = m_OrientationsMap[testOrientation];
+ 
+diff --git a/Anima/math-tools/matrix_operations/animaMatrixOperations.hxx b/Anima/math-tools/matrix_operations/animaMatrixOperations.hxx
+index 0832111..da74c32 100644
+--- a/Anima/math-tools/matrix_operations/animaMatrixOperations.hxx
++++ b/Anima/math-tools/matrix_operations/animaMatrixOperations.hxx
+@@ -46,7 +46,13 @@ GetRotationMatrixFromVectors(const VectorType &first_direction, const VectorType
+ 
+     vnl_matrix <double> rotationMatrix = anima::computeRotationFromQuaternion<double,double>(eVec.get_row(0));
+ 
+-    return rotationMatrix;
++    // itk::Matrix has no constructor from a dynamic vnl_matrix; copy elementwise.
++    itk::Matrix <double,3,3> resMatrix;
++    for (unsigned int i = 0;i < 3;++i)
++        for (unsigned int j = 0;j < 3;++j)
++            resMatrix(i,j) = rotationMatrix(i,j);
++
++    return resMatrix;
+ }
+ 
+ template <class ScalarType>
+diff --git a/Anima/math-tools/multi_compartment_base/animaMCMFileWriter.hxx b/Anima/math-tools/multi_compartment_base/animaMCMFileWriter.hxx
+index 51789da..b2be662 100644
+--- a/Anima/math-tools/multi_compartment_base/animaMCMFileWriter.hxx
++++ b/Anima/math-tools/multi_compartment_base/animaMCMFileWriter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaMCMFileWriter.h"
+ 
+ #include <itkImageRegionIterator.h>
+diff --git a/Anima/math-tools/optimizers/animaVoxelExhaustiveOptimizer.cxx b/Anima/math-tools/optimizers/animaVoxelExhaustiveOptimizer.cxx
+index f8c2249..14c4172 100644
+--- a/Anima/math-tools/optimizers/animaVoxelExhaustiveOptimizer.cxx
++++ b/Anima/math-tools/optimizers/animaVoxelExhaustiveOptimizer.cxx
+@@ -1,4 +1,5 @@
+ #include "animaVoxelExhaustiveOptimizer.h"
++#include <iostream>
+ #include <itkCommand.h>
+ #include <itkEventObject.h>
+ 
+diff --git a/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.cxx b/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.cxx
+index df1075a..345a977 100644
+--- a/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.cxx
++++ b/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.cxx
+@@ -23,6 +23,7 @@
+  * from the National Center for Research Resources (NCRR), a component of the
+  * National Institutes of Health (NIH).
+ */
++#include <iostream>
+ #include "animaNLOPTOptimizers.h"
+ 
+ #include <math.h>
+diff --git a/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.h b/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.h
+index 1900cce..82d57de 100644
+--- a/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.h
++++ b/Anima/math-tools/optimizers/nlopt_optimizers/animaNLOPTOptimizers.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <itkVector.h>
+ #include <itkMatrix.h>
+ #include <itkSingleValuedNonLinearOptimizer.h>
+diff --git a/Anima/math-tools/sphere_operations/sphere_average_test/animaSphereAverageTest.cxx b/Anima/math-tools/sphere_operations/sphere_average_test/animaSphereAverageTest.cxx
+index 4713ddb..47cf321 100644
+--- a/Anima/math-tools/sphere_operations/sphere_average_test/animaSphereAverageTest.cxx
++++ b/Anima/math-tools/sphere_operations/sphere_average_test/animaSphereAverageTest.cxx
+@@ -1,4 +1,5 @@
+ #include <animaLogExpMapsUnitSphere.h>
++#include <iostream>
+ #include <tclap/CmdLine.h>
+ 
+ #include <animaDistributionSampling.h>
+diff --git a/Anima/math-tools/statistical_distributions/animaDistributionSampling.hxx b/Anima/math-tools/statistical_distributions/animaDistributionSampling.hxx
+index 84efaff..741848f 100644
+--- a/Anima/math-tools/statistical_distributions/animaDistributionSampling.hxx
++++ b/Anima/math-tools/statistical_distributions/animaDistributionSampling.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDistributionSampling.h"
+ 
+ #include <cmath>
+diff --git a/Anima/math-tools/statistical_distributions/animaVMFDistribution.hxx b/Anima/math-tools/statistical_distributions/animaVMFDistribution.hxx
+index 8cf3f94..c5292fb 100644
+--- a/Anima/math-tools/statistical_distributions/animaVMFDistribution.hxx
++++ b/Anima/math-tools/statistical_distributions/animaVMFDistribution.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include <cmath>
+ 
+ #include "animaVMFDistribution.h"
+diff --git a/Anima/math-tools/statistical_tests/fdr_correct_pvalues/animaFDRCorrectPValues.cxx b/Anima/math-tools/statistical_tests/fdr_correct_pvalues/animaFDRCorrectPValues.cxx
+index 67c5d6e..c6fd6e3 100644
+--- a/Anima/math-tools/statistical_tests/fdr_correct_pvalues/animaFDRCorrectPValues.cxx
++++ b/Anima/math-tools/statistical_tests/fdr_correct_pvalues/animaFDRCorrectPValues.cxx
+@@ -1,4 +1,5 @@
+ #include <animaFDRCorrectImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/math-tools/statistical_tests/fibers_fdr_correct_pvalues/animaFibersFDRCorrectPValues.cxx b/Anima/math-tools/statistical_tests/fibers_fdr_correct_pvalues/animaFibersFDRCorrectPValues.cxx
+index 032883e..1323441 100644
+--- a/Anima/math-tools/statistical_tests/fibers_fdr_correct_pvalues/animaFibersFDRCorrectPValues.cxx
++++ b/Anima/math-tools/statistical_tests/fibers_fdr_correct_pvalues/animaFibersFDRCorrectPValues.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaShapesReader.h>
+ #include <animaShapesWriter.h>
+diff --git a/Anima/math-tools/statistical_tests/low_memory_tools/nlmeans_patient_to_group_comparison/animaLowMemNLMeansPatientToGroupComparisonBridge.cxx b/Anima/math-tools/statistical_tests/low_memory_tools/nlmeans_patient_to_group_comparison/animaLowMemNLMeansPatientToGroupComparisonBridge.cxx
+index 922d2a1..887052f 100644
+--- a/Anima/math-tools/statistical_tests/low_memory_tools/nlmeans_patient_to_group_comparison/animaLowMemNLMeansPatientToGroupComparisonBridge.cxx
++++ b/Anima/math-tools/statistical_tests/low_memory_tools/nlmeans_patient_to_group_comparison/animaLowMemNLMeansPatientToGroupComparisonBridge.cxx
+@@ -1,4 +1,5 @@
+ #include "animaLowMemNLMeansPatientToGroupComparisonBridge.h"
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ #include <animaVectorImagePatchStatistics.h>
+ 
+diff --git a/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_comparison/animaLowMemPatientToGroupComparisonBridge.cxx b/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_comparison/animaLowMemPatientToGroupComparisonBridge.cxx
+index d9dec5a..fc4017a 100644
+--- a/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_comparison/animaLowMemPatientToGroupComparisonBridge.cxx
++++ b/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_comparison/animaLowMemPatientToGroupComparisonBridge.cxx
+@@ -1,4 +1,5 @@
+ #include "animaLowMemPatientToGroupComparisonBridge.h"
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ namespace anima
+diff --git a/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_odf_comparison/animaLowMemPatientToGroupODFComparisonBridge.cxx b/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_odf_comparison/animaLowMemPatientToGroupODFComparisonBridge.cxx
+index a69866e..56cd5d2 100644
+--- a/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_odf_comparison/animaLowMemPatientToGroupODFComparisonBridge.cxx
++++ b/Anima/math-tools/statistical_tests/low_memory_tools/patient_to_group_odf_comparison/animaLowMemPatientToGroupODFComparisonBridge.cxx
+@@ -1,4 +1,5 @@
+ #include <animaLowMemPatientToGroupODFComparisonBridge.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ namespace anima
+diff --git a/Anima/math-tools/statistics/low_memory_tools/local_patch_covariance_distance/animaLowMemLocalPatchCovarianceDistanceBridge.cxx b/Anima/math-tools/statistics/low_memory_tools/local_patch_covariance_distance/animaLowMemLocalPatchCovarianceDistanceBridge.cxx
+index 6144847..8566a85 100644
+--- a/Anima/math-tools/statistics/low_memory_tools/local_patch_covariance_distance/animaLowMemLocalPatchCovarianceDistanceBridge.cxx
++++ b/Anima/math-tools/statistics/low_memory_tools/local_patch_covariance_distance/animaLowMemLocalPatchCovarianceDistanceBridge.cxx
+@@ -1,4 +1,5 @@
+ #include "animaLowMemLocalPatchCovarianceDistanceBridge.h"
++#include <iostream>
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+ 
+diff --git a/Anima/math-tools/statistics/low_memory_tools/local_patch_mean_distance/animaLowMemLocalPatchMeanDistanceBridge.cxx b/Anima/math-tools/statistics/low_memory_tools/local_patch_mean_distance/animaLowMemLocalPatchMeanDistanceBridge.cxx
+index 6542d64..414310b 100644
+--- a/Anima/math-tools/statistics/low_memory_tools/local_patch_mean_distance/animaLowMemLocalPatchMeanDistanceBridge.cxx
++++ b/Anima/math-tools/statistics/low_memory_tools/local_patch_mean_distance/animaLowMemLocalPatchMeanDistanceBridge.cxx
+@@ -1,4 +1,5 @@
+ #include "animaLowMemLocalPatchMeanDistanceBridge.h"
++#include <iostream>
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+ 
+diff --git a/Anima/math-tools/transformations/animaAxisRotationTransform.hxx b/Anima/math-tools/transformations/animaAxisRotationTransform.hxx
+index 164e8ce..b5080ec 100644
+--- a/Anima/math-tools/transformations/animaAxisRotationTransform.hxx
++++ b/Anima/math-tools/transformations/animaAxisRotationTransform.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include <animaAxisRotationTransform.h>
+ #include <animaMatrixOperations.h>
+ 
+diff --git a/Anima/math-tools/transformations/animaDirectionScaleSkewTransform.hxx b/Anima/math-tools/transformations/animaDirectionScaleSkewTransform.hxx
+index 03c6a3a..f2d54cf 100644
+--- a/Anima/math-tools/transformations/animaDirectionScaleSkewTransform.hxx
++++ b/Anima/math-tools/transformations/animaDirectionScaleSkewTransform.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDirectionScaleSkewTransform.h"
+ 
+ namespace anima
+diff --git a/Anima/math-tools/transformations/animaLogRigid3DTransform.hxx b/Anima/math-tools/transformations/animaLogRigid3DTransform.hxx
+index 66855a6..9f48bd2 100644
+--- a/Anima/math-tools/transformations/animaLogRigid3DTransform.hxx
++++ b/Anima/math-tools/transformations/animaLogRigid3DTransform.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <animaMatrixLogExp.h>
+ 
+ namespace anima
+diff --git a/Anima/math-tools/transformations/animaSplitAffine3DTransform.hxx b/Anima/math-tools/transformations/animaSplitAffine3DTransform.hxx
+index 3722857..091bf9b 100644
+--- a/Anima/math-tools/transformations/animaSplitAffine3DTransform.hxx
++++ b/Anima/math-tools/transformations/animaSplitAffine3DTransform.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaSplitAffine3DTransform.h"
+ #include <animaMatrixLogExp.h>
+ 
+diff --git a/Anima/math-tools/transformations/animaSymmetryPlaneTransform.hxx b/Anima/math-tools/transformations/animaSymmetryPlaneTransform.hxx
+index 9fa26ff..516fc8a 100644
+--- a/Anima/math-tools/transformations/animaSymmetryPlaneTransform.hxx
++++ b/Anima/math-tools/transformations/animaSymmetryPlaneTransform.hxx
+@@ -1,3 +1,4 @@
++#include <iostream>
+ #pragma once
+ 
+ namespace anima
+diff --git a/Anima/math-tools/transformations/animaTransformSeriesReader.hxx b/Anima/math-tools/transformations/animaTransformSeriesReader.hxx
+index 763d44c..8342e46 100644
+--- a/Anima/math-tools/transformations/animaTransformSeriesReader.hxx
++++ b/Anima/math-tools/transformations/animaTransformSeriesReader.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaTransformSeriesReader.h"
+ 
+ #include <tinyxml2.h>
+diff --git a/Anima/quantitative-mri/estimation/animaB1GammaMixtureT2RelaxometryCostFunction.cxx b/Anima/quantitative-mri/estimation/animaB1GammaMixtureT2RelaxometryCostFunction.cxx
+index 6704cee..7b6cb72 100644
+--- a/Anima/quantitative-mri/estimation/animaB1GammaMixtureT2RelaxometryCostFunction.cxx
++++ b/Anima/quantitative-mri/estimation/animaB1GammaMixtureT2RelaxometryCostFunction.cxx
+@@ -1,4 +1,5 @@
+ #include "animaB1GammaMixtureT2RelaxometryCostFunction.h"
++#include <iostream>
+ 
+ #include <animaGaussLaguerreQuadrature.h>
+ #include <animaGaussLegendreQuadrature.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_coherent_gre/animaSimuBlochCoherentGRE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_coherent_gre/animaSimuBlochCoherentGRE.cxx
+index e21dbb5..05029d3 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_coherent_gre/animaSimuBlochCoherentGRE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_coherent_gre/animaSimuBlochCoherentGRE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_gre/animaSimuBlochGRE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_gre/animaSimuBlochGRE.cxx
+index d57a4e9..d31b3df 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_gre/animaSimuBlochGRE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_gre/animaSimuBlochGRE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_gre/animaSimuBlochIR-GRE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_gre/animaSimuBlochIR-GRE.cxx
+index ad61b7e..1382628 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_gre/animaSimuBlochIR-GRE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_gre/animaSimuBlochIR-GRE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_se/animaSimuBlochIR-SE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_se/animaSimuBlochIR-SE.cxx
+index 4e2c4aa..0fecfe6 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_se/animaSimuBlochIR-SE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_ir_se/animaSimuBlochIR-SE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_se/animaSimuBlochSE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_se/animaSimuBlochSE.cxx
+index aad6095..645dcf8 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_se/animaSimuBlochSE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_se/animaSimuBlochSE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/simu_bloch_sp_gre/animaSimuBlochSP-GRE.cxx b/Anima/quantitative-mri/mr-simulation/simu_bloch_sp_gre/animaSimuBlochSP-GRE.cxx
+index b291a64..2e3f970 100644
+--- a/Anima/quantitative-mri/mr-simulation/simu_bloch_sp_gre/animaSimuBlochSP-GRE.cxx
++++ b/Anima/quantitative-mri/mr-simulation/simu_bloch_sp_gre/animaSimuBlochSP-GRE.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImage.h>
+ #include <itkImageFileReader.h>
+diff --git a/Anima/quantitative-mri/mr-simulation/stimulated_spin_echo_simulator/animaStimulatedSpinEchoSimulator.cxx b/Anima/quantitative-mri/mr-simulation/stimulated_spin_echo_simulator/animaStimulatedSpinEchoSimulator.cxx
+index 3ff5228..a04097b 100644
+--- a/Anima/quantitative-mri/mr-simulation/stimulated_spin_echo_simulator/animaStimulatedSpinEchoSimulator.cxx
++++ b/Anima/quantitative-mri/mr-simulation/stimulated_spin_echo_simulator/animaStimulatedSpinEchoSimulator.cxx
+@@ -1,4 +1,5 @@
+ #include <cmath>
++#include <iostream>
+ 
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/registration/algorithms/animaAsymmetricBMRegistrationMethod.hxx b/Anima/registration/algorithms/animaAsymmetricBMRegistrationMethod.hxx
+index 122c696..6a419ce 100644
+--- a/Anima/registration/algorithms/animaAsymmetricBMRegistrationMethod.hxx
++++ b/Anima/registration/algorithms/animaAsymmetricBMRegistrationMethod.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaAsymmetricBMRegistrationMethod.h"
+ 
+ #include <animaBalooSVFTransformAgregator.h>
+diff --git a/Anima/registration/algorithms/animaBaseAffineBlockMatcher.hxx b/Anima/registration/algorithms/animaBaseAffineBlockMatcher.hxx
+index 052d7ec..aeae7e3 100644
+--- a/Anima/registration/algorithms/animaBaseAffineBlockMatcher.hxx
++++ b/Anima/registration/algorithms/animaBaseAffineBlockMatcher.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include <animaBaseAffineBlockMatcher.h>
+ 
+ /* Transforms */
+diff --git a/Anima/registration/algorithms/animaBaseBMRegistrationMethod.hxx b/Anima/registration/algorithms/animaBaseBMRegistrationMethod.hxx
+index e983ff0..1b7601a 100644
+--- a/Anima/registration/algorithms/animaBaseBMRegistrationMethod.hxx
++++ b/Anima/registration/algorithms/animaBaseBMRegistrationMethod.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaBaseBMRegistrationMethod.h"
+ 
+ #include <animaResampleImageFilter.h>
+diff --git a/Anima/registration/algorithms/animaBaseBlockMatcher.hxx b/Anima/registration/algorithms/animaBaseBlockMatcher.hxx
+index eba7c58..577c389 100644
+--- a/Anima/registration/algorithms/animaBaseBlockMatcher.hxx
++++ b/Anima/registration/algorithms/animaBaseBlockMatcher.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaBaseBlockMatcher.h"
+ 
+ #include <animaNLOPTOptimizers.h>
+diff --git a/Anima/registration/algorithms/animaDistortionCorrectionBMRegistrationMethod.hxx b/Anima/registration/algorithms/animaDistortionCorrectionBMRegistrationMethod.hxx
+index b210e1e..9e4a9d4 100644
+--- a/Anima/registration/algorithms/animaDistortionCorrectionBMRegistrationMethod.hxx
++++ b/Anima/registration/algorithms/animaDistortionCorrectionBMRegistrationMethod.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDistortionCorrectionBMRegistrationMethod.h"
+ 
+ #include <animaBalooSVFTransformAgregator.h>
+diff --git a/Anima/registration/algorithms/animaKissingSymmetricBMRegistrationMethod.hxx b/Anima/registration/algorithms/animaKissingSymmetricBMRegistrationMethod.hxx
+index 1c1aedf..b67197a 100644
+--- a/Anima/registration/algorithms/animaKissingSymmetricBMRegistrationMethod.hxx
++++ b/Anima/registration/algorithms/animaKissingSymmetricBMRegistrationMethod.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaKissingSymmetricBMRegistrationMethod.h"
+ 
+ #include <animaBalooSVFTransformAgregator.h>
+diff --git a/Anima/registration/algorithms/animaMCMBlockMatcher.hxx b/Anima/registration/algorithms/animaMCMBlockMatcher.hxx
+index a7d7d56..12e7a2b 100644
+--- a/Anima/registration/algorithms/animaMCMBlockMatcher.hxx
++++ b/Anima/registration/algorithms/animaMCMBlockMatcher.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include <animaMCMBlockMatcher.h>
+ 
+ /* Similarity measures */
+diff --git a/Anima/registration/algorithms/animaSymmetricBMRegistrationMethod.hxx b/Anima/registration/algorithms/animaSymmetricBMRegistrationMethod.hxx
+index 548768b..4325b62 100644
+--- a/Anima/registration/algorithms/animaSymmetricBMRegistrationMethod.hxx
++++ b/Anima/registration/algorithms/animaSymmetricBMRegistrationMethod.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaSymmetricBMRegistrationMethod.h"
+ 
+ #include <animaBalooSVFTransformAgregator.h>
+diff --git a/Anima/registration/anatomical-commands/bm_distortion_correction/animaBMDistortionCorrection.cxx b/Anima/registration/anatomical-commands/bm_distortion_correction/animaBMDistortionCorrection.cxx
+index 93142ff..a400c69 100644
+--- a/Anima/registration/anatomical-commands/bm_distortion_correction/animaBMDistortionCorrection.cxx
++++ b/Anima/registration/anatomical-commands/bm_distortion_correction/animaBMDistortionCorrection.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaPyramidalDistortionCorrectionBlockMatchingBridge.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/anatomical-commands/bm_distortion_correction/animaPyramidalDistortionCorrectionBlockMatchingBridge.hxx b/Anima/registration/anatomical-commands/bm_distortion_correction/animaPyramidalDistortionCorrectionBlockMatchingBridge.hxx
+index 7e7a409..d2789cd 100644
+--- a/Anima/registration/anatomical-commands/bm_distortion_correction/animaPyramidalDistortionCorrectionBlockMatchingBridge.hxx
++++ b/Anima/registration/anatomical-commands/bm_distortion_correction/animaPyramidalDistortionCorrectionBlockMatchingBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalDistortionCorrectionBlockMatchingBridge.h"
+ #include <itkImageMomentsCalculator.h>
+ 
+diff --git a/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaDenseSVFBMRegistration.cxx b/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaDenseSVFBMRegistration.cxx
+index 974c61c..c668021 100644
+--- a/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaDenseSVFBMRegistration.cxx
++++ b/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaDenseSVFBMRegistration.cxx
+@@ -1,4 +1,5 @@
+ #include <animaPyramidalDenseSVFMatchingBridge.h>
++#include <iostream>
+ 
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaPyramidalDenseSVFMatchingBridge.hxx b/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaPyramidalDenseSVFMatchingBridge.hxx
+index ca12b45..e9ce7bf 100644
+--- a/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaPyramidalDenseSVFMatchingBridge.hxx
++++ b/Anima/registration/anatomical-commands/dense_svf_bm_registration/animaPyramidalDenseSVFMatchingBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalDenseSVFMatchingBridge.h"
+ 
+ #include <itkResampleImageFilter.h>
+diff --git a/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrection.cxx b/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrection.cxx
+index 78cbc3e..f5ff0b6 100644
+--- a/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrection.cxx
++++ b/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrection.cxx
+@@ -1,4 +1,5 @@
+ #include <animaDistortionCorrectionImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrectionImageFilter.h b/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrectionImageFilter.h
+index 87fa4dc..785356b 100644
+--- a/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrectionImageFilter.h
++++ b/Anima/registration/anatomical-commands/distortion_correction/animaDistortionCorrectionImageFilter.h
+@@ -31,7 +31,7 @@ public:
+     itkNewMacro(Self)
+ 
+     /** Run-time type information (and related methods). */
+-    itkTypeMacro(DistortionCorrectionFilter, itk::ImageToImageFilter)
++    itkTypeMacro(DistortionCorrectionImageFilter, itk::ImageToImageFilter)
+ 
+     itkSetMacro(Direction, unsigned int)
+     itkSetMacro(FieldSmoothingSigma, double)
+diff --git a/Anima/registration/anatomical-commands/eddy_current_correction/animaEddyCurrentCorrection.cxx b/Anima/registration/anatomical-commands/eddy_current_correction/animaEddyCurrentCorrection.cxx
+index 47629b0..934c165 100644
+--- a/Anima/registration/anatomical-commands/eddy_current_correction/animaEddyCurrentCorrection.cxx
++++ b/Anima/registration/anatomical-commands/eddy_current_correction/animaEddyCurrentCorrection.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaPyramidalBlockMatchingBridge.h>
+ #include <animaPyramidalDenseSVFMatchingBridge.h>
+diff --git a/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBMRegistration.cxx b/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBMRegistration.cxx
+index d16cee1..06678b4 100644
+--- a/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBMRegistration.cxx
++++ b/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBMRegistration.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaPyramidalBlockMatchingBridge.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBlockMatchingBridge.hxx b/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBlockMatchingBridge.hxx
+index 8c1d90d..16594ac 100644
+--- a/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBlockMatchingBridge.hxx
++++ b/Anima/registration/anatomical-commands/pyramidal_bm_registration/animaPyramidalBlockMatchingBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalBlockMatchingBridge.h"
+ 
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaDenseMCMSVFBMRegistration.cxx b/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaDenseMCMSVFBMRegistration.cxx
+index 988daf6..5bdd44a 100644
+--- a/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaDenseMCMSVFBMRegistration.cxx
++++ b/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaDenseMCMSVFBMRegistration.cxx
+@@ -1,4 +1,5 @@
+ #include <animaPyramidalDenseMCMSVFMatchingBridge.h>
++#include <iostream>
+ #include <animaMCMFileReader.h>
+ #include <animaGradientFileReader.h>
+ 
+diff --git a/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaPyramidalDenseMCMSVFMatchingBridge.hxx b/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaPyramidalDenseMCMSVFMatchingBridge.hxx
+index fe53eb9..4790bd8 100644
+--- a/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaPyramidalDenseMCMSVFMatchingBridge.hxx
++++ b/Anima/registration/diffusion-commands/dense-mcm-svf-bm-registration/animaPyramidalDenseMCMSVFMatchingBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalDenseMCMSVFMatchingBridge.h"
+ 
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaDenseTensorSVFBMRegistration.cxx b/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaDenseTensorSVFBMRegistration.cxx
+index 8ffde28..4f10220 100644
+--- a/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaDenseTensorSVFBMRegistration.cxx
++++ b/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaDenseTensorSVFBMRegistration.cxx
+@@ -1,4 +1,5 @@
+ #include <animaPyramidalDenseTensorSVFMatchingBridge.h>
++#include <iostream>
+ 
+ #include <tclap/CmdLine.h>
+ 
+diff --git a/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaPyramidalDenseTensorSVFMatchingBridge.hxx b/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaPyramidalDenseTensorSVFMatchingBridge.hxx
+index 00aef9f..f42e7a5 100644
+--- a/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaPyramidalDenseTensorSVFMatchingBridge.hxx
++++ b/Anima/registration/diffusion-commands/dense_tensor_svf_bm_registration/animaPyramidalDenseTensorSVFMatchingBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalDenseTensorSVFMatchingBridge.h"
+ 
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/resamplers/animaResampleImageFilter.hxx b/Anima/registration/resamplers/animaResampleImageFilter.hxx
+index ff07687..a1e5bb1 100644
+--- a/Anima/registration/resamplers/animaResampleImageFilter.hxx
++++ b/Anima/registration/resamplers/animaResampleImageFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaResampleImageFilter.h"
+ #include <itkObjectFactory.h>
+ #include <itkIdentityTransform.h>
+diff --git a/Anima/registration/resamplers/animaTensorResampleImageFilter.hxx b/Anima/registration/resamplers/animaTensorResampleImageFilter.hxx
+index 44b0b5f..e8c8c36 100644
+--- a/Anima/registration/resamplers/animaTensorResampleImageFilter.hxx
++++ b/Anima/registration/resamplers/animaTensorResampleImageFilter.hxx
+@@ -45,7 +45,13 @@ TensorResampleImageFilter<TImageType, TInterpolatorPrecisionType>
+         typedef itk::Matrix <double,3,3> MatrixType;
+         typedef vnl_vector_fixed <double,3> VectorType;
+         itk::SymmetricEigenAnalysis < MatrixType, VectorType, MatrixType> eigenComputer(3);
+-        eigenComputer.ComputeEigenValuesAndVectors(m_WorkMats[threadId],m_WorkEigenValues[threadId],
++        // ITK 5.4 requires the matrix type to match the template arg; copy the
++        // 3x3 vnl_matrix into an itk::Matrix.
++        MatrixType workMatrix;
++        for (unsigned int wi = 0;wi < 3;++wi)
++            for (unsigned int wj = 0;wj < 3;++wj)
++                workMatrix(wi,wj) = m_WorkMats[threadId](wi,wj);
++        eigenComputer.ComputeEigenValuesAndVectors(workMatrix,m_WorkEigenValues[threadId],
+                                                    m_WorkEigenVectors[threadId]);
+ 
+         anima::ExtractPPDRotationFromJacobianMatrix(modelOrientationMatrix,m_WorkPPDOrientationMatrices[threadId],m_WorkEigenVectors[threadId]);
+diff --git a/Anima/registration/resamplers/apply_distortion_correction/animaApplyDistortionCorrection.cxx b/Anima/registration/resamplers/apply_distortion_correction/animaApplyDistortionCorrection.cxx
+index d899e40..52e2609 100644
+--- a/Anima/registration/resamplers/apply_distortion_correction/animaApplyDistortionCorrection.cxx
++++ b/Anima/registration/resamplers/apply_distortion_correction/animaApplyDistortionCorrection.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkMultiplyImageFilter.h>
+ #include <itkAddImageFilter.h>
+diff --git a/Anima/registration/resamplers/apply_transform_serie/animaApplyTransformSerie.cxx b/Anima/registration/resamplers/apply_transform_serie/animaApplyTransformSerie.cxx
+index d1ac1a6..43fd8cb 100644
+--- a/Anima/registration/resamplers/apply_transform_serie/animaApplyTransformSerie.cxx
++++ b/Anima/registration/resamplers/apply_transform_serie/animaApplyTransformSerie.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkResampleImageFilter.h>
+ #include <itkMinimumMaximumImageFilter.h>
+diff --git a/Anima/registration/resamplers/fibers_apply_transform_serie/animaFibersApplyTransformSerie.cxx b/Anima/registration/resamplers/fibers_apply_transform_serie/animaFibersApplyTransformSerie.cxx
+index a09d5df..58e9fa9 100644
+--- a/Anima/registration/resamplers/fibers_apply_transform_serie/animaFibersApplyTransformSerie.cxx
++++ b/Anima/registration/resamplers/fibers_apply_transform_serie/animaFibersApplyTransformSerie.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ #include <animaTransformSeriesReader.h>
+ #include <animaShapesReader.h>
+ #include <animaShapesWriter.h>
+diff --git a/Anima/registration/resamplers/mcm_apply_transform_serie/animaMCMApplyTransformSerie.cxx b/Anima/registration/resamplers/mcm_apply_transform_serie/animaMCMApplyTransformSerie.cxx
+index 85c6a4c..7940e66 100644
+--- a/Anima/registration/resamplers/mcm_apply_transform_serie/animaMCMApplyTransformSerie.cxx
++++ b/Anima/registration/resamplers/mcm_apply_transform_serie/animaMCMApplyTransformSerie.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaMCMFileReader.h>
+ #include <animaMCMFileWriter.h>
+diff --git a/Anima/registration/resamplers/odf_apply_transform_serie/animaODFApplyTransformSerie.cxx b/Anima/registration/resamplers/odf_apply_transform_serie/animaODFApplyTransformSerie.cxx
+index fb736a1..14198aa 100644
+--- a/Anima/registration/resamplers/odf_apply_transform_serie/animaODFApplyTransformSerie.cxx
++++ b/Anima/registration/resamplers/odf_apply_transform_serie/animaODFApplyTransformSerie.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+diff --git a/Anima/registration/resamplers/pyramid_image/animaPyramidImage.cxx b/Anima/registration/resamplers/pyramid_image/animaPyramidImage.cxx
+index 9052fb1..8e7ee9d 100644
+--- a/Anima/registration/resamplers/pyramid_image/animaPyramidImage.cxx
++++ b/Anima/registration/resamplers/pyramid_image/animaPyramidImage.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+diff --git a/Anima/registration/resamplers/tensor_apply_transform_serie/animaTensorApplyTransformSerie.cxx b/Anima/registration/resamplers/tensor_apply_transform_serie/animaTensorApplyTransformSerie.cxx
+index 99391d6..96577a7 100644
+--- a/Anima/registration/resamplers/tensor_apply_transform_serie/animaTensorApplyTransformSerie.cxx
++++ b/Anima/registration/resamplers/tensor_apply_transform_serie/animaTensorApplyTransformSerie.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+diff --git a/Anima/registration/similarity-measures/animaBaseOrientedModelImageToImageMetric.hxx b/Anima/registration/similarity-measures/animaBaseOrientedModelImageToImageMetric.hxx
+index e3faf10..52f31d1 100644
+--- a/Anima/registration/similarity-measures/animaBaseOrientedModelImageToImageMetric.hxx
++++ b/Anima/registration/similarity-measures/animaBaseOrientedModelImageToImageMetric.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaBaseOrientedModelImageToImageMetric.h"
+ 
+ #include <animaBaseTensorTools.h>
+diff --git a/Anima/registration/similarity-measures/animaFastCorrelationImageToImageMetric.hxx b/Anima/registration/similarity-measures/animaFastCorrelationImageToImageMetric.hxx
+index 3bc2a0e..843e957 100644
+--- a/Anima/registration/similarity-measures/animaFastCorrelationImageToImageMetric.hxx
++++ b/Anima/registration/similarity-measures/animaFastCorrelationImageToImageMetric.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaFastCorrelationImageToImageMetric.h"
+ 
+ #include <itkImageRegionConstIteratorWithIndex.h>
+diff --git a/Anima/registration/similarity-measures/animaTensorGeneralizedCorrelationImageToImageMetric.hxx b/Anima/registration/similarity-measures/animaTensorGeneralizedCorrelationImageToImageMetric.hxx
+index 08710cd..38d715b 100644
+--- a/Anima/registration/similarity-measures/animaTensorGeneralizedCorrelationImageToImageMetric.hxx
++++ b/Anima/registration/similarity-measures/animaTensorGeneralizedCorrelationImageToImageMetric.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaTensorGeneralizedCorrelationImageToImageMetric.h"
+ 
+ #include <itkImageRegionConstIteratorWithIndex.h>
+diff --git a/Anima/registration/similarity-measures/mcm-measure-test/animaMCMMeasureTest.cxx b/Anima/registration/similarity-measures/mcm-measure-test/animaMCMMeasureTest.cxx
+index 1bac4b4..25e5952 100644
+--- a/Anima/registration/similarity-measures/mcm-measure-test/animaMCMMeasureTest.cxx
++++ b/Anima/registration/similarity-measures/mcm-measure-test/animaMCMMeasureTest.cxx
+@@ -1,4 +1,5 @@
+ #include <animaMultiCompartmentModel.h>
++#include <iostream>
+ #include <animaMCMPairingMeanSquaresImageToImageMetric.h>
+ #include <animaMCMMeanSquaresImageToImageMetric.h>
+ #include <animaMCMCorrelationImageToImageMetric.h>
+diff --git a/Anima/registration/symmetry/symmetry_constrained_registration/animaPyramidalSymmetryConstrainedRegistrationBridge.hxx b/Anima/registration/symmetry/symmetry_constrained_registration/animaPyramidalSymmetryConstrainedRegistrationBridge.hxx
+index 7e6856d..4d64c95 100644
+--- a/Anima/registration/symmetry/symmetry_constrained_registration/animaPyramidalSymmetryConstrainedRegistrationBridge.hxx
++++ b/Anima/registration/symmetry/symmetry_constrained_registration/animaPyramidalSymmetryConstrainedRegistrationBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalSymmetryConstrainedRegistrationBridge.h"
+ 
+ #include <itkTransformFactoryBase.h>
+diff --git a/Anima/registration/symmetry/symmetry_constrained_registration/animaSymmetryConstrainedRegistration.cxx b/Anima/registration/symmetry/symmetry_constrained_registration/animaSymmetryConstrainedRegistration.cxx
+index 785cb88..e3c2fa3 100644
+--- a/Anima/registration/symmetry/symmetry_constrained_registration/animaSymmetryConstrainedRegistration.cxx
++++ b/Anima/registration/symmetry/symmetry_constrained_registration/animaSymmetryConstrainedRegistration.cxx
+@@ -1,4 +1,5 @@
+ #include <animaPyramidalSymmetryConstrainedRegistrationBridge.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/symmetry/symmetry_plane/animaPyramidalSymmetryBridge.hxx b/Anima/registration/symmetry/symmetry_plane/animaPyramidalSymmetryBridge.hxx
+index 59c7bdc..1f3256b 100644
+--- a/Anima/registration/symmetry/symmetry_plane/animaPyramidalSymmetryBridge.hxx
++++ b/Anima/registration/symmetry/symmetry_plane/animaPyramidalSymmetryBridge.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaPyramidalSymmetryBridge.h"
+ 
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/symmetry/symmetry_plane/animaSymmetryPlane.cxx b/Anima/registration/symmetry/symmetry_plane/animaSymmetryPlane.cxx
+index 22e15af..c8508ba 100644
+--- a/Anima/registration/symmetry/symmetry_plane/animaSymmetryPlane.cxx
++++ b/Anima/registration/symmetry/symmetry_plane/animaSymmetryPlane.cxx
+@@ -1,4 +1,5 @@
+ #include <animaPyramidalSymmetryBridge.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <itkTimeProbe.h>
+diff --git a/Anima/registration/tools/image_mosaicing/animaImageMosaicing.cxx b/Anima/registration/tools/image_mosaicing/animaImageMosaicing.cxx
+index 760361a..468a96a 100644
+--- a/Anima/registration/tools/image_mosaicing/animaImageMosaicing.cxx
++++ b/Anima/registration/tools/image_mosaicing/animaImageMosaicing.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaResampleImageFilter.h>
+ #include <itkTransformFileReader.h>
+diff --git a/Anima/registration/tools/jacobian/animaDisplacementFieldJacobian.cxx b/Anima/registration/tools/jacobian/animaDisplacementFieldJacobian.cxx
+index eefa612..ffded35 100644
+--- a/Anima/registration/tools/jacobian/animaDisplacementFieldJacobian.cxx
++++ b/Anima/registration/tools/jacobian/animaDisplacementFieldJacobian.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <animaJacobianMatrixImageFilter.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/registration/tools/transform_serie_xml_generator/animaTransformSerieXmlGenerator.cxx b/Anima/registration/tools/transform_serie_xml_generator/animaTransformSerieXmlGenerator.cxx
+index fb725b4..9a554b3 100644
+--- a/Anima/registration/tools/transform_serie_xml_generator/animaTransformSerieXmlGenerator.cxx
++++ b/Anima/registration/tools/transform_serie_xml_generator/animaTransformSerieXmlGenerator.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <string>
+ #include <fstream>
+diff --git a/Anima/registration/transformation-agregators/animaBalooSVFTransformAgregator.hxx b/Anima/registration/transformation-agregators/animaBalooSVFTransformAgregator.hxx
+index e3e0b4a..6759e2b 100644
+--- a/Anima/registration/transformation-agregators/animaBalooSVFTransformAgregator.hxx
++++ b/Anima/registration/transformation-agregators/animaBalooSVFTransformAgregator.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaBalooSVFTransformAgregator.h"
+ 
+ #include <animaSmoothingRecursiveYvvGaussianImageFilter.h>
+diff --git a/Anima/registration/transformation-agregators/animaBaseTransformAgregator.hxx b/Anima/registration/transformation-agregators/animaBaseTransformAgregator.hxx
+index 1a79b4d..23890f5 100644
+--- a/Anima/registration/transformation-agregators/animaBaseTransformAgregator.hxx
++++ b/Anima/registration/transformation-agregators/animaBaseTransformAgregator.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaBaseTransformAgregator.h"
+ 
+ namespace anima
+diff --git a/Anima/registration/transformation-agregators/animaDenseSVFTransformAgregator.hxx b/Anima/registration/transformation-agregators/animaDenseSVFTransformAgregator.hxx
+index b61d7f0..5a60457 100644
+--- a/Anima/registration/transformation-agregators/animaDenseSVFTransformAgregator.hxx
++++ b/Anima/registration/transformation-agregators/animaDenseSVFTransformAgregator.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaDenseSVFTransformAgregator.h"
+ 
+ #include <animaMEstimateSVFImageFilter.h>
+diff --git a/Anima/registration/transformation-agregators/animaLSWTransformAgregator.hxx b/Anima/registration/transformation-agregators/animaLSWTransformAgregator.hxx
+index 1d60644..2a3657b 100644
+--- a/Anima/registration/transformation-agregators/animaLSWTransformAgregator.hxx
++++ b/Anima/registration/transformation-agregators/animaLSWTransformAgregator.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaLSWTransformAgregator.h"
+ #include <animaLogRigid3DTransform.h>
+ #include <animaLinearTransformEstimationTools.h>
+diff --git a/Anima/segmentation/basic_tools/connected_components/animaConnectedComponents.cxx b/Anima/segmentation/basic_tools/connected_components/animaConnectedComponents.cxx
+index ed982f1..00b4b5d 100644
+--- a/Anima/segmentation/basic_tools/connected_components/animaConnectedComponents.cxx
++++ b/Anima/segmentation/basic_tools/connected_components/animaConnectedComponents.cxx
+@@ -1,4 +1,5 @@
+ #include <itkConnectedComponentImageFilter.h>
++#include <iostream>
+ #include <itkRelabelComponentImageFilter.h>
+ #include <itkImageFileReader.h>
+ #include <itkImageFileWriter.h>
+diff --git a/Anima/segmentation/basic_tools/distance_map/animaDistanceMap.cxx b/Anima/segmentation/basic_tools/distance_map/animaDistanceMap.cxx
+index 70f0f34..ac40f7b 100644
+--- a/Anima/segmentation/basic_tools/distance_map/animaDistanceMap.cxx
++++ b/Anima/segmentation/basic_tools/distance_map/animaDistanceMap.cxx
+@@ -1,4 +1,5 @@
+ #include <itkSignedMaurerDistanceMapImageFilter.h>
++#include <iostream>
+ 
+ #include <animaReadWriteFunctions.h>
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/segmentation/basic_tools/kmeans_clustering/animaKMeansClustering.cxx b/Anima/segmentation/basic_tools/kmeans_clustering/animaKMeansClustering.cxx
+index a1038b8..0a1c37f 100644
+--- a/Anima/segmentation/basic_tools/kmeans_clustering/animaKMeansClustering.cxx
++++ b/Anima/segmentation/basic_tools/kmeans_clustering/animaKMeansClustering.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkScalarImageKmeansImageFilter.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/segmentation/basic_tools/majority_voting/animaMajorityLabelVoting.cxx b/Anima/segmentation/basic_tools/majority_voting/animaMajorityLabelVoting.cxx
+old mode 100755
+new mode 100644
+index 7ffcc1a..2add611
+--- a/Anima/segmentation/basic_tools/majority_voting/animaMajorityLabelVoting.cxx
++++ b/Anima/segmentation/basic_tools/majority_voting/animaMajorityLabelVoting.cxx
+@@ -1,4 +1,5 @@
+ #include <animaMajorityLabelVotingImageFilter.h>
++#include <iostream>
+ #include <animaReadWriteFunctions.h>
+ 
+ #include <tclap/CmdLine.h>
+diff --git a/Anima/segmentation/basic_tools/mask_image/animaMaskImage.cxx b/Anima/segmentation/basic_tools/mask_image/animaMaskImage.cxx
+index 535c330..9126f9a 100644
+--- a/Anima/segmentation/basic_tools/mask_image/animaMaskImage.cxx
++++ b/Anima/segmentation/basic_tools/mask_image/animaMaskImage.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkMaskImageFilter.h>
+ #include <itkVectorImage.h>
+diff --git a/Anima/segmentation/basic_tools/morphological_operations/animaMorphologicalOperations.cxx b/Anima/segmentation/basic_tools/morphological_operations/animaMorphologicalOperations.cxx
+index c8a861b..664f218 100644
+--- a/Anima/segmentation/basic_tools/morphological_operations/animaMorphologicalOperations.cxx
++++ b/Anima/segmentation/basic_tools/morphological_operations/animaMorphologicalOperations.cxx
+@@ -1,4 +1,5 @@
+ #include <itkGrayscaleErodeImageFilter.h>
++#include <iostream>
+ #include <itkGrayscaleDilateImageFilter.h>
+ #include <itkGrayscaleMorphologicalClosingImageFilter.h>
+ #include <itkGrayscaleMorphologicalOpeningImageFilter.h>
+diff --git a/Anima/segmentation/basic_tools/total_lesion_load/animaTotalLesionLoad.cxx b/Anima/segmentation/basic_tools/total_lesion_load/animaTotalLesionLoad.cxx
+index aef0723..630a353 100644
+--- a/Anima/segmentation/basic_tools/total_lesion_load/animaTotalLesionLoad.cxx
++++ b/Anima/segmentation/basic_tools/total_lesion_load/animaTotalLesionLoad.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/segmentation/graph_cut/animaCheckStructureNeighborFilter.hxx b/Anima/segmentation/graph_cut/animaCheckStructureNeighborFilter.hxx
+index 22ed482..925dcc8 100644
+--- a/Anima/segmentation/graph_cut/animaCheckStructureNeighborFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaCheckStructureNeighborFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaCheckStructureNeighborFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaClassificationStrategy.hxx b/Anima/segmentation/graph_cut/animaClassificationStrategy.hxx
+index 3140f60..6528095 100644
+--- a/Anima/segmentation/graph_cut/animaClassificationStrategy.hxx
++++ b/Anima/segmentation/graph_cut/animaClassificationStrategy.hxx
+@@ -1,4 +1,5 @@
+ #include "animaClassificationStrategy.h"
++#include <iostream>
+ 
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.h b/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.h
+index 402c5e0..b86a8da 100644
+--- a/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.h
++++ b/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <itkImageToImageFilter.h>
+ #include <itkImageRegionIterator.h>
+ #include <itkImageRegionConstIterator.h>
+diff --git a/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.hxx b/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.hxx
+index dac37bd..27f51c0 100644
+--- a/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaComputeMahalanobisImagesFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaComputeMahalanobisImagesFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaComputeSolution.h b/Anima/segmentation/graph_cut/animaComputeSolution.h
+index a23246e..38c7f49 100644
+--- a/Anima/segmentation/graph_cut/animaComputeSolution.h
++++ b/Anima/segmentation/graph_cut/animaComputeSolution.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include <itkImageToImageFilter.h>
+ #include <itkImageRegionIterator.h>
+ #include <itkImageRegionConstIterator.h>
+diff --git a/Anima/segmentation/graph_cut/animaComputeSolution.hxx b/Anima/segmentation/graph_cut/animaComputeSolution.hxx
+index 677026c..99c5a03 100644
+--- a/Anima/segmentation/graph_cut/animaComputeSolution.hxx
++++ b/Anima/segmentation/graph_cut/animaComputeSolution.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaComputeSolution.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaGaussianREMEstimator.hxx b/Anima/segmentation/graph_cut/animaGaussianREMEstimator.hxx
+index 172181e..21a6b23 100644
+--- a/Anima/segmentation/graph_cut/animaGaussianREMEstimator.hxx
++++ b/Anima/segmentation/graph_cut/animaGaussianREMEstimator.hxx
+@@ -1,4 +1,5 @@
+ #include "animaGaussianREMEstimator.h"
++#include <iostream>
+ 
+ namespace anima
+ {
+diff --git a/Anima/segmentation/graph_cut/animaGraph3DFilter.hxx b/Anima/segmentation/graph_cut/animaGraph3DFilter.hxx
+index 06c22a8..d20a75c 100644
+--- a/Anima/segmentation/graph_cut/animaGraph3DFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaGraph3DFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaGraph3DFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaGraphCutFilter.hxx b/Anima/segmentation/graph_cut/animaGraphCutFilter.hxx
+index 1f8034f..4bac7c1 100644
+--- a/Anima/segmentation/graph_cut/animaGraphCutFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaGraphCutFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaGraphCutFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaHierarchicalInitializer.h b/Anima/segmentation/graph_cut/animaHierarchicalInitializer.h
+index 52cc196..715c1bd 100644
+--- a/Anima/segmentation/graph_cut/animaHierarchicalInitializer.h
++++ b/Anima/segmentation/graph_cut/animaHierarchicalInitializer.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaImageClassifierFilter.h"
+ #include "animaGaussianREMEstimator.h"
+ #include "animaRandomInitializer.h"
+diff --git a/Anima/segmentation/graph_cut/animaHierarchicalInitializer.hxx b/Anima/segmentation/graph_cut/animaHierarchicalInitializer.hxx
+index 6cb867d..fc96083 100644
+--- a/Anima/segmentation/graph_cut/animaHierarchicalInitializer.hxx
++++ b/Anima/segmentation/graph_cut/animaHierarchicalInitializer.hxx
+@@ -1,4 +1,5 @@
+ #include "animaHierarchicalInitializer.h"
++#include <iostream>
+ 
+ namespace anima
+ {
+diff --git a/Anima/segmentation/graph_cut/animaImageClassifierFilter.hxx b/Anima/segmentation/graph_cut/animaImageClassifierFilter.hxx
+index 36c30f3..8d7e193 100644
+--- a/Anima/segmentation/graph_cut/animaImageClassifierFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaImageClassifierFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaImageClassifierFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaNLinksFilter.hxx b/Anima/segmentation/graph_cut/animaNLinksFilter.hxx
+index 00395b0..2809357 100644
+--- a/Anima/segmentation/graph_cut/animaNLinksFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaNLinksFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaNLinksFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaRandomInitializer.cxx b/Anima/segmentation/graph_cut/animaRandomInitializer.cxx
+index 873deb2..b8d69ac 100644
+--- a/Anima/segmentation/graph_cut/animaRandomInitializer.cxx
++++ b/Anima/segmentation/graph_cut/animaRandomInitializer.cxx
+@@ -1,4 +1,5 @@
+ #include "animaRandomInitializer.h"
++#include <iostream>
+ 
+ namespace anima
+ {
+diff --git a/Anima/segmentation/graph_cut/animaRemoveTouchingBorderFilter.hxx b/Anima/segmentation/graph_cut/animaRemoveTouchingBorderFilter.hxx
+index c2ef040..76c2fe3 100644
+--- a/Anima/segmentation/graph_cut/animaRemoveTouchingBorderFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaRemoveTouchingBorderFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaRemoveTouchingBorderFilter.h"
+ 
+ namespace anima
+diff --git a/Anima/segmentation/graph_cut/animaTLinksFilter.hxx b/Anima/segmentation/graph_cut/animaTLinksFilter.hxx
+index 1374966..f8b7b3d 100644
+--- a/Anima/segmentation/graph_cut/animaTLinksFilter.hxx
++++ b/Anima/segmentation/graph_cut/animaTLinksFilter.hxx
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include <iostream>
+ #include "animaTLinksFilter.h"
+ 
+ 
+diff --git a/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentation.cxx b/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentation.cxx
+index 8ca15d9..858a39a 100644
+--- a/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentation.cxx
++++ b/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentation.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentationFilter.hxx b/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentationFilter.hxx
+old mode 100755
+new mode 100644
+index f60ca1c..3e28f96
+--- a/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentationFilter.hxx
++++ b/Anima/segmentation/graph_cut/gc_strem_ms_lesions_segmentation/animaGcStremMsLesionsSegmentationFilter.hxx
+@@ -1,4 +1,5 @@
+ #include "animaGcStremMsLesionsSegmentationFilter.h"
++#include <iostream>
+ 
+ namespace anima
+ {
+diff --git a/Anima/segmentation/graph_cut/graph_cut/animaGraphCut.cxx b/Anima/segmentation/graph_cut/graph_cut/animaGraphCut.cxx
+index 857f623..4a43020 100644
+--- a/Anima/segmentation/graph_cut/graph_cut/animaGraphCut.cxx
++++ b/Anima/segmentation/graph_cut/graph_cut/animaGraphCut.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/segmentation/graph_cut/remove_touching_border/animaRemoveTouchingBorder.cxx b/Anima/segmentation/graph_cut/remove_touching_border/animaRemoveTouchingBorder.cxx
+index e56ddf4..f49f35e 100644
+--- a/Anima/segmentation/graph_cut/remove_touching_border/animaRemoveTouchingBorder.cxx
++++ b/Anima/segmentation/graph_cut/remove_touching_border/animaRemoveTouchingBorder.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <itkTimeProbe.h>
+ #include <animaReadWriteFunctions.h>
+diff --git a/Anima/segmentation/isosurface/animaIsosurface.cxx b/Anima/segmentation/isosurface/animaIsosurface.cxx
+index ae5a300..5cc3b74 100644
+--- a/Anima/segmentation/isosurface/animaIsosurface.cxx
++++ b/Anima/segmentation/isosurface/animaIsosurface.cxx
+@@ -1,4 +1,5 @@
+ #include <tclap/CmdLine.h>
++#include <iostream>
+ 
+ #include <vtkContourFilter.h>
+ #include <vtkDecimatePro.h>
+diff --git a/Anima/segmentation/tissues_em_classification/animaTissuesEMClassificationImageFilter.hxx b/Anima/segmentation/tissues_em_classification/animaTissuesEMClassificationImageFilter.hxx
+index d6c9a65..a9fa1f6 100644
+--- a/Anima/segmentation/tissues_em_classification/animaTissuesEMClassificationImageFilter.hxx
++++ b/Anima/segmentation/tissues_em_classification/animaTissuesEMClassificationImageFilter.hxx
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <iostream>
+ #include "animaTissuesEMClassificationImageFilter.h"
+ 
+ #include <itkImageRegionIterator.h>
+diff --git a/Anima/segmentation/validation_tools/detected_components/animaDetectedComponents.cxx b/Anima/segmentation/validation_tools/detected_components/animaDetectedComponents.cxx
+index 5151879..4fd69bf 100644
+--- a/Anima/segmentation/validation_tools/detected_components/animaDetectedComponents.cxx
++++ b/Anima/segmentation/validation_tools/detected_components/animaDetectedComponents.cxx
+@@ -1,4 +1,5 @@
+ #include <animaReadWriteFunctions.h>
++#include <iostream>
+ 
+ #include <itkConnectedComponentImageFilter.h>
+ #include <itkRelabelComponentImageFilter.h>
+diff --git a/Anima/segmentation/validation_tools/dice_measure/animaDiceMeasure.cxx b/Anima/segmentation/validation_tools/dice_measure/animaDiceMeasure.cxx
+index 432dfa4..c8b1e7d 100644
+--- a/Anima/segmentation/validation_tools/dice_measure/animaDiceMeasure.cxx
++++ b/Anima/segmentation/validation_tools/dice_measure/animaDiceMeasure.cxx
+@@ -1,4 +1,5 @@
+ #include <animaReadWriteFunctions.h>
++#include <iostream>
+ #include <itkImageRegionConstIterator.h>
+ #include <tclap/CmdLine.h>
+ #include <fstream>
+diff --git a/Anima/segmentation/validation_tools/fuzzy_dice_measure/animaFuzzyDiceMeasure.cxx b/Anima/segmentation/validation_tools/fuzzy_dice_measure/animaFuzzyDiceMeasure.cxx
+index 413c2ae..ead8e3c 100644
+--- a/Anima/segmentation/validation_tools/fuzzy_dice_measure/animaFuzzyDiceMeasure.cxx
++++ b/Anima/segmentation/validation_tools/fuzzy_dice_measure/animaFuzzyDiceMeasure.cxx
+@@ -1,4 +1,5 @@
+ #include <animaReadWriteFunctions.h>
++#include <iostream>
+ #include <itkImageRegionConstIterator.h>
+ #include <tclap/CmdLine.h>
+ #include <fstream>
+diff --git a/Anima/segmentation/validation_tools/lesion_evolution_detection/animaLesionEvolutionDetection.cxx b/Anima/segmentation/validation_tools/lesion_evolution_detection/animaLesionEvolutionDetection.cxx
+index cff54cb..867d535 100644
+--- a/Anima/segmentation/validation_tools/lesion_evolution_detection/animaLesionEvolutionDetection.cxx
++++ b/Anima/segmentation/validation_tools/lesion_evolution_detection/animaLesionEvolutionDetection.cxx
+@@ -1,4 +1,5 @@
+ #include <animaReadWriteFunctions.h>
++#include <iostream>
+ 
+ #include <itkConnectedComponentImageFilter.h>
+ #include <itkRelabelComponentImageFilter.h>
+diff --git a/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfAnalyzer.cxx b/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfAnalyzer.cxx
+index b1d8900..84d0c48 100644
+--- a/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfAnalyzer.cxx
++++ b/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfAnalyzer.cxx
+@@ -1,4 +1,5 @@
+ #include <animaSegPerfApp.h>
++#include <iostream>
+ #include <tclap/CmdLine.h>
+ 
+ int main(int argc, char **argv)
+diff --git a/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfCAnalyzer.cxx b/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfCAnalyzer.cxx
+index 784f2f4..a93e268 100644
+--- a/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfCAnalyzer.cxx
++++ b/Anima/segmentation/validation_tools/segmentation_performance_analyzer/animaSegPerfCAnalyzer.cxx
+@@ -1,4 +1,5 @@
+ #include "animaSegPerfCAnalyzer.h"
++#include <iostream>
+ 
+ #include <vector>
+ #include <algorithm>
