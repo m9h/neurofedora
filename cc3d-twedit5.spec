@@ -6,7 +6,7 @@
 
 Name:           cc3d-twedit5
 Version:        4.9.0
-Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
+Release:        0.3.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        Twedit++ — model/Python editor (IDE) for CompuCell3D
 
 # LICENSE.txt is the GNU LGPL.
@@ -31,6 +31,10 @@ Requires:       python3-qscintilla-qt5
 # Encoding detection (twedit/utils/encoding_detector.py: import chardet). The
 # tree also carries a stale vendored copy under Encoding/EncodingDetector/.
 Requires:       %{py3_dist chardet}
+# PluginCCDPythonHelper renders the CC3D API HTML docs in a web view. Upstream
+# uses the dead PyQt5 QtWebKit binding (unpackaged/unmaintained); we patch it to
+# QtWebEngine (the official replacement, which IS packaged) — see %%prep.
+Requires:       python3-qt5-webengine
 
 # A legacy chardet copy ships under Encoding/EncodingDetector/chardet/.
 Provides:       bundled(python3-chardet)
@@ -61,6 +65,16 @@ sed -i -e '/^from distutils\.dir_util import mkpath$/d' \
 sed -i -e 's#^    import distutils.sysconfig#    import sysconfig#' \
        -e 's#^    return distutils.sysconfig.get_python_lib(True)#    return sysconfig.get_path("platlib")#' \
     cc3d/twedit5/Encoding/__init__.py
+
+# --- QtWebKit is dead; the PyQt5 QtWebKit binding is unpackaged/unmaintained ---
+# PluginCCDPythonHelper's API-doc viewer subclasses QWebView (QtWebKit). Alias it
+# to QtWebEngine's QWebEngineView (official replacement, packaged as
+# python3-qt5-webengine); QWebEngineView shares the .load(QUrl) API so the rest
+# of the widget is unchanged. Without this the plugin fails to load ("plugins
+# have errors and will not be loaded: PluginCCDPythonHelper").
+sed -i 's#^from PyQt5.QtWebKitWidgets import QWebView$#from PyQt5.QtWebEngineWidgets import QWebEngineView as QWebView#' \
+    cc3d/twedit5/Plugins/PluginCCDPythonHelper.py
+! grep -q 'QtWebKitWidgets' cc3d/twedit5/Plugins/PluginCCDPythonHelper.py
 # Fail the build if any distutils import survived in the modules we patched.
 ! grep -rn '^\s*\(import\|from\) distutils' \
     cc3d/twedit5/Plugins/PluginCCDProject.py \
@@ -96,6 +110,11 @@ sed -i '1{/^#!.*\bpython/d}' \
 %{python3_sitelib}/cc3d_twedit5-%{version}.dist-info/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.3.rc.20260617gitf54bc7f
+- Fix PluginCCDPythonHelper failing to load ("plugins have errors"): it imported
+  the dead PyQt5 QtWebKit binding (unpackaged). Patch the API-doc viewer to
+  QtWebEngine (QWebEngineView, same .load API) and Require python3-qt5-webengine.
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617gitf54bc7f
 - Rebuild to deliver the qscintilla-qt5 + chardet Requires and the distutils
   removal patch (New Simulation Wizard); 0.1 was never bumped across rebuilds

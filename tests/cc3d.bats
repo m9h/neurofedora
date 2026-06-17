@@ -113,6 +113,28 @@ _py_import() {
     _py_import "import cc3d.twedit5.Plugins.PluginCCDProject"
 }
 
+@test "cc3d-twedit5 (import): ALL Plugins import (catches any plugin load error)" {
+    _require_installed "cc3d-twedit5"
+    # Import every module under cc3d.twedit5.Plugins and fail listing any that
+    # raise. This is what catches plugins Twedit would silently drop with
+    # "plugins have errors and will not be loaded" (e.g. PluginCCDPythonHelper
+    # importing the unpackaged QtWebKit binding).
+    run --separate-stderr python3 -c '
+import importlib, pkgutil, sys
+import cc3d.twedit5.Plugins as P
+fails = []
+for m in pkgutil.iter_modules(P.__path__):
+    try:
+        importlib.import_module("cc3d.twedit5.Plugins." + m.name)
+    except Exception as e:
+        fails.append("%s: %s: %s" % (m.name, type(e).__name__, e))
+if fails:
+    print("\n".join(fails)); sys.exit(1)
+print("all plugins import OK")
+'
+    [ "$status" -eq 0 ] || { echo "plugin import failures:"; echo "$output"; echo "$stderr"; false; }
+}
+
 # ---------------------------------------------------------------------------
 # Bundled demos + helper
 # ---------------------------------------------------------------------------
