@@ -27,7 +27,10 @@ BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.22
 BuildRequires:  make
 BuildRequires:  zlib-devel
-BuildRequires:  InsightToolkit6-devel >= 6.0.0
+# ITK6 is still a pre-release (6.0.0~b02); RPM tilde ordering puts ~b02 BELOW
+# 6.0.0, so a ">= 6.0.0" floor can never be satisfied by the beta. Floor at the
+# beta until a final ITK6 6.0.0 is built.
+BuildRequires:  InsightToolkit6-devel >= 6.0.0~b02
 # Transitive deps re-found by ITK's cmake config when downstream does include(${ITK_USE_FILE})
 BuildRequires:  hdf5-devel
 BuildRequires:  fftw-devel
