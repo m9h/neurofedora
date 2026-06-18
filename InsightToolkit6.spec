@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -16,22 +16,22 @@ URL:            https://itk.org/
 Source0:        ITK-%{itk_ver}.tar.gz
 # Remote modules (pre-populated for offline mock/COPR builds)
 # GenericLabelInterpolator: required by ANTs
-%global glinterp_commit ebf2436469ccf82c08fab54b7446f699ad0eae01
+%global glinterp_commit cb171b099c476d160c79091b3869d2372b92ec6b
 Source1:        https://github.com/InsightSoftwareConsortium/ITKGenericLabelInterpolator/archive/%{glinterp_commit}/ITKGenericLabelInterpolator-%{glinterp_commit}.tar.gz
 # AdaptiveDenoising: required by ANTs DenoiseImage and antsJointFusion
-%global adenoise_commit 24825c8d246e941334f47968553f0ae388851f0c
-Source2:        https://github.com/InsightSoftwareConsortium/ITKAdaptiveDenoising/archive/%{adenoise_commit}/ITKAdaptiveDenoising-%{adenoise_commit}.tar.gz
+%global adenoise_commit 99db4507f05ea933600c41ccf0d53b4202f4cab2
+Source2:        https://github.com/ntustison/ITKAdaptiveDenoising/archive/%{adenoise_commit}/ITKAdaptiveDenoising-%{adenoise_commit}.tar.gz
 # MorphologicalContourInterpolation: required by some segmentation workflows
-%global morphinterp_commit 821bf9b3ef8eaaab10391ed060dc9ca5e4d37b39
-Source3:        https://github.com/InsightSoftwareConsortium/ITKMorphologicalContourInterpolation/archive/%{morphinterp_commit}/ITKMorphologicalContourInterpolation-%{morphinterp_commit}.tar.gz
+%global morphinterp_commit afecbfd8cdf27db58643938483f58abce02057ad
+Source3:        https://github.com/KitwareMedical/ITKMorphologicalContourInterpolation/archive/%{morphinterp_commit}/ITKMorphologicalContourInterpolation-%{morphinterp_commit}.tar.gz
 # GrowCut: required by ITK-SNAP
-%global growcut_commit cbf93ab65117abfbf5798745117e34f22ff04728
+%global growcut_commit a20ea641b1420f6c4b075e99217d5df2d2cc14eb
 Source4:        https://github.com/InsightSoftwareConsortium/ITKGrowCut/archive/%{growcut_commit}/ITKGrowCut-%{growcut_commit}.tar.gz
 # SimpleITKFilters: required by SimpleITK
-%global sitk_commit bb896868fc6480835495d0da4356d5db009592a6
+%global sitk_commit 526d6c1140d76f2e5e198ff467371c2d74dc25eb
 Source5:        https://github.com/InsightSoftwareConsortium/ITKSimpleITKFilters/archive/%{sitk_commit}/ITKSimpleITKFilters-%{sitk_commit}.tar.gz
 # LabelErodeDilate: required by many pipelines
-%global lerode_commit 22d8846dbe4368312aa3aa95ecfe3542ab894e15
+%global lerode_commit 5850a0f75214b72f0fe6e93f2d6101fc888c95c9
 Source6:        https://github.com/InsightSoftwareConsortium/ITKLabelErodeDilate/archive/%{lerode_commit}/ITKLabelErodeDilate-%{lerode_commit}.tar.gz
 
 # --- Dependencies ---
@@ -218,6 +218,15 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-6
+- Align all six pre-populated remote modules to the exact commits ITK 6.0b02
+  declares in Modules/Remote/*.remote.cmake (the tested-together set). Fixes the
+  source-stage FTBFS: AdaptiveDenoising and MorphologicalContourInterpolation
+  were pinned to InsightSoftwareConsortium URLs that 404 (the repos moved to
+  ntustison/ and KitwareMedical/ and were archived); the other four (GenericLabel
+  Interpolator, GrowCut, SimpleITKFilters, LabelErodeDilate) were stale b01-era
+  commits. All six now match b02 and resolve.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-5
 - Resolve parallel-install file conflicts with InsightToolkit5-devel and
   hdf5-devel (surfaced by neurofedora CDash dashboard).
