@@ -9,7 +9,7 @@
 
 Name:           connectome-workbench
 Version:        2.1.0
-Release:        8.%{date}git%{shortcommit}%{?dist}
+Release:        9.%{date}git%{shortcommit}%{?dist}
 Summary:        HCP Visualization and Discovery Tool
 
 License:        GPL-2.0-only
@@ -60,6 +60,7 @@ export CFLAGS="%{optflags} -Wno-error=format-security"
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive -Wno-error=format-security"
 
 %cmake -GNinja \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -DWORKBENCH_USE_QT5=TRUE \
     -DWORKBENCH_USE_OPENMP=TRUE \
     -DWORKBENCH_CHECK_FOR_UPDATES=FALSE \
@@ -116,6 +117,12 @@ xvfb-run -a ctest --output-on-failure || :
 %{_datadir}/icons/hicolor/32x32/apps/wb_view.png
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-9.20260203gitf8a1b5a
+- Fix FTBFS under cmake 4: bundled kloewe/dot/CMakeLists.txt declares
+  cmake_minimum_required < 3.5, which cmake 4 rejects ("Compatibility with CMake
+  < 3.5 has been removed"). Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5. (OpenSSL/qwt
+  "not found" in the log are optional and non-fatal.)
+
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-4.20260203gitf8a1b5a
 - Use %%cmake_install instead of manual find+install
 - Add glib2-devel, ninja-build BuildRequires
