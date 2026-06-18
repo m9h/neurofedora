@@ -51,6 +51,13 @@ sed -i '/#include <memory>/a #include <cstdint>' src/Common/CaretRgb.h
 # FIX 2: Fix Qt5 header include
 sed -i 's/#include <QtEnvironmentVariables>/#include <QtCore>/g' src/Common/WorkbenchInstallationAssistant.cxx
 
+# FIX 3: CaretFileDialogExtendable is dead code -- its .cxx is entirely commented
+# out (no implementation, so no vtable is emitted), it is used by no other source
+# (only listed in GuiQt/CMakeLists), yet it is still moc'd and compiled, which
+# links GuiQt against its never-emitted vtable/destructor -> undefined references.
+# Drop it from the GuiQt build lists. (Keeps the real, used CaretFileDialog.)
+sed -i '/CaretFileDialogExtendable/d' src/GuiQt/CMakeLists.txt
+
 # MOC handled by CMAKE_AUTOMOC=ON
 
 %build
@@ -122,11 +129,12 @@ xvfb-run -a ctest --output-on-failure || :
   cmake_minimum_required < 3.5, which cmake 4 rejects ("Compatibility with CMake
   < 3.5 has been removed"). Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5. (OpenSSL/qwt
   "not found" in the log are optional and non-fatal.)
-- Fix GuiQt moc link errors (undefined CaretFileDialogExtendable/Private vtable
-  refs): the bare -DCMAKE_AUTOMOC=ON ran ON TOP of workbench's manual QT5_WRAP_CPP
-  path (GuiQt/CMakeLists keys its moc on WORKBENCH_USE_CMAKE_AUTOMOC, not
-  CMAKE_AUTOMOC), a dual-mechanism conflict. Use -DWORKBENCH_USE_CMAKE_AUTOMOC=ON
-  for a single clean AUTOMOC path.
+- Fix GuiQt link errors (undefined CaretFileDialogExtendable/Private vtable +
+  destructor refs): CaretFileDialogExtendable is dead code -- its .cxx is fully
+  commented out (no impl -> no emitted vtable) and no source uses it, but it was
+  still moc'd/compiled via GuiQt/CMakeLists. Drop it from the build lists in %prep.
+- Use workbench's own moc switch -DWORKBENCH_USE_CMAKE_AUTOMOC=ON (single AUTOMOC
+  path) instead of the bare -DCMAKE_AUTOMOC=ON layered on its manual QT5_WRAP_CPP.
 
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-4.20260203gitf8a1b5a
 - Use %%cmake_install instead of manual find+install
