@@ -455,3 +455,9 @@ _require_installed() {
     run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
+
+@test "3dslicer-monailabel (data): test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/MONAILabel.py" {
+    _require_installed "3dslicer-monailabel"
+    run --separate-stderr bash -c "test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/MONAILabel.py"
+    [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
+}

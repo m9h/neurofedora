@@ -174,3 +174,4 @@ python3-mcp-slicer	cli	/usr/bin/python3 -c "import mcp_slicer; print('mcp_slicer
 3dslicer-elastix	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/Elastix.py
 3dslicer-totalsegmentator	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/TotalSegmentator.py
 3dslicer-openigtlink	gui	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so
+3dslicer-monailabel	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/MONAILabel.py
