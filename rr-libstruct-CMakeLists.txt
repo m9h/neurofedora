@@ -1,0 +1,56 @@
+cmake_minimum_required(VERSION 3.14)
+project(rr-libstruct VERSION 2.9.2 LANGUAGES CXX)
+
+# Fedora-clean replacement for upstream's static-only, superbuild-oriented
+# CMakeLists: build a versioned SHARED library that links the SYSTEM libSBML
+# and Fortran LAPACK/BLAS (symbols dgetrf_/dgeqp3_/... live in liblapack).
+# f2c.h comes from the system 'f2c' package; clapack.h is the prototype shim.
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(GNUInstallDirs)
+
+find_library(SBML_LIB NAMES sbml REQUIRED)
+find_library(LAPACK_LIB NAMES lapack REQUIRED)
+find_library(BLAS_LIB NAMES blas REQUIRED)
+
+set(sources
+    lsMatrix.cpp
+    lsLibStructural.cpp
+    lsSBMLModel.cpp
+    lsUtils.cpp
+    lsLibla.cpp
+    lsLA.cpp
+    lsLUResult.cpp
+)
+
+add_library(rr-libstruct SHARED ${sources})
+set_target_properties(rr-libstruct PROPERTIES
+    VERSION 2.9.2
+    SOVERSION 2
+)
+# Use the SHARED system libSBML (C++ namespace), NOT the static-link path.
+target_compile_definitions(rr-libstruct PRIVATE LIBSBML_USE_CPP_NAMESPACE)
+target_include_directories(rr-libstruct
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${CLAPACK_INCLUDE_DIR}
+)
+target_link_libraries(rr-libstruct PRIVATE ${SBML_LIB} ${LAPACK_LIB} ${BLAS_LIB})
+
+set(headers
+    lsExporter.h
+    lsMatrix.h
+    lsLibStructural.h
+    lsLA.h
+    lsLibla.h
+    lsLUResult.h
+    lsUtils.h
+    lsConstraint.h
+    lsFluxbalance.h
+    lsObjective.h
+    lsSBMLModel.h
+)
+
+install(TARGETS rr-libstruct LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rr-libstruct)
