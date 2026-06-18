@@ -67,7 +67,7 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive -Wno-error
     -DWORKBENCH_USE_SYSTEM_FTGL=FALSE \
     -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_CXX_STANDARD=17 \
-    -DCMAKE_AUTOMOC=ON \
+    -DWORKBENCH_USE_CMAKE_AUTOMOC=ON \
     -DCMAKE_INCLUDE_CURRENT_DIR=ON
 
 %cmake_build
@@ -122,6 +122,11 @@ xvfb-run -a ctest --output-on-failure || :
   cmake_minimum_required < 3.5, which cmake 4 rejects ("Compatibility with CMake
   < 3.5 has been removed"). Add -DCMAKE_POLICY_VERSION_MINIMUM=3.5. (OpenSSL/qwt
   "not found" in the log are optional and non-fatal.)
+- Fix GuiQt moc link errors (undefined CaretFileDialogExtendable/Private vtable
+  refs): the bare -DCMAKE_AUTOMOC=ON ran ON TOP of workbench's manual QT5_WRAP_CPP
+  path (GuiQt/CMakeLists keys its moc on WORKBENCH_USE_CMAKE_AUTOMOC, not
+  CMAKE_AUTOMOC), a dual-mechanism conflict. Use -DWORKBENCH_USE_CMAKE_AUTOMOC=ON
+  for a single clean AUTOMOC path.
 
 * Thu Mar 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2.1.0-4.20260203gitf8a1b5a
 - Use %%cmake_install instead of manual find+install
