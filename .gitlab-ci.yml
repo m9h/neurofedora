@@ -1,0 +1,42 @@
+# CI for the neurofedora spec repo.
+#
+# The source-completeness gate is the important one: it blocks a push whose specs
+# reference a Source/Patch file that is not committed here (and not a URL or an
+# allow-listed lookaside tarball). That is exactly the class of bug that let vtk
+# and paraview sit "green" for weeks while their GitLab SCM builds were broken —
+# the file lived only in a local ~/rpmbuild/SOURCES and an uploaded SRPM masked it.
+
+stages:
+  - validate
+
+source-completeness:
+  stage: validate
+  image: registry.fedoraproject.org/fedora:latest
+  before_script:
+    # rpm-build -> rpmspec; forge-srpm-macros -> %forgesource expands to a URL.
+    - dnf -y --setopt=install_weak_deps=False install rpm-build forge-srpm-macros redhat-rpm-config >/dev/null
+  script:
+    - bash ci/audit-sources.sh
+  rules:
+    - changes:
+        - "*.spec"
+        - "*.patch"
+        - "ci/**/*"
+        - ".gitlab-ci.yml"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# Informational only (does not block): surface rpmlint findings on the specs.
+rpmlint:
+  stage: validate
+  image: registry.fedoraproject.org/fedora:latest
+  allow_failure: true
+  before_script:
+    - dnf -y --setopt=install_weak_deps=False install rpmlint rpm-build forge-srpm-macros redhat-rpm-config >/dev/null
+  script:
+    - rpmlint --version
+    - 'ec=0; for s in *.spec; do rpmlint "$s" || ec=1; done; exit $ec'
+  rules:
+    - changes:
+        - "*.spec"
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

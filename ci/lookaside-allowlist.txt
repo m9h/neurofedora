@@ -1,0 +1,28 @@
+# Lookaside allow-list for ci/audit-sources.sh
+#
+# Large upstream tarballs that must NOT be committed to git (Fedora's lookaside
+# model). Each entry is a glob matched against the Source/Patch *basename*. The
+# audit treats a listed file as "provided out-of-band" and does not require it in
+# the repo. These are NOT yet SCM-buildable from git alone — to make them so,
+# give the Source a canonical URL or %forgesource, or wire up a real lookaside
+# cache, then remove the entry here.
+#
+# Keep this list tight: anything NOT listed and NOT in the repo fails CI. That is
+# the whole point — it catches the next uncommitted patch before it reaches COPR.
+
+# --- INRIA / dtk chain snapshots (no upstream release tarball URL) ---
+civility-*.tar.gz
+dtk-imaging-*.tar.gz
+dtk-qt6-*.tar.gz
+xtl-*.tar.gz
+xtensor-*.tar.gz
+
+# --- large data / atlases (hundreds of MB to multi-GB; never git-friendly) ---
+fsl-first-data-*.tar.gz
+fsl-xtract-data-*.tar.gz
+IIT_Atlas_*.zip
+
+# --- large source trees pulled in as plain tarballs ---
+ITK-*.tar.gz
+morpheus-*.tar.gz
+OrcaSlicer-*.tar.gz
