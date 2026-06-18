@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        47%{?dist}
+Release:        49%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -251,6 +251,29 @@ extension modules out of tree.
 # on Fedora — Fedora's tbb-2022.3 ships libtbbmalloc.so.2.17. As an
 # RPM we rely on the system tbb package; no need to bundle.
 echo 'return()' > CMake/SlicerBlockInstallTBB.cmake
+
+# VTK linkage: several Slicer libs (vtkSegmentationCore, ...) link the legacy
+# ${VTK_LIBRARIES} and use vtkImageAccumulate / vtkExtractSelection /
+# vtkPolyDataToImageStencil, but Fedora's modular VTK leaves ImagingStatistics /
+# FiltersExtraction / ImagingStencil out of VTK_LIBRARIES even though Slicer
+# requests them as COMPONENTS — so the link fails with undefined references.
+# Force the VTK:: targets onto VTK_LIBRARIES right after find_package(VTK).
+python3 - CMakeLists.txt <<'PYEOF'
+import sys, re
+f = sys.argv[1]; s = open(f).read()
+inj = ("\n# Fedora modular-VTK linkage fix (packaging): ensure these modules are\n"
+       "# present in the legacy VTK_LIBRARIES that several libs link against.\n"
+       "foreach(_vmod ImagingStatistics FiltersExtraction ImagingStencil)\n"
+       "  if(TARGET VTK::${_vmod})\n"
+       "    list(APPEND VTK_LIBRARIES VTK::${_vmod})\n"
+       "  endif()\n"
+       "endforeach()\n")
+s2 = re.sub(r'(find_package\(VTK [^\n]*COMPONENTS[^\n]*REQUIRED\)\n)',
+            lambda m: m.group(1) + inj, s, count=1)
+assert s2 != s, "find_package(VTK COMPONENTS) anchor not found"
+open(f, "w").write(s2)
+print("VTK_LIBRARIES linkage fix injected")
+PYEOF
 
 # Slicer source bug #1: 4 Libs/*/CMakeLists.txt use POSIX-regex alternation
 # in cmake glob patterns: `file(GLOB headers "...*.(h|hxx)")`. cmake's
@@ -518,7 +541,7 @@ done
 #     headers first, then build-tree generated headers (*Export.h, *Configure.h).
 _si=%{buildroot}%{slicer_inst}/include/Slicer-5.11
 for _base in "$_sdir" "$_bdir"; do
-    for _hd in "$_base"/Base/Logic \
+    for _hd in "$_base"/Base/Logic "$_base"/Base/CLI "$_base"/Base/QTCLI \
                "$_base"/Modules/Loadable/*/Logic \
                "$_base"/Modules/Loadable/*/MRML \
                "$_base"/Modules/Loadable/*/MRMLDM \
@@ -529,6 +552,13 @@ for _base in "$_sdir" "$_bdir"; do
           -exec cp -an {} "$_si/" \; 2>/dev/null || :
     done
 done
+
+# 2d. Ship the generated SEM CLI library wrapper (Base/CLI/
+#     SEMCommandLineLibraryWrapper.cxx) so CLI-module extensions (SlicerDMRI,
+#     SlicerRT, ...) can build via SEMMacroBuildCLI (the install-tree config
+#     points SlicerExecutionModel_CLI_LIBRARY_WRAPPER_CXX here).
+_semw=$(find "$_bdir" "$_sdir" -name 'SEMCommandLineLibraryWrapper.cxx' 2>/dev/null | head -1)
+[ -n "$_semw" ] && install -m0644 "$_semw" "$_scmake/" || :
 
 # 3. Synthesize the relocatable install-tree SlicerConfig.cmake (overwrites the
 #    broken build-tree one) + a SlicerTargets.cmake with IMPORTED targets for
@@ -612,6 +642,18 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-49
+- Fix a VTK link regression: force VTK::ImagingStatistics / FiltersExtraction /
+  ImagingStencil onto the legacy VTK_LIBRARIES (Fedora's modular VTK omits them
+  there despite Slicer requesting them as COMPONENTS), else vtkSegmentationCore
+  fails to link (undefined vtkImageAccumulate/vtkExtractSelection/
+  vtkPolyDataToImageStencil). Carries the -48 CLI-module support.
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-48
+- Support CLI-module extensions (SlicerDMRI, SlicerRT, ...): ship the generated
+  SEMCommandLineLibraryWrapper.cxx + Base/CLI headers, and the install-tree
+  config now maps SlicerExecutionModel_CLI_LIBRARY_WRAPPER_CXX and
+  _EXTRA_INCLUDE_DIRECTORIES to the installed paths (were neutralized), so
+  SEMMacroBuildCLI resolves.
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-47
 - Generate imported targets for the loadable-module libraries too (scan
   qt-loadable-modules), so C++ extensions linking module libs by name (e.g.

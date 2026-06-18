@@ -135,6 +135,16 @@ def root_expr(root):
 def map_value(varname, value, root):
     """Return the replacement value (a CMake string list) for a broken set()."""
     rexpr = root_expr(root)
+    if varname == "SlicerExecutionModel_CLI_LIBRARY_WRAPPER_CXX":
+        # Slicer's generated CLI wrapper (Base/CLI/SEMCommandLineLibraryWrapper.cxx);
+        # the foundation %install ships it into the CMake dir. CLI-module
+        # extensions (e.g. SlicerDMRI) need it via SEMMacroBuildCLI.
+        return "%s/lib/%s/CMake/SEMCommandLineLibraryWrapper.cxx" % (rexpr, SLICER_SUBDIR)
+    if varname == "SlicerExecutionModel_EXTRA_INCLUDE_DIRECTORIES":
+        # Base/CLI headers (flattened into include/Slicer-5.11 by -46+) + the
+        # installed ITKFactoryRegistration include dir.
+        return "%s/include/%s;%s/include/ITKFactoryRegistration" % (
+            rexpr, SLICER_SUBDIR, rexpr)
     if varname == "Slicer_VTK_WRAP_HIERARCHY_DIR":
         # OUTPUT dir for the consuming extension's own wrap-hierarchy files — must
         # be the extension's (writable) build dir, not the read-only install. The
