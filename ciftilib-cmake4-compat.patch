@@ -1,0 +1,31 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,15 +1,8 @@
+-CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+-
+-#UseDoxygen trips over a policy change in cmake 3, suppress the warning
+-CMAKE_POLICY(VERSION 2.8.7)
+-#the suggested version-type policy command doesn't shut this warning up, so set it manually
+-IF (POLICY CMP0045)
+-    CMAKE_POLICY(SET CMP0045 OLD)
+-ENDIF (POLICY CMP0045)
++CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+ 
+ PROJECT(CiftiLib)
+ 
+-SET(CIFTILIB_VERSION 1.5)
++SET(CIFTILIB_VERSION 1.6.0)
+ 
+ #MSVC seems like the only compiler that chokes on -W -Wall
+ IF (NOT MSVC)
+@@ -20,7 +13,9 @@
+ 
+ SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/" "${CMAKE_SOURCE_DIR}/cmake/Modules/UseDoxygen/")
+ 
+-INCLUDE(UseDoxygen)
++# UseDoxygen removed: only builds API docs (a 'doc' target we do not ship),
++# and its get_target_property call fails under CMake >= 4.
++# INCLUDE(UseDoxygen OPTIONAL)
+ 
+ #TSC: glibmm requires c++11, so it needs to be in the compile flags - in older cmake, this needs to be done manually
+ IF (${CMAKE_VERSION} VERSION_LESS "3.1")

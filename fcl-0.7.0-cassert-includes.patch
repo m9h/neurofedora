@@ -1,0 +1,170 @@
+Add missing <cassert> includes to fcl headers.
+
+16 installed fcl headers call assert() but none include <cassert>;
+they relied on transitive includes. GCC 15 / libstdc++ in Fedora 44 no
+longer pull <cassert> in transitively, so both fcl's own build and every
+downstream consumer of fcl-devel (e.g. DART) fail to compile. Add the
+include directly after each header's include guard.
+
+Upstream: not yet reported; trivially correct.
+
+--- a/include/fcl/broadphase/default_broadphase_callbacks.h
++++ b/include/fcl/broadphase/default_broadphase_callbacks.h
+@@ -36,6 +36,7 @@
+ 
+ #ifndef FCL_BROADPHASE_DEFAULTBROADPHASECALLBACKS_H
+ #define FCL_BROADPHASE_DEFAULTBROADPHASECALLBACKS_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/collision.h"
+ #include "fcl/narrowphase/collision_request.h"
+--- a/include/fcl/broadphase/detail/morton.h
++++ b/include/fcl/broadphase/detail/morton.h
+@@ -38,6 +38,7 @@
+ 
+ #ifndef FCL_MORTON_H
+ #define FCL_MORTON_H
++#include <cassert>
+ 
+ #include "fcl/common/types.h"
+ #include "fcl/math/bv/AABB.h"
+--- a/include/fcl/geometry/octree/octree-inl.h
++++ b/include/fcl/geometry/octree/octree-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_OCTREE_INL_H
+ #define FCL_OCTREE_INL_H
++#include <cassert>
+ 
+ #include "fcl/geometry/octree/octree.h"
+ 
+--- a/include/fcl/geometry/shape/convex-inl.h
++++ b/include/fcl/geometry/shape/convex-inl.h
+@@ -38,6 +38,7 @@
+ 
+ #ifndef FCL_SHAPE_CONVEX_INL_H
+ #define FCL_SHAPE_CONVEX_INL_H
++#include <cassert>
+ 
+ #include <map>
+ #include <set>
+--- a/include/fcl/math/bv/kDOP-inl.h
++++ b/include/fcl/math/bv/kDOP-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_BV_KDOP_INL_H
+ #define FCL_BV_KDOP_INL_H
++#include <cassert>
+ 
+ #include "fcl/math/bv/kDOP.h"
+ 
+--- a/include/fcl/math/bv/utility-inl.h
++++ b/include/fcl/math/bv/utility-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_MATH_BV_UTILITY_INL_H
+ #define FCL_MATH_BV_UTILITY_INL_H
++#include <cassert>
+ 
+ #include "fcl/math/bv/utility.h"
+ 
+--- a/include/fcl/math/constants.h
++++ b/include/fcl/math/constants.h
+@@ -36,6 +36,7 @@
+ 
+ #ifndef FCL_MATH_CONSTANTS_
+ #define FCL_MATH_CONSTANTS_
++#include <cassert>
+ 
+ #include "fcl/common/types.h"
+ 
+--- a/include/fcl/math/motion/taylor_model/taylor_model-inl.h
++++ b/include/fcl/math/motion/taylor_model/taylor_model-inl.h
+@@ -40,6 +40,7 @@
+ 
+ #ifndef FCL_CCD_TAYLOR_MODEL_INL_H
+ #define FCL_CCD_TAYLOR_MODEL_INL_H
++#include <cassert>
+ 
+ #include "fcl/math/motion/taylor_model/taylor_model.h"
+ 
+--- a/include/fcl/math/rng-inl.h
++++ b/include/fcl/math/rng-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_MATH_RNG_INL_H
+ #define FCL_MATH_RNG_INL_H
++#include <cassert>
+ 
+ #include "fcl/math/rng.h"
+ 
+--- a/include/fcl/narrowphase/detail/convexity_based_algorithm/gjk_libccd-inl.h
++++ b/include/fcl/narrowphase/detail/convexity_based_algorithm/gjk_libccd-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_NARROWPHASE_DETAIL_GJKLIBCCD_INL_H
+ #define FCL_NARROWPHASE_DETAIL_GJKLIBCCD_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/convexity_based_algorithm/gjk_libccd.h"
+ #include "fcl/narrowphase/detail/failed_at_this_configuration.h"
+--- a/include/fcl/narrowphase/detail/primitive_shape_algorithm/capsule_capsule-inl.h
++++ b/include/fcl/narrowphase/detail/primitive_shape_algorithm/capsule_capsule-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_NARROWPHASE_DETAIL_CAPSULECAPSULE_INL_H
+ #define FCL_NARROWPHASE_DETAIL_CAPSULECAPSULE_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/primitive_shape_algorithm/capsule_capsule.h"
+ 
+--- a/include/fcl/narrowphase/detail/primitive_shape_algorithm/plane-inl.h
++++ b/include/fcl/narrowphase/detail/primitive_shape_algorithm/plane-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_NARROWPHASE_DETAIL_PLANE_INL_H
+ #define FCL_NARROWPHASE_DETAIL_PLANE_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/primitive_shape_algorithm/plane.h"
+ 
+--- a/include/fcl/narrowphase/detail/primitive_shape_algorithm/sphere_box-inl.h
++++ b/include/fcl/narrowphase/detail/primitive_shape_algorithm/sphere_box-inl.h
+@@ -36,6 +36,7 @@
+ 
+ #ifndef FCL_NARROWPHASE_DETAIL_SPHEREBOX_INL_H
+ #define FCL_NARROWPHASE_DETAIL_SPHEREBOX_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/primitive_shape_algorithm/sphere_box.h"
+ 
+--- a/include/fcl/narrowphase/detail/primitive_shape_algorithm/sphere_cylinder-inl.h
++++ b/include/fcl/narrowphase/detail/primitive_shape_algorithm/sphere_cylinder-inl.h
+@@ -36,6 +36,7 @@
+ 
+ #ifndef FCL_NARROWPHASE_DETAIL_SPHERECYLINDER_INL_H
+ #define FCL_NARROWPHASE_DETAIL_SPHERECYLINDER_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/primitive_shape_algorithm/sphere_cylinder.h"
+ 
+--- a/include/fcl/narrowphase/detail/traversal/distance/mesh_conservative_advancement_traversal_node-inl.h
++++ b/include/fcl/narrowphase/detail/traversal/distance/mesh_conservative_advancement_traversal_node-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_TRAVERSAL_MESHCONSERVATIVEADVANCEMENTTRAVERSALNODE_INL_H
+ #define FCL_TRAVERSAL_MESHCONSERVATIVEADVANCEMENTTRAVERSALNODE_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/detail/traversal/distance/mesh_conservative_advancement_traversal_node.h"
+ 
+--- a/include/fcl/narrowphase/distance-inl.h
++++ b/include/fcl/narrowphase/distance-inl.h
+@@ -37,6 +37,7 @@
+ 
+ #ifndef FCL_DISTANCE_INL_H
+ #define FCL_DISTANCE_INL_H
++#include <cassert>
+ 
+ #include "fcl/narrowphase/distance.h"
+ 

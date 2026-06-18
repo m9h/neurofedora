@@ -1,0 +1,14 @@
+# gifticlib-config-version.cmake
+# Version compatibility file for gifticlib CMake config shim.
+# Tracks Fedora's gifticlib package version.
+
+set(PACKAGE_VERSION "1.0.9")
+
+if(PACKAGE_VERSION VERSION_LESS PACKAGE_FIND_VERSION)
+  set(PACKAGE_VERSION_COMPATIBLE FALSE)
+else()
+  set(PACKAGE_VERSION_COMPATIBLE TRUE)
+  if(PACKAGE_VERSION VERSION_EQUAL PACKAGE_FIND_VERSION)
+    set(PACKAGE_VERSION_EXACT TRUE)
+  endif()
+endif()

@@ -1,0 +1,41 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Morgan Hough <mhough@fedoraproject.org>
+Date: Thu, 13 Mar 2026 12:00:00 +0000
+Subject: [PATCH 2/2] chore: undo changes to standard dirs
+
+Remove version-suffixed directory names from install paths so they
+follow Fedora conventions (e.g. /etc/dcmtk instead of /etc/dcmtk-3.7.0).
+---
+ CMake/GenerateDCMTKConfigure.cmake | 9 ++++-----
+ 1 file changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/CMake/GenerateDCMTKConfigure.cmake b/CMake/GenerateDCMTKConfigure.cmake
+index 000000000..000000001 100644
+--- a/CMake/GenerateDCMTKConfigure.cmake
++++ b/CMake/GenerateDCMTKConfigure.cmake
+@@ -158,8 +158,8 @@ if(WIN32 AND NOT CYGWIN)
+     set(DCMTK_DEFAULT_CONFIGURATION_DIR "%PROGRAMDATA%\\\\dcmtk-${DCMTK_COMPLETE_PACKAGE_VERSION}\\\\etc${PATH_SEPARATOR}")
+     set(DCMTK_DEFAULT_SUPPORT_DATA_DIR  "%PROGRAMDATA%\\\\dcmtk-${DCMTK_COMPLETE_PACKAGE_VERSION}\\\\share${PATH_SEPARATOR}")
+   else()
+-    set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/dcmtk-${DCMTK_COMPLETE_PACKAGE_VERSION}")
+-    set(CMAKE_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}-${DCMTK_COMPLETE_PACKAGE_VERSION}")
++    set(CMAKE_INSTALL_FULL_DATADIR "${CMAKE_INSTALL_FULL_DATADIR}/dcmtk")
++    set(CMAKE_INSTALL_FULL_DOCDIR "${CMAKE_INSTALL_FULL_DOCDIR}")
+     set(DCMTK_DEFAULT_CONFIGURATION_DIR "")
+     set(DCMTK_DEFAULT_SUPPORT_DATA_DIR "")
+   endif()
+@@ -195,9 +195,8 @@ else()
+
+   # Modify the installation paths for configuration files, data files and documents
+   # by adding a subdirectory with the DCMTK name and version number
+-  set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_INSTALL_SYSCONFDIR}/dcmtk-${DCMTK_COMPLETE_PACKAGE_VERSION}")
+-  set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/dcmtk-${DCMTK_COMPLETE_PACKAGE_VERSION}")
+-  set(CMAKE_INSTALL_DOCDIR "${CMAKE_INSTALL_DOCDIR}-${DCMTK_COMPLETE_PACKAGE_VERSION}")
++  set(CMAKE_INSTALL_SYSCONFDIR "${CMAKE_INSTALL_SYSCONFDIR}/dcmtk")
++  set(CMAKE_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/dcmtk")
+
+   # These variables are defined as macros in osconfig.h and must end with a path separator
+   if(CMAKE_VERSION VERSION_LESS 3.20.0)
+--
+2.48.1
+
