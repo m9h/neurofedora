@@ -53,7 +53,7 @@
 
 Name:           paraview
 Version:        %{pv_maj}.%{pv_min}.%{pv_patch}
-Release:        %autorelease
+Release:        10%{?dist}
 Summary:        Parallel visualization application
 
 License:        BSD-3-Clause
@@ -583,6 +583,11 @@ fi
 
 %changelog
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.1.1-10
+- Switch Release from %%autorelease to an explicit number. %%autorelease was
+  not active in this COPR (rpkg without rpmautospec), so every build resolved to
+  6.1.1-1 and same-NVR rebuilds never superseded in the repo - which is why the
+  -2..-9 spec fixes never actually reached consumers. Explicit Release restores
+  proper NVR bumping.
 - Fix pvpython/pvbatch scripting (CDash paraview component 2/10 -> green):
   their broken self-location left ParaView's private python dir off sys.path,
   so "from paraview.simple import ..." failed (No module named 'paraview').
