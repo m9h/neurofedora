@@ -28,6 +28,9 @@ ExcludeArch:    %{ix86}
 BuildRequires:  python3-devel
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(flexiblas)
+# nipy.testing imports pytest at module level, and %pyproject_check_import pulls
+# it transitively even with the -e exclusion; make pytest available at %check.
+BuildRequires:  python3-pytest
 
 %global _docdir_fmt %{name}
 
@@ -155,6 +158,8 @@ k="${k-}${k+ and }not test_cmap_coord_types"
   removed in numpy 2.0 (NPY_OWNDATA/NPY_CONTIGUOUS/NPY_BEHAVED) to their
   NPY_ARRAY_* spellings. (The 5 nipy_*.1 man-page Sources are now also committed
   to the repo, fixing the prior SCM source-stage failure.)
+- Add BuildRequires python3-pytest: %pyproject_check_import transitively imports
+  nipy.testing (which imports pytest) at %check.
 
 * Sun May 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1:0.6.1-1
 - Initial COPR packaging of nipy 0.6.1 (adopted from orphaned Fedora python-nipy)
