@@ -28,8 +28,8 @@ ExcludeArch:    %{ix86}
 BuildRequires:  python3-devel
 BuildRequires:  gcc
 BuildRequires:  pkgconfig(flexiblas)
-# nipy.testing imports pytest at module level, and %pyproject_check_import pulls
-# it transitively even with the -e exclusion; make pytest available at %check.
+# nipy.testing imports pytest at module level, and %%pyproject_check_import pulls
+# it transitively even with the -e exclusion; make pytest available at %%check.
 BuildRequires:  python3-pytest
 
 %global _docdir_fmt %{name}
