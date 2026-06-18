@@ -113,7 +113,7 @@ xvfb-run -a ctest --output-on-failure || :
 
 %files
 %license LICENSE
-%doc README.md
+%doc README
 %{_bindir}/wb_command
 %{_bindir}/wb_view
 %{_bindir}/wb_shortcuts
@@ -133,6 +133,7 @@ xvfb-run -a ctest --output-on-failure || :
   destructor refs): CaretFileDialogExtendable is dead code -- its .cxx is fully
   commented out (no impl -> no emitted vtable) and no source uses it, but it was
   still moc'd/compiled via GuiQt/CMakeLists. Drop it from the build lists in %prep.
+- Fix %%doc: top-level readme is README, not README.md.
 - Use workbench's own moc switch -DWORKBENCH_USE_CMAKE_AUTOMOC=ON (single AUTOMOC
   path) instead of the bare -DCMAKE_AUTOMOC=ON layered on its manual QT5_WRAP_CPP.
 
