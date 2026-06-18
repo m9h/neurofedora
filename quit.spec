@@ -1,6 +1,6 @@
 Name:           quit
 Version:        3.4
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Quantitative Imaging Tools for MRI data processing
 
 License:        MPL-2.0
@@ -67,24 +67,24 @@ sed -i '1i #include <sstream>' Source/Sequences/SSFPSequence.h
 %build
 # Suppress GCC 15 -Wtemplate-body diagnostics in QUIT's own template code
 export CFLAGS="%{optflags} -std=gnu17"
-# GCC 16 + ITK 5.4's bundled Eigen 3.3.x: itkeigen/Eigen/src/Geometry/Quaternion.h
-# uses `typename std::is_nothrow_move_constructible<T>::value` — invalid since
-# C++17 (::value is a non-type). Patch ITK's installed header into a local
-# private copy with the typename keyword stripped, then prepend it on the
-# include path so the patched version wins over /usr/include/ITK-5.4/itkeigen/.
-mkdir -p _itk_eigen_patch/Eigen/src/Geometry
-cp /usr/include/ITK-5.4/itkeigen/Eigen/src/Geometry/Quaternion.h \
-   _itk_eigen_patch/Eigen/src/Geometry/Quaternion.h
-sed -i 's/typename std::is_nothrow_move_/std::is_nothrow_move_/g' \
-   _itk_eigen_patch/Eigen/src/Geometry/Quaternion.h
-export CXXFLAGS="%{optflags} -Wno-template-body -include cstdint -fpermissive -I$PWD/_itk_eigen_patch"
-# Build bundled fmt 9.1.0 first
+export CXXFLAGS="%{optflags} -Wno-template-body -include cstdint -fpermissive"
+# Build bundled fmt 9.1.0 first (plain CXXFLAGS — fmt must NOT force-include Eigen)
 cmake -S External/fmt -B External/fmt/build \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=%{_builddir}/QUIT-%{version}/External/fmt/install \
     -DFMT_DOC=OFF -DFMT_TEST=OFF
 %make_build -C External/fmt/build
 %make_build -C External/fmt/build install
+# QUIT compiles against BOTH the system Eigen (/usr/include/eigen3, 3.4) for its
+# own code and ITK 5.4's bundled itkeigen (3.3.x) via ITK headers. The two Eigen
+# copies share include-guard macros (EIGEN_MACROS_H etc.), so when a TU pulls ITK
+# (itkeigen) before system Eigen, itkeigen 3.3.x's Quaternion.h gets compiled and
+# its EIGEN_NOEXCEPT_IF(std::is_nothrow_move_*<Scalar>::value) is rejected by
+# GCC 16 + -std=c++20. Force-include system Eigen first so its guards win and
+# itkeigen's headers are guard-skipped (Eigen then resolves to the correct 3.4
+# headers). Absolute path + added only for QUIT's own build (not fmt). Replaces
+# the old _itk_eigen_patch shadow, which never overrode ITK's relative includes.
+export CXXFLAGS="$CXXFLAGS -include /usr/include/eigen3/Eigen/Dense"
 %cmake \
     -DCMAKE_MODULE_PATH:PATH="%{_builddir}/QUIT-%{version}/cmake" \
     -DExternal_Include_DIR:PATH="%{_builddir}/QUIT-%{version}/External/include" \
@@ -101,6 +101,16 @@ cmake -S External/fmt -B External/fmt/build \
 %{_bindir}/qi
 
 %changelog
+* Wed Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-5
+- Actually fix the GCC16/C++20 FTBFS. Root cause: QUIT mixes system Eigen 3.4
+  (its own code) and ITK 5.4's bundled itkeigen 3.3.x (via ITK headers) in the
+  same TUs; their shared include-guards let itkeigen 3.3.x Quaternion.h compile
+  with EIGEN_NOEXCEPT_IF(...::value), rejected by GCC 16 + c++20. Force-include
+  system Eigen first (-include /usr/include/eigen3/Eigen/Dense, QUIT build only),
+  so itkeigen is guard-skipped. The old _itk_eigen_patch shadow + typename sed
+  were no-ops (deployed Quaternion.h has no literal typename; the shadow path
+  never overrode ITK's relative includes); removed.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 3.4-4
 - Shadow-patch ITK 5.4's bundled itkeigen/Eigen/src/Geometry/Quaternion.h:
   copy it into _itk_eigen_patch/ in %build, strip the invalid
