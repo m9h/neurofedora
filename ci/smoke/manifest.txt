@@ -1,0 +1,30 @@
+# Smoke manifest for ci/smoke/install-smoke.sh
+#
+# Format:  <package> | <optional explicit smoke command run inside the chroot>
+#
+# With no command, the harness auto-smokes every /usr/bin binary the package
+# ships (runs --help/--version/-h, fails only on a loader/"not found" error).
+# Give an explicit command for python modules, libraries, or apps that need a
+# specific invocation. Lines starting with # are ignored.
+#
+# This list is a starting set — add packages as coverage grows. The harness
+# needs mock (privileged), so run it locally or on a self-hosted runner, not on
+# GitLab shared runners.
+
+# --- core imaging CLI (auto-smoke is fine) ---
+ANTs
+elastix
+c3d
+greedy
+niftyreg
+anima
+niftyseg
+convert3d
+
+# --- explicit smoke: python / scripting surfaces ---
+paraview            | pvpython -c "from paraview.simple import Sphere, GetSources; Sphere(); exit(0 if len(GetSources())==1 else 1)"
+vtk                 | python3 -c "import vtkmodules.all as v; v.vtkSphereSource()"
+InsightToolkit5     | bash -c 'ls /usr/lib64/libITKCommon-*.so.* >/dev/null'
+
+# --- FSL relocatable tools (binaries live under /usr/lib/fsl, not /usr/bin) ---
+fsl-bet2            | bash -c 'FSLDIR=/usr/lib/fsl /usr/lib/fsl/share/fsl/bin/bet2 2>&1 | grep -qi usage'

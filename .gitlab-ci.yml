@@ -26,6 +26,22 @@ source-completeness:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "main"'
 
+# Source-URL liveness. Network-dependent, so it does not block a normal push
+# (a transient 404/timeout shouldn't); a scheduled pipeline is the authoritative
+# run that flags persistently dead Source URLs (the libspm / ITK6-remote-module
+# class of failure). Add a pipeline schedule in GitLab CI/CD settings to enable.
+source-urls:
+  stage: validate
+  image: registry.fedoraproject.org/fedora:latest
+  allow_failure: true
+  before_script:
+    - dnf -y --setopt=install_weak_deps=False install rpm-build forge-srpm-macros redhat-rpm-config curl >/dev/null
+  script:
+    - bash ci/check-source-urls.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
 # Informational only (does not block): surface rpmlint findings on the specs.
 rpmlint:
   stage: validate
