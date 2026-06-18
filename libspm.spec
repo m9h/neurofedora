@@ -2,12 +2,16 @@
 
 Name:           libspm
 Version:        0.1.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Standalone C library from SPM numerical routines
 
 License:        GPL-2.0-only
 URL:            https://github.com/m9h/libspm
-Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
+# Vendored snapshot (git archive of the m9h/libspm dev repo) — the standalone C
+# library extracted from SPM (Statistical Parametric Mapping, SPM25 / 25.01).
+# Upstream repo not yet published, so ship the tarball in-tree instead of a
+# (currently 404) Source URL.
+Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cmake >= 3.16
 BuildRequires:  gcc
@@ -74,5 +78,12 @@ Static archive (.a) for linking %{name} into standalone executables.
 %{_libdir}/libspm.a
 
 %changelog
+* Wed Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-2
+- Vendor the source tarball in-tree (git archive of the m9h/libspm dev repo).
+  The previous Source0 pointed at github.com/m9h/libspm which 404s (repo not yet
+  published), so the GitLab-SCM build failed at the source stage. Ships the
+  standalone C library extracted from SPM25 (DARTEL/Geodesic Shooting, PDE
+  solvers, B-splines, GMM, joint histograms).
+
 * Thu Mar 26 2026 m9h - 0.1.0-1
 - Initial package
