@@ -23,6 +23,5 @@ fsl-xtract-data-*.tar.gz
 IIT_Atlas_*.zip
 
 # --- large source trees pulled in as plain tarballs ---
-ITK-*.tar.gz
 morpheus-*.tar.gz
 OrcaSlicer-*.tar.gz

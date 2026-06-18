@@ -13,7 +13,7 @@ Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
 URL:            https://itk.org/
-Source0:        ITK-%{itk_ver}.tar.gz
+Source0:        https://github.com/InsightSoftwareConsortium/ITK/archive/v%{itk_ver}/ITK-%{itk_ver}.tar.gz
 # Remote modules (pre-populated for offline mock/COPR builds)
 # GenericLabelInterpolator: required by ANTs
 %global glinterp_commit cb171b099c476d160c79091b3869d2372b92ec6b
@@ -219,6 +219,9 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 
 %changelog
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-6
+- Give Source0 a real URL (github tag archive v6.0b02 -> ITK-6.0b02.tar.gz,
+  extracts to ITK-6.0b02/) so the GitLab-SCM build can fetch the main ITK
+  tarball instead of requiring it in lookaside.
 - Align all six pre-populated remote modules to the exact commits ITK 6.0b02
   declares in Modules/Remote/*.remote.cmake (the tested-together set). Fixes the
   source-stage FTBFS: AdaptiveDenoising and MorphologicalContourInterpolation
