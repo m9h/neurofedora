@@ -21,6 +21,9 @@ BuildRequires:  ninja-build
 BuildRequires:  swig
 BuildRequires:  python3-devel
 BuildRequires:  python3-numpy
+# RoadRunner 2.9.2's LLVM-JIT is pinned to LLVM 13. The llvm13 compat package was
+# retired from rawhide (F45+), so this package builds on F44 only. Build with
+# `copr-cli build -r fedora-44-x86_64` (rawhide lacks llvm13-devel and will FTBFS).
 BuildRequires:  llvm%{llvmver}-devel
 BuildRequires:  libsbml-devel
 BuildRequires:  sundials-devel
