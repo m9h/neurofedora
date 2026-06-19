@@ -1,8 +1,10 @@
 Name:           dsi-studio
 Version:        2025.01
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        A Tractography Tool for Diffusion MRI
-License:        MPLv2.0
+# DSI Studio is non-free: a custom non-commercial agreement built on CC BY-NC-SA 4.0
+# (forbids commercial use). NOT free software; nonfree repo / RPM Fusion only.
+License:        CC-BY-NC-SA-4.0
 URL:            https://dsi-studio.labsolver.org/
 Source0:        https://github.com/frankyeh/DSI-Studio/archive/master.tar.gz#/DSI-Studio-%{version}.tar.gz
 Source1:        https://github.com/frankyeh/TIPL/archive/master.tar.gz#/TIPL-master.tar.gz
@@ -109,5 +111,9 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/dsi-studio.desktop
 %{_datadir}/applications/dsi-studio.desktop
 
 %changelog
+* Fri Jun 19 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.01-5
+- Correct License: MPLv2.0 -> CC-BY-NC-SA-4.0 (DSI Studio is non-commercial, not
+  free software). Moved to the mhough/neurofedora-nonfree COPR.
+
 * Tue Jan 06 2026 User <user@example.com> - 2025.01-4
 - Generated dsi_studio.pro dynamically to fix upstream missing file
