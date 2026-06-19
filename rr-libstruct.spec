@@ -3,7 +3,7 @@
 
 Name:           rr-libstruct
 Version:        2.9.2
-Release:        0.1.git%{shortcommit}%{?dist}
+Release:        0.3.git%{shortcommit}%{?dist}
 Summary:        Structural analysis library for SBML stoichiometric matrices
 
 # Upstream ships no LICENSE file; headers carry the BSD-3-Clause notice used
@@ -44,6 +44,13 @@ Headers for building against rr-libstruct.
 # Drop in the Fedora-clean shared-library build and the clapack prototype shim.
 cp -p %{SOURCE1} CMakeLists.txt
 cp -p %{SOURCE2} clapack.h
+# Fedora's libSBML is global-namespace (no libsbml:: namespace). Strip the
+# explicit libsbml:: qualifiers and the now-invalid "using namespace libsbml"
+# so the SBML class names resolve globally and match the system library symbols.
+sed -i 's/libsbml:://g' *.cpp *.h
+sed -i '/using namespace libsbml/d' *.cpp *.h
+# Unwrap single-line "namespace libsbml { class X; }" forward decls to global.
+sed -i 's/namespace libsbml[[:space:]]*{[[:space:]]*\(class [A-Za-z_0-9]*;\)[[:space:]]*}/\1/g' *.cpp *.h
 
 %build
 %cmake -GNinja -DCMAKE_BUILD_TYPE=Release
@@ -59,8 +66,13 @@ cp -p %{SOURCE2} clapack.h
 %files devel
 %{_includedir}/rr-libstruct/
 %{_libdir}/librr-libstruct.so
+%{_libdir}/cmake/rr-libstruct/
 
 %changelog
+* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-0.2.git7ff1f47
+- Export a CMake config (rr-libstruct::rr-libstruct-static target) so
+  libRoadRunner's find_package(rr-libstruct CONFIG) resolves.
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-0.1.git7ff1f47
 - Initial package: rr-libstruct (sys-bio) as a Fedora-clean shared library.
 - Replace upstream static-only/superbuild CMake with a shared build linking

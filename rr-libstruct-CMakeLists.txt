@@ -26,12 +26,16 @@ set(sources
 )
 
 add_library(rr-libstruct SHARED ${sources})
+# RoadRunner links the cmake target rr-libstruct::rr-libstruct-static; export
+# our shared target under that name so find_package(rr-libstruct CONFIG) works.
 set_target_properties(rr-libstruct PROPERTIES
     VERSION 2.9.2
     SOVERSION 2
+    EXPORT_NAME rr-libstruct-static
 )
-# Use the SHARED system libSBML (C++ namespace), NOT the static-link path.
-target_compile_definitions(rr-libstruct PRIVATE LIBSBML_USE_CPP_NAMESPACE)
+# Fedora's libSBML is built WITHOUT the C++ namespace (global symbols), so do
+# NOT define LIBSBML_USE_CPP_NAMESPACE — the code must use the global namespace
+# to match liblibsbml's exported symbols.
 target_include_directories(rr-libstruct
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
     PRIVATE ${CLAPACK_INCLUDE_DIR}
@@ -52,5 +56,19 @@ set(headers
     lsSBMLModel.h
 )
 
-install(TARGETS rr-libstruct LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(TARGETS rr-libstruct EXPORT rr-libstruct-targets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES ${headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/rr-libstruct)
+target_include_directories(rr-libstruct INTERFACE
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/rr-libstruct>)
+
+# Export a CONFIG package so RoadRunner's find_package(rr-libstruct CONFIG) and
+# the rr-libstruct::rr-libstruct-static target resolve.
+install(EXPORT rr-libstruct-targets
+    FILE rr-libstruct-targets.cmake
+    NAMESPACE rr-libstruct::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rr-libstruct)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/rr-libstruct-config.cmake
+"include(CMakeFindDependencyMacro)\ninclude(\"\${CMAKE_CURRENT_LIST_DIR}/rr-libstruct-targets.cmake\")\n")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rr-libstruct-config.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rr-libstruct)
