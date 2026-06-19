@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        50%{?dist}
+Release:        51%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -569,6 +569,15 @@ for _base in "$_sdir" "$_bdir"; do
     done
 done
 
+# 2c-bis. Ship Slicer's Libs/ public headers PRESERVING the Libs/<lib>/ path, so
+#   extensions that include them source-root-relative (e.g. SlicerDMRI's
+#   `#include <Libs/vtkTeem/vtkTeemNRRDReader.h>` in its diffusion CLIs) resolve
+#   against include/Slicer-5.11 (already on every extension's include path). Both
+#   the source tree (public *.h) and the build tree (generated *Export.h /
+#   *Configure.h the headers reference) are copied with their Libs/<lib>/ prefix.
+( cd "$_sdir" && find Libs -name '*.h' -exec cp -an --parents {} "$_si/" \; ) 2>/dev/null || :
+( cd "$_bdir" && find Libs -name '*.h' -exec cp -an --parents {} "$_si/" \; ) 2>/dev/null || :
+
 # 2d. Ship the generated SEM CLI library wrapper (Base/CLI/
 #     SEMCommandLineLibraryWrapper.cxx) so CLI-module extensions (SlicerDMRI,
 #     SlicerRT, ...) can build via SEMMacroBuildCLI (the install-tree config
@@ -658,6 +667,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Fri Jun 19 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-51
+- Ship Slicer's Libs/ public headers preserving the Libs/<lib>/ path under
+  include/Slicer-5.11, so extensions that include them source-root-relative
+  resolve. Unblocks SlicerDMRI, whose diffusion CLIs do
+  `#include <Libs/vtkTeem/vtkTeemNRRDReader.h>` (and ...Writer.h); the prior
+  header shipping only flattened Base/Logic + loadable-module headers, leaving
+  every `<Libs/...>` include unresolved. Copies source *.h plus the build-tree
+  generated *Export.h / *Configure.h they reference.
 * Thu Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-50
 - Make the modular-VTK link fix comprehensive: instead of forcing three named
   modules onto VTK_LIBRARIES, link_libraries() the full set Slicer already
