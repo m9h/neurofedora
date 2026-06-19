@@ -1,0 +1,76 @@
+--- a/CMakeLists.txt	2026-06-18 22:10:27.538115900 -0700
++++ b/CMakeLists.txt	2026-06-18 22:25:39.617555289 -0700
+@@ -9,16 +9,19 @@
+ SET(SHAPEWORKS_VERSION_STRING "6.7.0")
+ SET(SHAPEWORKS_VERSION "${SHAPEWORKS_MAJOR_VERSION}.${SHAPEWORKS_MINOR_VERSION}.${SHAPEWORKS_PATCH_VERSION}")
+ 
+-# First, check that files were checked out properly using git-lfs
+-file(MD5 "${CMAKE_CURRENT_SOURCE_DIR}/Testing/data/icp_baseline.nrrd" HASH)
+-if (NOT "${HASH}" STREQUAL "bb94438a695c749b264180019abbbb97")
+-  message( FATAL_ERROR "MD5 hash of '${CMAKE_CURRENT_SOURCE_DIR}/Testing/data/icp_baseline.nrrd' is incorrect.  This most likely means that git-lfs was not installed when ShapeWorks was cloned.  If you have downloaded a zip or tar.gz of the source, then it will be missing Git-LFS objects.  Please use git to clone ShapeWorks or download a source archive containing the Git-LFS objects under releases." )
+-endif()
++# Fedora packaging: the git-lfs Testing data is not shipped (tests are not built
++# in the RPM); skip the LFS sentinel check that would otherwise FATAL on a tarball.
++
++# Fedora packaging: build the CLI + Python library only, not the Qt5/JKQTPlotter
++# Studio GUI (JKQTPlotter is an out-of-tree patched Qt5 fork).
++option(BUILD_STUDIO "Build the ShapeWorksStudio Qt GUI (needs JKQTPlotter)" OFF)
+ 
+ set(CMAKE_CXX_STANDARD 17)             # available options are [98, 11, 14, 17. 20]
+ 
+ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+-find_package(Python3 3.12 EXACT REQUIRED COMPONENTS Interpreter Development)
++# Fedora packaging: the Python3 find_package (relaxed from the 3.12 EXACT pin) is
++# moved below project(), since locating the Development component needs the
++# compiler/arch info that only project() sets up.
+ 
+ if (NOT APPLE)
+   option(USE_OPENMP      "Build using OpenMP" ON)
+@@ -40,6 +43,10 @@
+ 
+ project(ShapeWorks)
+ 
++# Fedora packaging: relaxed from "Python3 3.12 EXACT"; placed after project() so
++# the Development component can be located against the configured toolchain.
++find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
++
+ 
+ ### vtk
+ find_package(VTK 9.5.0)
+@@ -104,9 +111,11 @@
+   set(SHAPEWORKS_QT_FOUND 0)
+ endif()
+   
+-find_package(JKQTCommonSharedLib REQUIRED)
+-find_package(JKQTMathTextSharedLib REQUIRED)
+-find_package(JKQTPlotterSharedLib REQUIRED)
++if(BUILD_STUDIO)
++  find_package(JKQTCommonSharedLib REQUIRED)
++  find_package(JKQTMathTextSharedLib REQUIRED)
++  find_package(JKQTPlotterSharedLib REQUIRED)
++endif()
+ 
+ # headers (TODO: move to shapeworks gui targets' includes)
+ include_directories(${Qt5Widgets_INCLUDE_DIRS})
+@@ -164,6 +173,10 @@
+ 
+ ### Geometry Central
+ find_package (GEOMETRYCENTRAL REQUIRED)
++# Fedora packaging: geometry-central is consumed as an external (imported) library
++# rather than built in-tree, so its include dir is not propagated transitively to
++# every consumer (e.g. Libs/Particles -> Surface.h). Add it globally.
++include_directories(${GEOMETRYCENTRAL_INCLUDE_DIRS})
+ 
+ if(USE_OPENMP)
+   find_package(OpenMP REQUIRED)
+@@ -205,7 +218,9 @@
+ add_subdirectory(ExternalLibs)
+ add_subdirectory(Libs)
+ add_subdirectory(Applications)
+-add_subdirectory(Studio)
++if(BUILD_STUDIO)
++  add_subdirectory(Studio)
++endif()
+ 
+ foreach(plugin ${Qt5Network_PLUGINS})
+   get_target_property(_loc ${plugin} LOCATION)
