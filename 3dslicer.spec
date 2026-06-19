@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        49%{?dist}
+Release:        50%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -261,18 +261,34 @@ echo 'return()' > CMake/SlicerBlockInstallTBB.cmake
 python3 - CMakeLists.txt <<'PYEOF'
 import sys, re
 f = sys.argv[1]; s = open(f).read()
-inj = ("\n# Fedora modular-VTK linkage fix (packaging): ensure these modules are\n"
-       "# present in the legacy VTK_LIBRARIES that several libs link against.\n"
-       "foreach(_vmod ImagingStatistics FiltersExtraction ImagingStencil)\n"
+inj = ("\n# Fedora modular-VTK linkage fix (packaging): the new VTK no longer puts the\n"
+       "# full module closure into the legacy VTK_LIBRARIES that several Slicer libs\n"
+       "# link, so they fail with undefined references (vtkImageAccumulate,\n"
+       "# vtkExtractSelection, vtkPolyDataToImageStencil, vtkTimerLog, ...). Rather\n"
+       "# than chase modules one at a time, link every component Slicer already\n"
+       "# requested (Slicer_VTK_COMPONENTS) PLUS the foundational Common* family that\n"
+       "# Slicer libs reference transitively but the components list omits (vtkTimerLog\n"
+       "# = CommonSystem); link them all onto every target defined afterwards via\n"
+       "# link_libraries() (--as-needed drops the unused ones). Robust against any\n"
+       "# VTK_LIBRARIES scope/propagation gaps without per-module whack-a-mole.\n"
+       "set(_PKGVTK_EXTRA\n"
+       "  CommonCore CommonSystem CommonMath CommonMisc CommonTransforms\n"
+       "  CommonExecutionModel CommonDataModel CommonColor CommonComputationalGeometry\n"
+       "  FiltersCore FiltersGeneral FiltersGeometry FiltersSources\n"
+       "  ImagingCore ImagingGeneral)\n"
+       "foreach(_vmod ${Slicer_VTK_COMPONENTS} ${_PKGVTK_EXTRA})\n"
        "  if(TARGET VTK::${_vmod})\n"
-       "    list(APPEND VTK_LIBRARIES VTK::${_vmod})\n"
+       "    link_libraries(VTK::${_vmod})\n"
+       "  else()\n"
+       "    message(WARNING \"PKGVTKFIX: VTK::${_vmod} is NOT a target\")\n"
        "  endif()\n"
-       "endforeach()\n")
+       "endforeach()\n"
+       "message(STATUS \"PKGVTKFIX: link_libraries over components + Common* done\")\n")
 s2 = re.sub(r'(find_package\(VTK [^\n]*COMPONENTS[^\n]*REQUIRED\)\n)',
             lambda m: m.group(1) + inj, s, count=1)
 assert s2 != s, "find_package(VTK COMPONENTS) anchor not found"
 open(f, "w").write(s2)
-print("VTK_LIBRARIES linkage fix injected")
+print("VTK link_libraries fix injected")
 PYEOF
 
 # Slicer source bug #1: 4 Libs/*/CMakeLists.txt use POSIX-regex alternation
@@ -642,6 +658,14 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Thu Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-50
+- Make the modular-VTK link fix comprehensive: instead of forcing three named
+  modules onto VTK_LIBRARIES, link_libraries() the full set Slicer already
+  requested (Slicer_VTK_COMPONENTS) plus the foundational Common* family onto
+  every target after find_package(VTK). The -49 three-module list only moved the
+  failure from vtkImageAccumulate/vtkExtractSelection/vtkPolyDataToImageStencil
+  to vtkTimerLog (VTK::CommonSystem, not in Slicer_VTK_COMPONENTS); the full set
+  resolves the whole closure once. vtkSegmentationCore now links clean.
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-49
 - Fix a VTK link regression: force VTK::ImagingStatistics / FiltersExtraction /
   ImagingStencil onto the legacy VTK_LIBRARIES (Fedora's modular VTK omits them
