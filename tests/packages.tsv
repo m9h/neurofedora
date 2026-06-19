@@ -28,7 +28,7 @@ InsightToolkit5-devel	lib	test -f /usr/lib/cmake/ITK-5.4/ITKConfig.cmake
 vtk	lib	test -d /usr/lib64/cmake/vtk || test -d /usr/lib/cmake/vtk
 vtk-devel	lib	test -f /usr/lib64/cmake/vtk/vtk-config.cmake || test -f /usr/lib/cmake/vtk/vtk-config.cmake
 # WIP-F44: vtkAddon	lib	test -d /usr/share/cmake/vtkAddon || test -d /usr/lib64/cmake/vtkAddon
-SlicerExecutionModel	lib	test -d /usr/lib64/SlicerExecutionModel
+SlicerExecutionModel-devel	lib	test -f /usr/lib64/SlicerExecutionModel/SlicerExecutionModelConfig.cmake
 dcmtk	cli	dcmdump --version	dcmdump v[0-9]
 gdcm	lib	test -f /usr/lib64/libgdcmDICT.so.3.0
 ismrmrd	cli	ismrmrd_info
@@ -135,7 +135,7 @@ python3-fsleyes-widgets	python	python3 -c 'import fsleyes_widgets'
 fsleyes	gui	fsleyes --version 2>&1	FSLeyes
 
 # ─── Python — supporting deps the COPR builds ──────────────────────────────────
-python3-marshmallow	python	python3 -c 'import marshmallow; print(marshmallow.__version__)'
+python3-marshmallow	python	python3 -c 'import importlib.metadata as m; print(m.version("marshmallow"))'
 # WIP-F44: python3-dataclasses-json	python	python3 -c 'import dataclasses_json'
 # WIP-F44: python3-pygltflib	python	python3 -c 'import pygltflib'
 

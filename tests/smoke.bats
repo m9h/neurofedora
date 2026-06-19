@@ -48,9 +48,9 @@ _require_installed() {
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
-@test "SlicerExecutionModel (lib): test -d /usr/lib64/SlicerExecutionModel" {
-    _require_installed "SlicerExecutionModel"
-    run --separate-stderr bash -c "test -d /usr/lib64/SlicerExecutionModel"
+@test "SlicerExecutionModel-devel (lib): test -f /usr/lib64/SlicerExecutionModel/SlicerExecutionModelConfig.cmake" {
+    _require_installed "SlicerExecutionModel-devel"
+    run --separate-stderr bash -c "test -f /usr/lib64/SlicerExecutionModel/SlicerExecutionModelConfig.cmake"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
@@ -330,9 +330,9 @@ _require_installed() {
     grep -qE "FSLeyes" <<<"$output\n$stderr" || { echo "expected /FSLeyes/ in output, got: $output $stderr"; false; }
 }
 
-@test "python3-marshmallow (python): /usr/bin/python3 -c 'import marshmallow; print(marshmallow.__version__)'" {
+@test "python3-marshmallow (python): /usr/bin/python3 -c 'import importlib.metadata as m; print(m.version(\"marshmallow\"))'" {
     _require_installed "python3-marshmallow"
-    run --separate-stderr bash -c "/usr/bin/python3 -c 'import marshmallow; print(marshmallow.__version__)'"
+    run --separate-stderr bash -c "/usr/bin/python3 -c 'import importlib.metadata as m; print(m.version(\"marshmallow\"))'"
     [ "$status" -eq 0 ] || { echo "exit=$status stdout=$output stderr=$stderr"; false; }
 }
 
