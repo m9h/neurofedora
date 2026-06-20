@@ -1,6 +1,6 @@
 Name:           lsl-apps
 Version:        1.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Lab Streaming Layer applications (meta-package)
 
 License:        MIT
@@ -19,6 +19,9 @@ Requires:       App-Gamepad
 # Open eye-tracker integration
 Requires:       App-PupilLabs
 
+# Wii Remote (Bluetooth, via wiiuse)
+Requires:       App-Wiimote
+
 %description
 Meta-package that pulls in the Lab Streaming Layer (LSL) user-facing
 applications shipped by the mhough/neurofedora COPR:
@@ -29,6 +32,7 @@ applications shipped by the mhough/neurofedora COPR:
   * App-AudioCapture    — microphone capture into an LSL stream
   * App-Gamepad         — generic gamepad input as an LSL stream
   * App-PupilLabs       — Pupil Capture relay/recorder plugins
+  * App-Wiimote         — Nintendo Wii Remote buttons/motion over LSL
 
 Library prerequisites (liblsl, libxdf, python3-pylsl, python3-pyxdf)
 are pulled in as transitive dependencies of the apps above.
@@ -37,6 +41,9 @@ are pulled in as transitive dependencies of the apps above.
 # Meta-package — no payload
 
 %changelog
+* Sat Jun 20 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-3
+- Add App-Wiimote (Wii Remote LSL connector) to the meta-package.
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-2
 - Drop sigviewer from Requires. Despite reading XDF, sigviewer is an
   independent cbrnr/sigviewer project, not part of the labstreaminglayer
