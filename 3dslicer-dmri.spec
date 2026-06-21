@@ -93,6 +93,18 @@ sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 # the include — modern Teem needs no use-file.
 sed -i '/include(${Teem_USE_FILE})/d' Libs/vtkDMRI/CMakeLists.txt
 
+# Qt6 removed the QString overloads of QComboBox::currentIndexChanged and
+# ::activated; the text-changed equivalents are currentTextChanged(QString) /
+# textActivated(QString). The TractographyDisplay glyph .ui connects
+# currentIndexChanged(QString) (uic then emits a signal/slot-mismatched connect
+# that FAILS to compile), and a widget .cxx uses the same in a string SIGNAL().
+# Rewrite to the Qt6 signals everywhere they appear.
+grep -rlZ -e 'currentIndexChanged(QString)' -e 'activated(QString)' \
+    --include=*.ui --include=*.cxx --include=*.h . 2>/dev/null \
+  | xargs -0 -r sed -i \
+      -e 's/currentIndexChanged(QString)/currentTextChanged(QString)/g' \
+      -e 's/\bactivated(QString)/textActivated(QString)/g'
+
 # Transitional shims until building against foundation -47 (which bakes these in:
 # Qt include dirs + loadable-module imported targets). Harmless on -47.
 sed -i 's|^include(${Slicer_USE_FILE})|&\ninclude_directories("/usr/include/qt6" "/usr/include/qt6/QtCore" "/usr/include/qt6/QtGui" "/usr/include/qt6/QtWidgets" "/usr/include/qt6/QtCore5Compat")\nlink_directories("/usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules")|' CMakeLists.txt
