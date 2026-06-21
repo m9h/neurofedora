@@ -19,7 +19,7 @@
 
 Name:           compucell3d
 Version:        4.9.0
-Release:        0.2.rc.20260617git%{shortcommit0}%{?dist}
+Release:        0.3.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        Multi-scale virtual tissue simulation environment
 
 License:        MIT
@@ -108,10 +108,14 @@ Requires:       python3-deprecated
 # webcolors is an optional cosmetic dep (named-colour parsing in logging);
 # missing it only prints a warning, so pull it weakly.
 Recommends:     python3-webcolors
-# NOTE: upstream also lists cc3d-network-solvers and simservice; both are
-# absent from Fedora and only needed for SBML/RoadRunner and service-mode
-# simulations respectively. The engine imports them lazily and warns (not
-# fatal) when missing, so they are intentionally not required here.
+# Optional sub-cellular network solvers (imported lazily; the engine warns, not
+# fatal, when absent). Pulled weakly so the demos work out of the box:
+#   - python3-roadrunner : SBML continuous kinetics (cc3d.core.RoadRunner)
+#   - python3-cc3dext     : bundled MaBoSS Boolean networks (cc3d.core.MaBoSSCC3D)
+#   - python3-simservice  : service-mode (CC3D-as-a-service) simulations
+Recommends:     python3-roadrunner
+Recommends:     python3-cc3dext
+Recommends:     python3-simservice
 
 %description -n python3-%{name}
 Python 3 SWIG bindings and the cc3d Python package for scripting
@@ -346,6 +350,11 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 %{_libdir}/libSerializerDE.so
 
 %changelog
+* Sat Jun 20 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.3.rc.20260617git780374e
+- Weakly pull the sub-cellular network solvers now that they are packaged:
+  Recommends python3-roadrunner (SBML), python3-cc3dext (bundled MaBoSS),
+  python3-simservice (service mode) — enables the SBML/MaBoSS demos.
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.2.rc.20260617git780374e
 - Rebuild to deliver the runtime fixes (python3 run-script, $ORIGIN RPATHs,
   lxml/scipy/pandas/jinja2/psutil/deprecated Requires, webcolors Recommends,
