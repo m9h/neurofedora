@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        51%{?dist}
+Release:        52%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -234,6 +234,19 @@ SuperBuild, for Fedora-policy compliance.
 %package devel
 Summary:        Development headers for 3D Slicer
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+# Loading the install-tree SlicerConfig.cmake runs find_package() for the system
+# externals Slicer was built against; an extension building against -devel needs
+# their cmake configs present. teem-devel in particular: SlicerConfig does
+# find_package(Teem) and Fedora ships TeemConfig.cmake only in teem-devel.
+Requires:       teem-devel
+Requires:       vtk-devel
+Requires:       InsightToolkit5-devel
+Requires:       SlicerExecutionModel-devel
+Requires:       ctk-devel
+Requires:       qttesting-devel
+Requires:       qRestAPI-devel
+Requires:       commontk-applauncher-devel
+Requires:       vtkAddon-devel
 
 %description devel
 Headers, cmake configuration, and devel symlinks for building Slicer
@@ -667,6 +680,18 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sat Jun 20 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-52
+- Complete the install-tree config for loadable-module extensions. The generated
+  imported targets now (a) link the VTK:: module closure so a consumer linking a
+  Slicer lib (e.g. MRMLCore) inherits VTK includes AND libraries — upstream's
+  missing install(EXPORT) left these out, so extensions failed with undefined
+  vtkObject::* / missing <vtkObject.h>; and (b) carry the Slicer base include
+  subdirs (qSlicerBaseQTGUI, ...) so headers like qSlicerAbstractModuleWidget.h
+  resolve. Same on the loadable-module imported targets. Also make 3dslicer-devel
+  Require the system -devel packages whose cmake configs SlicerConfig
+  find_package()s (teem-devel, vtk-devel, ITK, SEM, ctk, qttesting, qRestAPI,
+  commontk-applauncher, vtkAddon) so extensions resolve them out of the box.
+  Unblocks the C++ GUI/loadable extensions (SRep, ShapePopulationViewer, ...).
 * Fri Jun 19 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-51
 - Ship Slicer's Libs/ public headers preserving the Libs/<lib>/ path under
   include/Slicer-5.11, so extensions that include them source-root-relative
