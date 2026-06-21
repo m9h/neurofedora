@@ -5,7 +5,7 @@
 
 Name:           febio
 Version:        4.12
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Finite element solver for biomechanics and biophysics
 
 License:        MIT
@@ -79,6 +79,49 @@ done
 install -d %{buildroot}%{_bindir}
 ln -s ../%{_lib}/febio/febio4 %{buildroot}%{_bindir}/febio4
 
+# --- febio-devel SDK ---------------------------------------------------------
+# Install the module headers (namespaced under %%{_includedir}/febio, included as
+# <FECore/...> etc.) plus a CMake config exposing one imported target per module,
+# so FEBio Studio and FEBio plugins can find_package(FEBio).
+for mod in FECore NumCore FEBioLib FEBioMech FEBioMix FEBioFluid FEBioRVE \
+           FEBioPlot FEBioXML FEAMR FEBioOpt FEImgLib; do
+    find "$mod" -name '*.h' -o -name '*.hpp' | while read -r h; do
+        install -D -m 0644 "$h" "%{buildroot}%{_includedir}/febio/$h"
+    done
+done
+
+install -d %{buildroot}%{_libdir}/cmake/FEBio
+cat > %{buildroot}%{_libdir}/cmake/FEBio/FEBioConfig.cmake <<'EOF'
+# Fedora febio-devel: FEBio SDK config exposing one imported target per module.
+# (Replaces upstream's in-tree/build-dir config with explicit installed paths.)
+set(FEBIO_INCLUDE_DIR "%{_includedir}/febio")
+set(_febio_map
+    FECore:fecore FEBioMech:febiomech FEBioMix:febiomix FEBioFluid:febiofluid
+    FEBioRVE:febiorve FEBioPlot:febioplot FEBioXML:febioxml FEBioLib:febiolib
+    FEAMR:feamr FEBioOpt:febioopt FEImgLib:feimglib NumCore:numcore)
+foreach(pair IN LISTS _febio_map)
+    string(REPLACE ":" ";" _parts ${pair})
+    list(GET _parts 0 _tgt)
+    list(GET _parts 1 _lib)
+    if(NOT TARGET FEBio::${_tgt})
+        add_library(FEBio::${_tgt} SHARED IMPORTED)
+        set_target_properties(FEBio::${_tgt} PROPERTIES
+            IMPORTED_LOCATION "%{febiolibdir}/lib${_lib}.so"
+            INTERFACE_INCLUDE_DIRECTORIES "${FEBIO_INCLUDE_DIR}")
+    endif()
+endforeach()
+set(FEBio_FOUND TRUE)
+EOF
+
+%package devel
+Summary:        FEBio SDK: headers and CMake config for FEBio plugins and FEBio Studio
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description devel
+Development files (module headers and a CMake package configuration exposing the
+FEBio::<Module> imported targets) for building FEBio plugins or applications that
+link the FEBio libraries, such as FEBio Studio.
+
 %files
 %license LICENSE
 %doc README.md
@@ -87,7 +130,15 @@ ln -s ../%{_lib}/febio/febio4 %{buildroot}%{_bindir}/febio4
 %{febiolibdir}/*.so
 %{_bindir}/febio4
 
+%files devel
+%{_includedir}/febio/
+%{_libdir}/cmake/FEBio/
+
 %changelog
+* Sat Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 4.12-2
+- Add febio-devel SDK subpackage (module headers + FEBioConfig.cmake with the
+  FEBio::<Module> imported targets), required to build FEBio Studio and plugins.
+
 * Sat Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 4.12-1
 - Initial package: FEBio 4.12 finite element solver (febio4). Built with system
   HYPRE/levmar/FFTW/zlib and MMG adaptive mesh refinement (via the mmg3d-devel +
