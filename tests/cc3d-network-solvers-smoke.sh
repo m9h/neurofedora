@@ -9,15 +9,23 @@ hdr()  { echo; echo "== $1 =="; }
 
 hdr "1. packages installed"
 for p in compucell3d python3-compucell3d cc3d-player5 cc3d-twedit5 \
-         libroadrunner python3-roadrunner python3-cc3dext python3-simservice \
+         python3-roadrunner python3-cc3dext python3-simservice \
          antimony python3-antimony libsbmlnetwork; do
   if rpm -q "$p" >/dev/null 2>&1; then ok "$(rpm -q $p)"; else bad "$p not installed"; fi
 done
+# libroadrunner (the standalone shared lib) is optional: python3-roadrunner is
+# self-contained, so it is not required for the SBML solver to work.
+rpm -q libroadrunner >/dev/null 2>&1 && echo "  INFO: $(rpm -q libroadrunner) (optional, present)" \
+  || echo "  INFO: libroadrunner not installed (optional — python3-roadrunner is self-contained)"
 
 hdr "2. CompuCell3D core imports"
-python3 - <<'PY' && ok "import cc3d (+ MaBoSSCC3D/RoadRunner core)" || bad "cc3d core import"
+# Use the canonical import order (CompuCellSetup first); cc3d 4.9.0 has a
+# CompuCellSetup<->MaBoSSCC3D import cycle that only resolves in this order
+# (which every real CC3D script uses).
+python3 - <<'PY' && ok "import cc3d + CompuCellSetup + MaBoSS/RoadRunner integration" || bad "cc3d core import"
 import cc3d
-from cc3d.core import MaBoSSCC3D       # the MaBoSS integration module
+from cc3d import CompuCellSetup
+from cc3d.core.MaBoSSCC3D import MaBoSSHelper, maboss_model
 print("    cc3d", getattr(cc3d, "__version__", "?"))
 PY
 
