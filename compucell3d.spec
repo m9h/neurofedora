@@ -19,7 +19,7 @@
 
 Name:           compucell3d
 Version:        4.9.0
-Release:        0.3.rc.20260617git%{shortcommit0}%{?dist}
+Release:        0.4.rc.20260617git%{shortcommit0}%{?dist}
 Summary:        Multi-scale virtual tissue simulation environment
 
 License:        MIT
@@ -77,7 +77,13 @@ BuildRequires:  qt6-qtdeclarative-devel
 
 # Explicit runtime deps
 Requires:       python3-numpy
-Requires:       python3-vtk
+# CompuCell3D's C++ libs (libFieldExtractor etc.) are built against the COPR VTK
+# 9.6.2 and use 9.6-era symbols (e.g. vtkCartesianGrid::GetDimensions) that the
+# older Fedora VTK 9.5.x lacks — yet both share the libvtk*.so.1 SONAME, so the
+# auto-generated deps can't tell them apart. Pin the floor or it silently loads
+# the wrong VTK and dies with undefined-symbol ImportErrors at engine import.
+Requires:       vtk >= 9.6.2
+Requires:       python3-vtk >= 9.6.2
 
 Provides:       bundled(muParser)
 Provides:       bundled(eigen) = 3.1.1
@@ -96,7 +102,8 @@ and a cc3d Python package for scripting simulations.}
 Summary:        Python 3 bindings and runtime for CompuCell3D
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python3-numpy
-Requires:       python3-vtk
+# Match the VTK 9.6.2 ABI the engine was built against (see main package note).
+Requires:       python3-vtk >= 9.6.2
 # Runtime imports of the cc3d engine (per upstream conda meta.yaml run: deps).
 # Without these the engine fails to import before a simulation can start.
 Requires:       python3-lxml
@@ -350,6 +357,12 @@ test -f %{buildroot}%{_libdir}/libCC3DCompuCellLib.so.%{cc3d_soversion}
 %{_libdir}/libSerializerDE.so
 
 %changelog
+* Sun Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.4.rc.20260617git780374e
+- Pin VTK >= 9.6.2 (vtk + python3-vtk): the C++ libs use 9.6-era symbols
+  (vtkCartesianGrid) absent from Fedora's 9.5.x, but share the libvtk*.so.1
+  SONAME, so without the floor the engine import dies with an undefined-symbol
+  ImportError when the older system VTK is installed.
+
 * Sat Jun 20 2026 Morgan Hough <morgan.hough@gmail.com> - 4.9.0-0.3.rc.20260617git780374e
 - Weakly pull the sub-cellular network solvers now that they are packaged:
   Recommends python3-roadrunner (SBML), python3-cc3dext (bundled MaBoSS),
