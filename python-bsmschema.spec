@@ -2,7 +2,7 @@
 
 Name:           python-%{pypi_name}
 Version:        0.1.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Pydantic schema for BIDS Stats Models
 
 License:        Apache-2.0
@@ -49,6 +49,12 @@ Summary:        %{summary}
 %doc README.md
 
 %changelog
+* Sat Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.1-2
+- Rebuild at Release 2 to escape Fedora's fedora-obsolete-packages obsoletion of
+  python3-bsmschema < 0.1.1-2 (Fedora retired the package). The COPR 0.1.1-1 was
+  itself obsoleted, leaving python3-pybids+test (which Requires bsmschema) with no
+  provider. 0.1.1-2 is not < 0.1.1-2, so it survives and satisfies pybids again.
+
 * Fri Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.1-1
 - Initial package (hatchling backend; runtime dep pydantic >=2). Unblocks the
   python-pybids resubmit, which BuildRequires bsmschema for stats-model parsing.
