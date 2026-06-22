@@ -16,7 +16,7 @@
 
 Name:           3dslicer-dmri
 Version:        1.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Diffusion MRI (tractography, tensors, fiber bundles) extension for 3D Slicer
 
 # 3D Slicer license: BSD-style.
@@ -29,7 +29,7 @@ BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-53
+BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-54
 
 # Full Qt6 set find_package(Slicer)'s Qt check demands.
 BuildRequires:  cmake(Qt6Core)
@@ -131,6 +131,13 @@ grep -rlZ -e 'currentIndexChanged(QString)' -e 'activated(QString)' \
 %doc README.md
 
 %changelog
+* Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260601gita40200bf
+- Rebuild against foundation -54, which adds the ITK link closure to the install-tree
+  imported targets. -53 fixed the loadable-module GUI link (qSlicer/qMRML/ctk); the
+  build then reached the CLI fiber modules (FiberBundleLabelSelect,
+  TractographyLabelMapSeeding) which use ITK directly and failed with undefined
+  itk::* — now resolved by the foundation carrying ITK on its target interfaces.
+
 * Sun Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260601gita40200bf
 - Rebuild against foundation -53, which completes the install-tree imported-target
   link interface (inter-Slicer + CTK closure). Drop the transitional Qt-include /
