@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        52%{?dist}
+Release:        53%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -680,6 +680,19 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sun Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-53
+- Complete the install-tree imported-target link interface for loadable-module
+  GUI extensions (the -52 follow-up). The generated SlicerTargets.cmake now wires
+  the inter-Slicer link closure onto every imported target: Qt-based libs
+  (qSlicerBaseQTGUI, qMRMLWidgets, ...) carry the full Slicer library set + Qt +
+  the system CTK .so closure (globbed from /usr/lib64/libCTK*.so), while non-Qt
+  libs carry only the other non-Qt Slicer libs + VTK (so a pure-CLI extension is
+  not forced to drag in Qt/CTK). Upstream's missing install(EXPORT) left these
+  interface dependencies unset, so module Widgets libraries failed to link with
+  undefined qSlicerAbstractModuleWidget::~ / qMRMLTreeView::* / ctkCollapsibleButton
+  references even though the libraries were present. Fixes SlicerDMRI and the
+  other C++ loadable-module extensions (SRep, ShapePopulationViewer).
+
 * Sat Jun 20 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-52
 - Complete the install-tree config for loadable-module extensions. The generated
   imported targets now (a) link the VTK:: module closure so a consumer linking a
