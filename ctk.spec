@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.15.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.16.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -37,6 +37,10 @@ ExcludeArch:    %{ix86}
 # It Conflicts with the Fedora stock ctk package (which is Qt5-only,
 # has no VTK/ITK, and is at version 2023.07.13).
 Conflicts:      ctk < 2026
+# We build with CTK_ENABLE_PluginFramework=OFF (Slicer doesn't need it), so we
+# ship no ctk-plugin-framework. Obsolete Fedora's so it doesn't linger requiring
+# ctk = 2023 and block the upgrade to this ctk (the dnf-update conflict users hit).
+Obsoletes:      ctk-plugin-framework < %{version}-%{release}
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.16
@@ -328,6 +332,13 @@ ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.16.20260126gitfd37b874
+- Obsolete ctk-plugin-framework < this version. We build with PluginFramework=OFF
+  so we ship no ctk-plugin-framework; without the Obsoletes, Fedora's
+  ctk-plugin-framework-2023 (Requires ctk = 2023) lingered and blocked the upgrade
+  to this ctk on user systems (Conflicts: ctk < 2026) — a dnf-update deadlock.
+  Also supersedes the stale 0.14 build that left two ctk versions in the repo.
+
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.15.20260126gitfd37b874
 - Fix 3D Slicer bug #9a: symlink the qt/ctk PythonQt stub modules from
   %{_bindir}/Python into %{python3_sitelib} so Slicer's embedded interpreter
