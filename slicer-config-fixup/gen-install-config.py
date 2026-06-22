@@ -336,6 +336,20 @@ def gen_targets(root, module_dir=None):
         '# than hardcode the module list. Empty glob (CTK absent) -> empty list.',
         'file(GLOB _slicer_ctk_libs "/usr/lib64/libCTK*.so")',
         '',
+        '# -54 fix: ITK closure. The Slicer C++ libs (vtkITK, MRMLCore, MRMLLogic,',
+        '# SlicerBaseLogic, vtkTeem, vtkSegmentationCore, ITKFactoryRegistration) are',
+        '# built on ITK and the in-tree build propagated the ITK libraries through',
+        '# their interface. Without it, a CLI/loadable module that links a Slicer lib',
+        '# and uses ITK itself (e.g. SlicerDMRI FiberBundleLabelSelect reading images)',
+        '# fails with undefined itk::Object::GetDebug / itk::InvalidRequestedRegionError',
+        '# — SEM\'s ${ITK_LIBRARIES} resolves empty against the install tree. Glob the',
+        '# Fedora ITK .so set (InsightToolkit5-devel ships the unversioned symlinks at',
+        '# build time; runtime DT_NEEDED resolves to the versioned .so). --as-needed',
+        '# prunes the unused ones from the consumer\'s DT_NEEDED. Both casings: the',
+        '# uppercase ITK modules (libITKCommon-*) and the lowercase third-party',
+        '# (libitkvnl-*, libitksys-*). Empty glob (ITK absent) -> empty list.',
+        'file(GLOB _slicer_itk_libs "/usr/lib64/libITK*.so" "/usr/lib64/libitk*.so")',
+        '',
     ]
     for t in TARGET_LIBS:
         # The Qt-based libs (Slicer's "q"-prefixed targets, qSlicer*/qMRMLWidgets)
@@ -355,11 +369,11 @@ def gen_targets(root, module_dir=None):
             _siblings = [x for x in (NONQT_TARGET_LIBS + ALLQT_TARGET_LIBS) if x != t]
             _ifacelibs = ('Qt6::Core;Qt6::Gui;Qt6::Widgets;Qt6::Core5Compat;'
                           + (';'.join(_siblings) + ';' if _siblings else '')
-                          + '${_slicer_vtk_ifacelibs};${_slicer_ctk_libs}')
+                          + '${_slicer_vtk_ifacelibs};${_slicer_ctk_libs};${_slicer_itk_libs}')
         else:
             _siblings = [x for x in NONQT_TARGET_LIBS if x != t]
             _ifacelibs = ((';'.join(_siblings) + ';' if _siblings else '')
-                          + '${_slicer_vtk_ifacelibs}')
+                          + '${_slicer_vtk_ifacelibs};${_slicer_itk_libs}')
         L += [
             'if(NOT TARGET %s)' % t,
             '  add_library(%s SHARED IMPORTED)' % t,
@@ -390,7 +404,7 @@ def gen_targets(root, module_dir=None):
                 '  set_target_properties(%s PROPERTIES' % tname,
                 '    IMPORTED_LOCATION "${_slicer_libdir}/qt-loadable-modules/%s"' % so,
                 '    INTERFACE_INCLUDE_DIRECTORIES "${_slicer_iface_inc}"',
-                '    INTERFACE_LINK_LIBRARIES "${_slicer_vtk_ifacelibs}")',
+                '    INTERFACE_LINK_LIBRARIES "${_slicer_vtk_ifacelibs};${_slicer_itk_libs}")',
                 'endif()',
             ]
     return "\n".join(L) + "\n"

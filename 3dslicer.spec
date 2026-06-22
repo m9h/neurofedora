@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        53%{?dist}
+Release:        54%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -680,6 +680,20 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-54
+- Add the ITK link closure to the generated imported targets (the ITK analog of
+  the -52 VTK closure / -53 inter-Slicer+CTK closure). The Slicer C++ libs
+  (vtkITK, MRMLCore, MRMLLogic, SlicerBaseLogic, vtkTeem, vtkSegmentationCore,
+  ITKFactoryRegistration) are built on ITK and propagated it through their
+  interface in-tree; without it a CLI/loadable module that links a Slicer lib and
+  uses ITK itself (e.g. SlicerDMRI FiberBundleLabelSelect / TractographyLabelMapSeeding
+  reading images) failed with undefined itk::Object::GetDebug /
+  itk::InvalidRequestedRegionError — SEM's ${ITK_LIBRARIES} resolves empty against
+  the install tree, so ITK was absent from the link line entirely. gen-install-config
+  now globs the Fedora ITK .so set (/usr/lib64/libITK*.so + libitk*.so) onto every
+  imported target's INTERFACE_LINK_LIBRARIES; --as-needed prunes the unused ones
+  from the consumer's DT_NEEDED.
+
 * Sun Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-53
 - Complete the install-tree imported-target link interface for loadable-module
   GUI extensions (the -52 follow-up). The generated SlicerTargets.cmake now wires
