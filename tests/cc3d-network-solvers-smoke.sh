@@ -97,10 +97,27 @@ else
   echo "  SKIP: no \$DISPLAY and no xvfb-run (install xorg-x11-server-Xvfb to test headless)"
 fi
 
+hdr "9. Full demo sweep (every shipped .cc3d, headless)"
+# Runs cc3d-demo-sweep.sh over ALL ~236 example simulations CompuCell3D ships,
+# each headless with a per-demo timeout. This is the slow part (tens of
+# minutes). Skip it with CC3D_SKIP_DEMOS=1 for a quick functional-only run;
+# tune coverage with CC3D_DEMO_TIMEOUT / CC3D_DEMO_GLOB / CC3D_DEMO_LIMIT.
+SWEEP="$(dirname "$(readlink -f "$0")")/cc3d-demo-sweep.sh"
+if [ "${CC3D_SKIP_DEMOS:-0}" = "1" ]; then
+  echo "  SKIP: CC3D_SKIP_DEMOS=1 (run 'bash cc3d-demo-sweep.sh' separately for the full sweep)"
+elif [ -x "$SWEEP" ] || [ -f "$SWEEP" ]; then
+  echo "  Running every shipped demo via cc3d-demo-sweep.sh (this takes a while)..."
+  if bash "$SWEEP"; then ok "demo sweep: all demos load-and-step without crashing"
+  else bad "demo sweep: one or more demos crashed/errored (see list above)"; fi
+else
+  bad "cc3d-demo-sweep.sh not found next to this script"
+fi
+
 echo
 echo "==================================================="
 echo "  RESULT: $PASS passed, $FAIL failed"
 echo "  Interactive demos: run 'cc3d-demo' (copies demos to ~/cc3d-demos and opens Player),"
 echo "  then open Demos/MaBoSS/MaBoSSCellCycle and Demos/.../angiogenesis."
+echo "  Full headless demo sweep alone: bash cc3d-demo-sweep.sh"
 echo "==================================================="
 [ "$FAIL" -eq 0 ]
