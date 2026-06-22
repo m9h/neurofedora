@@ -16,7 +16,7 @@
 
 Name:           3dslicer-dmri
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Diffusion MRI (tractography, tensors, fiber bundles) extension for 3D Slicer
 
 # 3D Slicer license: BSD-style.
@@ -29,7 +29,7 @@ BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-49
+BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-53
 
 # Full Qt6 set find_package(Slicer)'s Qt check demands.
 BuildRequires:  cmake(Qt6Core)
@@ -105,9 +105,10 @@ grep -rlZ -e 'currentIndexChanged(QString)' -e 'activated(QString)' \
       -e 's/currentIndexChanged(QString)/currentTextChanged(QString)/g' \
       -e 's/\bactivated(QString)/textActivated(QString)/g'
 
-# Transitional shims until building against foundation -47 (which bakes these in:
-# Qt include dirs + loadable-module imported targets). Harmless on -47.
-sed -i 's|^include(${Slicer_USE_FILE})|&\ninclude_directories("/usr/include/qt6" "/usr/include/qt6/QtCore" "/usr/include/qt6/QtGui" "/usr/include/qt6/QtWidgets" "/usr/include/qt6/QtCore5Compat")\nlink_directories("/usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules")|' CMakeLists.txt
+# (No shims: foundation -53 makes the install-tree config self-sufficient — the
+# imported targets now carry the Qt include dirs and the full inter-Slicer + CTK
+# link closure, so the Qt-include and qt-loadable-modules link_directories hacks
+# this package used against -51/-52 are no longer needed.)
 
 %build
 %cmake -G Ninja \
@@ -130,6 +131,13 @@ sed -i 's|^include(${Slicer_USE_FILE})|&\ninclude_directories("/usr/include/qt6"
 %doc README.md
 
 %changelog
+* Sun Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260601gita40200bf
+- Rebuild against foundation -53, which completes the install-tree imported-target
+  link interface (inter-Slicer + CTK closure). Drop the transitional Qt-include /
+  qt-loadable-modules link_directories shims — the foundation config is now
+  self-sufficient. Keep the Qt6 currentIndexChanged(QString) -> currentTextChanged
+  source fix (a genuine upstream Qt6 port, not a packaging workaround).
+
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260601gita40200bf
 - Initial real package. SlicerDMRI (vtkDMRI library + tractography/tensor
   loadable & CLI modules) built non-superbuild against system 3dslicer-devel
