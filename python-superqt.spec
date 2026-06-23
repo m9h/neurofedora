@@ -1,6 +1,6 @@
 Name:           python-superqt
 Version:        0.8.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Missing widgets and components for Qt-python
 
 License:        BSD-3-Clause
@@ -25,6 +25,17 @@ qtpy. It is a core building block of magicgui and napari.}
 %package -n python3-superqt
 Summary:        %{summary}
 %description -n python3-superqt %{_description}
+
+# Extras-as-subpackages, matching Fedora's superqt set so this 0.8.2 cleanly
+# supersedes the 0.7.7 split (otherwise the stale python3-superqt+iconify-0.7.7,
+# which magicgui pulls via superqt[iconify], pins back to superqt = 0.7.7 and
+# conflicts).
+%pyproject_extras_subpkg -n python3-superqt cmap
+%pyproject_extras_subpkg -n python3-superqt iconify
+%pyproject_extras_subpkg -n python3-superqt pyqt5
+%pyproject_extras_subpkg -n python3-superqt pyqt6
+%pyproject_extras_subpkg -n python3-superqt pyside6
+%pyproject_extras_subpkg -n python3-superqt quantity
 
 %prep
 %autosetup -n superqt-%{version}
@@ -52,6 +63,12 @@ export QT_QPA_PLATFORM=offscreen
 %doc README.md
 
 %changelog
+* Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.2-2
+- Generate the extras subpackages (cmap, iconify, pyqt5, pyqt6, pyside6,
+  quantity) matching Fedora's split, so 0.8.2 fully supersedes the 0.7.7 set;
+  fixes a conflict where python3-superqt+iconify-0.7.7 (pulled by magicgui)
+  pinned superqt back to 0.7.7.
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.2-1
 - Update to 0.8.2 for the napari chain: napari 0.7.1 requires superqt >=0.7.8,
   but Fedora F44/rawhide ship only 0.7.7. Pure-Python; deps (pygments, qtpy,
