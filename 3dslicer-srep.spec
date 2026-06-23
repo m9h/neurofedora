@@ -19,7 +19,7 @@
 
 Name:           3dslicer-srep
 Version:        1.0
-Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Skeletal representation (s-rep) shape modeling for 3D Slicer (SlicerSALT)
 
 License:        Apache-2.0
@@ -157,6 +157,24 @@ open(f, "w").write(s)
 print("patched Qt6 QVariant(char*) -> QString::fromUtf8 in", f)
 PYEOF
 
+# The SRepRefinement and SRepWarper Logic modules use vtkImageMagnitude (VTK's
+# ImagingMath module) but their TARGET_LIBRARIES list only ${ITK_LIBRARIES} + the
+# SRep libs — upstream relied on the superbuild exposing all of VTK. ImagingMath
+# IS in the foundation's Slicer_VTK_COMPONENTS, so VTK::ImagingMath is a valid
+# target; declare it explicitly so the module .so links vtkImageMagnitude::New().
+# (The foundation's generated imported-target VTK closure is a curated subset that
+# happens to omit ImagingMath; broadening it to the full Slicer_VTK_COMPONENTS set
+# is the durable fix, tracked separately for the next foundation rev.)
+python3 - <<'PYEOF'
+for f in ("SRepRefinement/Logic/CMakeLists.txt", "SRepWarper/Logic/CMakeLists.txt"):
+    s = open(f).read()
+    anchor = "set(${KIT}_TARGET_LIBRARIES\n"
+    assert anchor in s, "TARGET_LIBRARIES anchor not found in " + f
+    s = s.replace(anchor, anchor + "  VTK::ImagingMath\n", 1)
+    open(f, "w").write(s)
+    print("added VTK::ImagingMath to", f)
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSkeletalRepresentation_SUPERBUILD:BOOL=OFF \
@@ -179,6 +197,14 @@ PYEOF
 %doc README.md
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.4.20260601gitdd362a12
+- Link VTK::ImagingMath in the SRepRefinement and SRepWarper Logic modules: they
+  use vtkImageMagnitude but only listed ITK + SRep libs in TARGET_LIBRARIES
+  (upstream relied on the superbuild's full VTK). ImagingMath is in the foundation's
+  Slicer_VTK_COMPONENTS so VTK::ImagingMath is a valid target. (Foundation's curated
+  imported-target VTK closure omits ImagingMath; broadening it to the full
+  Slicer_VTK_COMPONENTS set is the durable fix, tracked for the next foundation rev.)
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260601gitdd362a12
 - Qt6 source port: wrap the four VTK char* (GetName()/GetAttribute()) feeds into
   QVariant in qSlicerSubjectHierarchySRepPlugin.cxx with QString::fromUtf8 — Qt6
