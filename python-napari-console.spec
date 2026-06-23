@@ -1,6 +1,6 @@
 Name:           python-napari-console
 Version:        0.1.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Embedded IPython/Qt console for napari
 
 License:        BSD-3-Clause
@@ -27,6 +27,11 @@ Summary:        %{summary}
 %prep
 %autosetup -n napari_console-%{version}
 
+# Relax the conservative `ipykernel<7` upper cap: Fedora rawhide ships
+# ipykernel 7.x and upstream main has already dropped this bound (the code is
+# ipykernel-7 compatible). Without this, the package FTBFS on rawhide.
+sed -i 's/ipykernel>=5.2.0,<7/ipykernel>=5.2.0/' pyproject.toml
+
 %generate_buildrequires
 export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %pyproject_buildrequires
@@ -51,6 +56,10 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %doc README.md
 
 %changelog
+* Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.4-2
+- Relax the ipykernel<7 cap so the package builds on rawhide (ipykernel 7.x);
+  upstream main already dropped the bound.
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.4-1
 - Initial package: napari-console 0.1.4 (napari embedded IPython/Qt console).
 - Tier-1 of the napari packaging chain. Deps (IPython, ipykernel, qtconsole,
