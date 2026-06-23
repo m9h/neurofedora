@@ -19,7 +19,7 @@
 
 Name:           3dslicer-srep
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Skeletal representation (s-rep) shape modeling for 3D Slicer (SlicerSALT)
 
 License:        Apache-2.0
@@ -32,7 +32,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 BuildRequires:  git-core
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-50
+BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-54
 
 # Full Qt6 set find_package(Slicer)'s Qt check demands.
 BuildRequires:  cmake(Qt6Core)
@@ -97,17 +97,36 @@ against the system 3D Slicer foundation.
 sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 
 # VTK's wrap-hierarchy parser (vtkWrapHierarchy) errors with "syntax error" on
-# every SRep header that uses the VTK_NEWINSTANCE hint macro (it isn't defined in
-# the parser's context when SRep builds against the installed foundation, so it
-# reads as an unexpected token before the return type). VTK_NEWINSTANCE is only
-# an ownership hint for the Python wrapper — strip it so the methods stay wrapped
-# and the parser is happy. Normal compilation is unaffected (the macro expands to
-# nothing without the wrapping-hints header anyway).
-sed -i 's/\bVTK_NEWINSTANCE //g' \
-    SRep/MRML/vtkEllipticalSRep.h SRep/MRML/vtkSRepSkeletalPoint.h \
-    SRep/MRML/vtkMeshSRepInterface.h SRep/MRML/vtkMRMLSRepDisplayNode.h \
-    SRep/MRML/vtkSRepSpoke.h SRep/Logic/vtkSlicerSRepLogic.h \
-    SRep/Logic/SRepInterpolation.h
+# every SRep header that uses VTK wrapping-hint macros (VTK_NEWINSTANCE, and the
+# function-like VTK_EXPECTS(...)): they aren't defined in the parser's context
+# when SRep builds against the installed foundation, so they read as unexpected
+# tokens. They are wrapper-only annotations (ownership / preconditions) — strip
+# them from the headers so the parser is happy and the methods stay wrapped.
+# Normal compilation is unaffected (the macros expand to nothing anyway).
+python3 - <<'PYEOF'
+import glob
+def strip_expects(s):
+    out=[]; i=0; tok='VTK_EXPECTS('
+    while True:
+        j=s.find(tok, i)
+        if j<0: out.append(s[i:]); break
+        out.append(s[i:j]); k=j+len(tok); depth=1
+        while k<len(s) and depth>0:
+            depth += (s[k]=='(') - (s[k]==')'); k+=1
+        i=k
+    return ''.join(out)
+for f in glob.glob('SRep*/**/*.h', recursive=True):
+    s=open(f).read()
+    s2=strip_expects(s.replace('VTK_NEWINSTANCE ',''))
+    if s2!=s:
+        open(f,'w').write(s2)
+        print("stripped VTK hints from", f)
+PYEOF
+
+# (No VTK include / VTK link / Slicer-base-include workarounds: foundation
+# -52/-53/-54 bake all of these into the generated imported targets — VTK
+# include+lib closure (-52), inter-Slicer + CTK closure (-53), and ITK closure
+# (-54). Validated by 3dslicer-dmri building clean against -54.)
 
 %build
 %cmake -G Ninja \
@@ -131,6 +150,15 @@ sed -i 's/\bVTK_NEWINSTANCE //g' \
 %doc README.md
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260601gitdd362a12
+- Build against foundation -54 and drop the extension-side install-tree
+  workarounds (VTK include_directories, find_package(VTK)+link_libraries closure,
+  Slicer base include dirs). The -52/-53/-54 trilogy bakes the VTK + inter-Slicer
+  + CTK + ITK closures into the generated imported targets, so the foundation is
+  now self-sufficient — validated by 3dslicer-dmri building clean against -54.
+  Keep the VTK_NEWINSTANCE / VTK_EXPECTS wrap-hint strip (a real vtkWrapHierarchy
+  source fix, not a packaging workaround).
+
 * Fri Jun 19 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260601gitdd362a12
 - Initial package. SlicerSkeletalRepresentation (SRep loadable module + s-rep
   creation/refinement/warping CLIs + scripted pipelines) built non-superbuild
