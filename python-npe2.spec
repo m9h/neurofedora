@@ -1,7 +1,7 @@
 Name:           python-npe2
 Version:        0.8.2
-Release:        1%{?dist}
-Summary:        napari plugin engine, version 2
+Release:        2%{?dist}
+Summary:        Version 2 of the napari plugin engine
 
 License:        BSD-3-Clause
 URL:            https://github.com/napari/npe2
@@ -47,6 +47,9 @@ export HATCH_VCS_PRETEND_VERSION=%{version}
 %{_bindir}/npe2
 
 %changelog
+* Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.2-2
+- Capitalize Summary (rpmlint).
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.2-1
 - Initial package: npe2 0.8.2 (napari plugin engine v2).
 - Tier-2 of the napari packaging chain. All deps in Fedora; version caps
