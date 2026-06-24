@@ -26,6 +26,10 @@ BuildRequires:  InsightToolkit5-devel
 BuildRequires:  InsightToolkit5-vtk-devel
 BuildRequires:  vtkAddon-devel
 BuildRequires:  zlib-devel
+# To strip the build-tree RPATH from the directly-copied calibration/codecs libs
+# (the cmake-install step strips it from the libs it installs, but those two
+# components have no install rule so we copy them by hand — see %install).
+BuildRequires:  patchelf
 
 %description
 IGSIO (Image-Guided Surgery IO) provides VTK/ITK-based libraries for handling
@@ -80,6 +84,11 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 # (no-clobber) leaves the three libs the cmake-install step already placed.
 find %{_vpath_builddir} -name 'libvtk*.so' -type f \
      -exec cp -an {} %{buildroot}%{_libdir}/ \; 2>/dev/null || :
+# The hand-copied libs keep the build-tree RPATH/RUNPATH; strip it so check-rpaths
+# passes (idempotent on the already-stripped cmake-installed libs).
+for _l in %{buildroot}%{_libdir}/libvtk*.so; do
+  patchelf --remove-rpath "$_l" 2>/dev/null || :
+done
 
 # Upstream only installs the CalibrationAlgorithms public headers; the
 # IGSIOCommon / SequenceIO / VolumeReconstruction components install none (they
