@@ -14,7 +14,7 @@
 
 Name:           3dslicer-igsio
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        IGSIO sequence/video tools for 3D Slicer (SlicerIGT dependency)
 
 # 3D Slicer / IGSIO extension: BSD-style.
@@ -93,6 +93,15 @@ system igsio library.
 # (igsio is already a system package, installed separately).
 sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 
+# MetafileImporter (a GUI convenience module) #includes qSlicerSequencesReader.h,
+# a top-level header of Slicer's built-in Sequences loadable module that the
+# foundation install tree does not yet ship (it ships the Sequences Logic/MRML
+# headers, but not the module-root qSlicer GUI headers). The SlicerIGSIOCommon
+# library + SequenceIO + VideoUtil — which is what SlicerIGT find_package()s and
+# links — build fine, so drop this one module for now. Re-enable once the
+# foundation ships the loadable-module top-level qSlicer headers (tracked).
+sed -i '/add_subdirectory(MetafileImporter)/d' CMakeLists.txt
+
 %build
 %cmake -G Ninja \
     -DSlicerIGSIO_SUPERBUILD:BOOL=OFF \
@@ -117,6 +126,13 @@ sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 %doc README.md
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260513git82345aea
+- Drop the MetafileImporter GUI module (stopgap): it needs Slicer's Sequences
+  module-root header qSlicerSequencesReader.h, which the foundation install tree
+  doesn't yet ship. The SlicerIGSIOCommon library + SequenceIO + VideoUtil (what
+  SlicerIGT depends on) build fine. Re-enable once the foundation ships the
+  loadable-module top-level qSlicer headers.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260513git82345aea
 - Initial package. SlicerIGSIO (SlicerIGSIOCommon library + SequenceIO, VideoUtil
   and MetafileImporter loadable modules) built non-superbuild against the system
