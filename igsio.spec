@@ -11,7 +11,7 @@
 
 Name:           igsio
 Version:        1.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-Guided Surgery IO libraries (sequence IO, volume reconstruction)
 
 License:        BSD-3-Clause
@@ -71,6 +71,19 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 %install
 %cmake_install
 
+# Upstream only installs the CalibrationAlgorithms public headers; the
+# IGSIOCommon / SequenceIO / VolumeReconstruction components install none (they
+# were consumed in-tree in the superbuild). SlicerIGSIO/SlicerIGT need the full
+# public header set + the generated export/configure headers (vtk*_export.h from
+# GENERATE_EXPORT_HEADER, igsioConfigure.h). Ship them all, flat, into IGSIO-1.0
+# (matching the layout the IGSIOConfig include dirs point at).
+_igsioinc=%{buildroot}%{_includedir}/IGSIO-1.0
+mkdir -p "$_igsioinc"
+find IGSIOCommon SequenceIO VolumeReconstruction CalibrationAlgorithms \
+     -name '*.h' -not -path '*/Testing/*' -exec cp -an {} "$_igsioinc/" \; 2>/dev/null || :
+find %{_vpath_builddir} \( -name '*_export.h' -o -name 'igsioConfigure.h' \) \
+     -exec cp -an {} "$_igsioinc/" \; 2>/dev/null || :
+
 # Install-tree IGSIOConfig.cmake. Upstream IGSIO only configures the build-tree
 # variant (configure_file -> build dir) and exports targets via an in-tree
 # IGSIO_LIBRARY_TARGETS_FILE; nothing relocatable is installed. Synthesize a
@@ -124,6 +137,12 @@ IGSIOCFG
 %{_libdir}/cmake/IGSIO/
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260615git5a2d9dcf
+- Ship the full IGSIO public header set. Upstream only installs CalibrationAlgorithms
+  headers; IGSIOCommon/SequenceIO/VolumeReconstruction install none, so SlicerIGSIO
+  failed with missing vtkIGSIOLogger.h / igsioTrackedFrame.h. %install now copies all
+  component headers + the generated vtk*_export.h / igsioConfigure.h into IGSIO-1.0.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260615git5a2d9dcf
 - Ship a relocatable install-tree IGSIOConfig.cmake in igsio-devel (upstream only
   generates a build-tree config). Defines imported targets vtkIGSIOCommon /
