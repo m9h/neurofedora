@@ -1,6 +1,6 @@
 Name:           python-napari
 Version:        0.7.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Fast, interactive, multi-dimensional image viewer for Python
 
 License:        BSD-3-Clause
@@ -52,6 +52,34 @@ backend, giving a ready-to-run GUI. The library itself is python3-napari.
 # and pull pooch explicitly (added as a Requires below).
 sed -i 's/scikit-image\[data\]/scikit-image/' pyproject.toml
 
+# napari 0.7 targets Qt6 and is not supported on PyQt5. When a Qt binding has
+# not been explicitly selected (QT_API unset), qtpy picks the first binding it
+# finds and prefers PyQt5 -- so on a system where a coinstalled python3-qt5
+# (PyQt5) is present alongside our PyQt6, napari runs on PyQt5 and crashes on
+# teardown ("QObject deleted directly" -> "free(): invalid pointer"). Prepend a
+# small selector to napari's package __init__ that, only when QT_API is unset,
+# prefers an importable Qt6 binding (PyQt6, then PySide6) before qtpy is first
+# imported. No-op if the user set QT_API, or if no Qt6 binding is installed.
+cat > src/napari/__init__.py.qtapi <<'PYEOF'
+def _fedora_prefer_qt6():
+    """Prefer a Qt6 binding when none was explicitly selected (see spec %prep)."""
+    import os
+    if os.environ.get("QT_API"):
+        return
+    for api, mod in (("pyqt6", "PyQt6"), ("pyside6", "PySide6")):
+        try:
+            __import__(mod)
+        except ImportError:
+            continue
+        os.environ["QT_API"] = api
+        return
+
+
+_fedora_prefer_qt6()
+PYEOF
+cat src/napari/__init__.py >> src/napari/__init__.py.qtapi
+mv src/napari/__init__.py.qtapi src/napari/__init__.py
+
 %generate_buildrequires
 export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 %pyproject_buildrequires
@@ -82,6 +110,11 @@ export QT_QPA_PLATFORM=offscreen
 # metapackage: no payload
 
 %changelog
+* Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-2
+- Prefer a Qt6 binding (PyQt6, then PySide6) at import time when QT_API is unset,
+  so napari never runs on a coinstalled PyQt5 (which it does not support and which
+  crashes on teardown). No-op when QT_API is set or no Qt6 binding is present.
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-1
 - Initial package: napari 0.7.1 (multi-dimensional image viewer) — chain root.
 - base+meta split: python3-napari (library, Qt-agnostic, Recommends pyqt6) and
