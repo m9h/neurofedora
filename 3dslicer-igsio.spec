@@ -14,7 +14,7 @@
 
 Name:           3dslicer-igsio
 Version:        1.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        IGSIO sequence/video tools for 3D Slicer (SlicerIGT dependency)
 
 # 3D Slicer / IGSIO extension: BSD-style.
@@ -116,6 +116,43 @@ sed -i '/add_subdirectory(MetafileImporter)/d' CMakeLists.txt
 
 %install
 %cmake_install
+
+# Ship the SlicerIGSIOCommon public headers + a relocatable SlicerIGSIOConfig.cmake
+# so SlicerIGT can find_package(SlicerIGSIO REQUIRED). Upstream's Slicer
+# EXTENSION_GENERATE_CONFIG macro only writes a build-tree <Ext>Config.cmake
+# (configure_file -> build dir, never installed), so the install tree ships none
+# and SlicerIGSIOCommon's headers aren't installed either. Headers go into the
+# Slicer include tree (resolved via the imported target's interface includes); the
+# config defines the imported vtkSlicerIGSIOCommon target + include dirs and pulls
+# in the system IGSIO. The library installed in qt-loadable-modules already records
+# its IGSIO/VTK/MRML closure in DT_NEEDED.
+_si_inc=%{buildroot}%{slicer_inst}/include/%{slicer_subdir}
+mkdir -p "$_si_inc"
+cp -an SlicerIGSIOCommon/*.h "$_si_inc/"
+cat > %{buildroot}%{slicer_inst}/lib/%{slicer_subdir}/SlicerIGSIOConfig.cmake <<'SICFG'
+# Relocatable install-tree SlicerIGSIOConfig.cmake (Fedora 3dslicer-igsio package).
+get_filename_component(_sigsio_libdir "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
+get_filename_component(_sigsio_incdir "${_sigsio_libdir}/../../include/Slicer-5.11" ABSOLUTE)
+
+# Pull in the system IGSIO (the in-tree SlicerIGSIO build does this via its custom
+# config: include(${IGSIO_DIR}/IGSIOConfig.cmake)). Provides vtkIGSIOCommon etc.
+# and VTKIGSIOCOMMON_INCLUDE_DIRS.
+find_package(IGSIO QUIET)
+
+set(SlicerIGSIO_INCLUDE_DIRS "${_sigsio_incdir}" "${VTKIGSIOCOMMON_INCLUDE_DIRS}")
+set(vtkSlicerIGSIOCommon_INCLUDE_DIRS "${_sigsio_incdir}" "${VTKIGSIOCOMMON_INCLUDE_DIRS}")
+
+if(NOT TARGET vtkSlicerIGSIOCommon)
+  add_library(vtkSlicerIGSIOCommon SHARED IMPORTED)
+  set_target_properties(vtkSlicerIGSIOCommon PROPERTIES
+    IMPORTED_LOCATION "${_sigsio_libdir}/qt-loadable-modules/libvtkSlicerIGSIOCommon.so"
+    INTERFACE_INCLUDE_DIRECTORIES "${_sigsio_incdir};${VTKIGSIOCOMMON_INCLUDE_DIRS}")
+endif()
+
+set(SlicerIGSIO_LIBRARIES vtkSlicerIGSIOCommon)
+set(SlicerIGSIO_FOUND TRUE)
+SICFG
+
 # Catch-all file list (files + symlinks only, so the shared module dirs that
 # 3dslicer owns are never claimed). Tightened later.
 ( cd %{buildroot} && find . \( -type f -o -type l \) | sed 's|^\.||' ) \
@@ -126,6 +163,13 @@ sed -i '/add_subdirectory(MetafileImporter)/d' CMakeLists.txt
 %doc README.md
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260513git82345aea
+- Ship SlicerIGSIOCommon headers + a relocatable SlicerIGSIOConfig.cmake so
+  SlicerIGT can find_package(SlicerIGSIO) (the Slicer generate-config macro only
+  writes a build-tree config; install tree got none, and the headers weren't
+  installed). Defines the imported vtkSlicerIGSIOCommon target + include dirs and
+  pulls in the system IGSIO.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260513git82345aea
 - Drop the MetafileImporter GUI module (stopgap): it needs Slicer's Sequences
   module-root header qSlicerSequencesReader.h, which the foundation install tree
