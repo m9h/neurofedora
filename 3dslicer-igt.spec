@@ -35,7 +35,7 @@ BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-54
 # SlicerIGSIO extension (ships SlicerIGSIOConfig.cmake + libvtkSlicerIGSIOCommon)
 # and the IGSIO library (its IGSIOConfig.cmake).
 BuildRequires:  3dslicer-igsio >= 1.0-0.3
-BuildRequires:  igsio-devel >= 1.0-0.2
+BuildRequires:  igsio-devel >= 1.0-0.5
 
 # Full Qt6 set find_package(Slicer)'s Qt check demands.
 BuildRequires:  cmake(Qt6Core)

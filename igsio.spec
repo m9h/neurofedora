@@ -11,7 +11,7 @@
 
 Name:           igsio
 Version:        1.0
-Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-Guided Surgery IO libraries (sequence IO, volume reconstruction)
 
 License:        BSD-3-Clause
@@ -71,6 +71,16 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 %install
 %cmake_install
 
+# IGSIOCalibration and Codecs build their libraries (add_subdirectory is
+# unconditional) but, unlike IGSIOCommon/SequenceIO/VolumeReconstruction, have no
+# install(TARGETS) rule — the central block only export()s the build tree, never
+# install()s. So libvtkIGSIOCalibration.so was built but never packaged, and
+# SlicerIGT (LandmarkDetection/PivotCalibration) fails to link -lvtkIGSIOCalibration.
+# Install every built IGSIO shared lib the per-component rules missed (cp -an won't
+# clobber the three already installed by %cmake_install).
+find %{_vpath_builddir} -name 'libvtk*.so' -type f \
+     -exec cp -an {} %{buildroot}%{_libdir}/ \; 2>/dev/null || :
+
 # Upstream only installs the CalibrationAlgorithms public headers; the
 # IGSIOCommon / SequenceIO / VolumeReconstruction components install none (they
 # were consumed in-tree in the superbuild). SlicerIGSIO/SlicerIGT need the full
@@ -115,8 +125,8 @@ set(IGSIO_USE_VP9 OFF)
 
 # Imported targets for the three installed libraries (upstream would supply these
 # via IGSIO_LIBRARY_TARGETS_FILE). DT_NEEDED carries the rest of the closure.
-foreach(_t vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction)
-  if(NOT TARGET ${_t})
+foreach(_t vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction vtkIGSIOCalibration)
+  if(NOT TARGET ${_t} AND EXISTS "${_igsio_libdir}/lib${_t}.so")
     add_library(${_t} SHARED IMPORTED)
     set_target_properties(${_t} PROPERTIES
       IMPORTED_LOCATION "${_igsio_libdir}/lib${_t}.so"
@@ -124,7 +134,9 @@ foreach(_t vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction)
   endif()
 endforeach()
 
-set(IGSIO_LIBRARIES vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction)
+set(IGSIO_LIBRARIES vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction vtkIGSIOCalibration)
+# Mixed-case spelling some consumers (SlicerIGT LandmarkDetection) reference.
+set(VTKIGSIOCalibration_INCLUDE_DIRS "${_igsio_incdir}")
 set(IGSIO_FOUND TRUE)
 IGSIOCFG
 
@@ -138,6 +150,13 @@ IGSIOCFG
 %{_libdir}/cmake/IGSIO/
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.5.20260615git5a2d9dcf
+- Install the built-but-unpackaged IGSIO libs (libvtkIGSIOCalibration.so, Codecs):
+  those components build their libs but have no install(TARGETS) rule (the central
+  block only export()s the build tree). SlicerIGT (LandmarkDetection/PivotCalibration)
+  links -lvtkIGSIOCalibration. Add vtkIGSIOCalibration to IGSIOConfig imported targets
+  + the VTKIGSIOCalibration_INCLUDE_DIRS mixed-case spelling consumers reference.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.4.20260615git5a2d9dcf
 - Also ship .txx/.hxx template-implementation headers (igsioCommon.txx): igsioCommon.h
   includes it, and the 0.3 *.h-only copy missed it.
