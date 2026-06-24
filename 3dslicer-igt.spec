@@ -18,7 +18,7 @@
 
 Name:           3dslicer-igt
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-guided therapy / navigation toolkit for 3D Slicer (SlicerIGT)
 
 License:        BSD-3-Clause
@@ -103,6 +103,37 @@ system igsio library.
 # the install tree doesn't ship).
 sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 
+# CTK/Slicer headers the modules include (e.g. ctkLayoutManager.h -> <QDomDocument>)
+# pull in Qt6 modules beyond the Core/Gui/Widgets/Core5Compat that the foundation
+# imported targets carry in their interface. Add the broader Qt6 include/link set at
+# top scope. Also put the system IGSIO include dir on the path: the LandmarkDetection
+# and PivotCalibration Logic modules include vtkIGSIO*CalibrationAlgo.h via
+# ${VTKIGSIOCalibration_INCLUDE_DIRS}, a var the install-tree IGSIOConfig doesn't set
+# under that exact casing. (Both are foundation/config refinements for a later rev;
+# harmless once they land.)
+sed -i '/^find_package(Slicer REQUIRED)/a find_package(Qt6 COMPONENTS Xml Network Sql Svg PrintSupport OpenGL OpenGLWidgets Concurrent Multimedia REQUIRED)\nlink_libraries(Qt6::Xml Qt6::Network Qt6::Sql Qt6::Svg Qt6::PrintSupport Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Concurrent Qt6::Multimedia)\ninclude_directories(SYSTEM "/usr/include/IGSIO-1.0")' CMakeLists.txt
+
+# Qt6 removed QSound (Qt5 QtMultimedia). The Watchdog module plays a .wav when a
+# watched node goes up-to-date / outdated. Port to QSoundEffect (Qt6 QtMultimedia,
+# already linked via the shim above): inject a small factory that builds a
+# QSoundEffect from a file path (QSoundEffect has no path constructor), and redirect
+# the QPointer member type + the two 'new QSound(<QString>)' construction sites.
+# ->stop() is preserved (QSoundEffect has it). A real Qt6 source port.
+python3 - <<'PYEOF'
+f = "Watchdog/qSlicerWatchdogModule.cxx"
+s = open(f).read()
+assert '#include <QSound>' in s, "QSound include not found (upstream changed?)"
+s = s.replace(
+  '#include <QSound>',
+  '#include <QSoundEffect>\n#include <QUrl>\n'
+  'namespace { inline QSoundEffect* igtMakeSound(const QString& p){'
+  ' QSoundEffect* e = new QSoundEffect(); e->setSource(QUrl::fromLocalFile(p)); return e; } }')
+s = s.replace('QPointer<QSound>', 'QPointer<QSoundEffect>')
+s = s.replace('new QSound(', 'igtMakeSound(')
+open(f, 'w').write(s)
+print("ported QSound -> QSoundEffect in", f)
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSlicer_DIR:PATH=%{slicer_inst}/lib/%{slicer_subdir} \
@@ -125,6 +156,15 @@ sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 %doc README.md
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260408git47c8b3a5
+- First real build fixes (from a -k0 harvest of all 18 modules): (1) broaden the
+  Qt6 include/link set at top scope — CTK/Slicer headers (ctkLayoutManager.h ->
+  QDomDocument) pull in QtXml/Network/Sql/... beyond the foundation imported
+  targets' Core/Gui/Widgets closure; (2) put /usr/include/IGSIO-1.0 on the include
+  path for LandmarkDetection/PivotCalibration (they use ${VTKIGSIOCalibration_INCLUDE_DIRS},
+  a casing the install-tree IGSIOConfig doesn't set); (3) Qt6 port: QSound (removed
+  in Qt6) -> QSoundEffect in the Watchdog module. No foundation rebuild needed.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260408git47c8b3a5
 - Initial package. SlicerIGT (image-guided therapy / navigation modules) built
   non-superbuild against the system 3dslicer foundation (>= -54), the SlicerIGSIO
