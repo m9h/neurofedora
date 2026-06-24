@@ -11,7 +11,7 @@
 
 Name:           igsio
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-Guided Surgery IO libraries (sequence IO, volume reconstruction)
 
 License:        BSD-3-Clause
@@ -71,6 +71,49 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 %install
 %cmake_install
 
+# Install-tree IGSIOConfig.cmake. Upstream IGSIO only configures the build-tree
+# variant (configure_file -> build dir) and exports targets via an in-tree
+# IGSIO_LIBRARY_TARGETS_FILE; nothing relocatable is installed. Synthesize a
+# relocatable config so find_package(IGSIO) works against the installed library
+# (needed by SlicerIGSIO -> SlicerIGT). Headers are flat in include/IGSIO-1.0;
+# each installed .so already records its full VTK/ITK/vtkAddon closure in
+# DT_NEEDED, so the imported targets need only IMPORTED_LOCATION + include dirs.
+mkdir -p %{buildroot}%{_libdir}/cmake/IGSIO
+cat > %{buildroot}%{_libdir}/cmake/IGSIO/IGSIOConfig.cmake <<'IGSIOCFG'
+# Relocatable install-tree IGSIOConfig.cmake (Fedora igsio package).
+get_filename_component(_igsio_libdir "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+get_filename_component(_igsio_prefix "${_igsio_libdir}/.." ABSOLUTE)
+set(_igsio_incdir "${_igsio_prefix}/include/IGSIO-1.0")
+
+# Per-component include dirs (headers install flat in IGSIO-1.0). Provide both the
+# _INCLUDE_DIRS and _INCLUDES spellings consumers (SlicerIGSIO) reference.
+foreach(_v VTKIGSIOCOMMON VTKSEQUENCEIO VTKVOLUMERECONSTRUCTION VTKIGSIOCALIBRATION)
+  set(${_v}_INCLUDE_DIRS "${_igsio_incdir}")
+  set(${_v}_INCLUDES     "${_igsio_incdir}")
+endforeach()
+set(IGSIO_INCLUDE_DIRS "${_igsio_incdir}")
+
+# Build options baked into this package (VP9/MKV off; sequence IO + volume recon on).
+set(IGSIO_BUILD_SEQUENCEIO ON)
+set(IGSIO_SEQUENCEIO_ENABLE_MKV OFF)
+set(IGSIO_BUILD_VOLUMERECONSTRUCTION ON)
+set(IGSIO_USE_VP9 OFF)
+
+# Imported targets for the three installed libraries (upstream would supply these
+# via IGSIO_LIBRARY_TARGETS_FILE). DT_NEEDED carries the rest of the closure.
+foreach(_t vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction)
+  if(NOT TARGET ${_t})
+    add_library(${_t} SHARED IMPORTED)
+    set_target_properties(${_t} PROPERTIES
+      IMPORTED_LOCATION "${_igsio_libdir}/lib${_t}.so"
+      INTERFACE_INCLUDE_DIRECTORIES "${_igsio_incdir}")
+  endif()
+endforeach()
+
+set(IGSIO_LIBRARIES vtkIGSIOCommon vtkSequenceIO vtkVolumeReconstruction)
+set(IGSIO_FOUND TRUE)
+IGSIOCFG
+
 %files
 %license LICENSE
 # IGSIO libs are unversioned (no SOVERSION upstream), so .so-only in the main pkg.
@@ -78,12 +121,17 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 
 %files devel
 %{_includedir}/IGSIO-1.0/
-# NOTE: IGSIO upstream only generates IGSIOConfig.cmake for the build tree (no
-# install-tree config), so none is shipped yet. SlicerIGSIO will need an
-# install-tree IGSIOConfig fixup (same pattern as the 3dslicer foundation)
-# before it can find_package(IGSIO). Tracked separately.
+%{_libdir}/cmake/IGSIO/
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260615git5a2d9dcf
+- Ship a relocatable install-tree IGSIOConfig.cmake in igsio-devel (upstream only
+  generates a build-tree config). Defines imported targets vtkIGSIOCommon /
+  vtkSequenceIO / vtkVolumeReconstruction (DT_NEEDED carries the VTK/ITK/vtkAddon
+  closure) and the per-component include vars, with VP9/MKV off to match the
+  library build. Unblocks find_package(IGSIO) for the SlicerIGSIO -> SlicerIGT
+  build chain. Validated with a find_package(IGSIO) configure test.
+
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260615git5a2d9dcf
 - Initial package. IGSIO git snapshot built standalone against system VTK + ITK
   (USE_3DSlicer off, MKV/VP9 off, volume reconstruction on) for the SlicerIGSIO
