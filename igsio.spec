@@ -11,7 +11,7 @@
 
 Name:           igsio
 Version:        1.0
-Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-Guided Surgery IO libraries (sequence IO, volume reconstruction)
 
 License:        BSD-3-Clause
@@ -80,7 +80,8 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 _igsioinc=%{buildroot}%{_includedir}/IGSIO-1.0
 mkdir -p "$_igsioinc"
 find IGSIOCommon SequenceIO VolumeReconstruction CalibrationAlgorithms \
-     -name '*.h' -not -path '*/Testing/*' -exec cp -an {} "$_igsioinc/" \; 2>/dev/null || :
+     \( -name '*.h' -o -name '*.txx' -o -name '*.hxx' \) -not -path '*/Testing/*' \
+     -exec cp -an {} "$_igsioinc/" \; 2>/dev/null || :
 find %{_vpath_builddir} \( -name '*_export.h' -o -name 'igsioConfigure.h' \) \
      -exec cp -an {} "$_igsioinc/" \; 2>/dev/null || :
 
@@ -137,6 +138,10 @@ IGSIOCFG
 %{_libdir}/cmake/IGSIO/
 
 %changelog
+* Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.4.20260615git5a2d9dcf
+- Also ship .txx/.hxx template-implementation headers (igsioCommon.txx): igsioCommon.h
+  includes it, and the 0.3 *.h-only copy missed it.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260615git5a2d9dcf
 - Ship the full IGSIO public header set. Upstream only installs CalibrationAlgorithms
   headers; IGSIOCommon/SequenceIO/VolumeReconstruction install none, so SlicerIGSIO
