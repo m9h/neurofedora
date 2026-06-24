@@ -76,8 +76,8 @@ sed -i -E 's|find_package\(VTK NO_MODULE REQUIRED PATHS \$\{VTK_DIR\} NO_DEFAULT
 # install(TARGETS) rule — the central block only export()s the build tree, never
 # install()s. So libvtkIGSIOCalibration.so was built but never packaged, and
 # SlicerIGT (LandmarkDetection/PivotCalibration) fails to link -lvtkIGSIOCalibration.
-# Install every built IGSIO shared lib the per-component rules missed (cp -an won't
-# clobber the three already installed by %cmake_install).
+# Install every built IGSIO shared lib the per-component rules missed. cp -an
+# (no-clobber) leaves the three libs the cmake-install step already placed.
 find %{_vpath_builddir} -name 'libvtk*.so' -type f \
      -exec cp -an {} %{buildroot}%{_libdir}/ \; 2>/dev/null || :
 
