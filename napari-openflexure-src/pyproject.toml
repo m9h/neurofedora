@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "napari-openflexure"
+version = "0.1.0"
+description = "napari plugin to control an OpenFlexure microscope"
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.10"
+authors = [{name = "Morgan Hough", email = "morgan.hough@gmail.com"}]
+keywords = ["napari", "openflexure", "microscope", "microscopy"]
+dependencies = [
+    "napari>=0.7",
+    "openflexure-microscope-client>=0.1.8",
+    "magicgui>=0.7",
+    "numpy",
+]
+
+[project.urls]
+Homepage = "https://gitlab.com/morgan.hough/neurofedora"
+
+[project.entry-points."napari.manifest"]
+napari-openflexure = "napari_openflexure:napari.yaml"
+
+[tool.setuptools]
+packages = ["napari_openflexure"]
+
+[tool.setuptools.package-data]
+napari_openflexure = ["napari.yaml"]

@@ -1,0 +1,10 @@
+name: napari-openflexure
+display_name: OpenFlexure
+contributions:
+  commands:
+    - id: napari-openflexure.control_widget
+      title: OpenFlexure microscope control
+      python_name: napari_openflexure._widget:OpenFlexureWidget
+  widgets:
+    - command: napari-openflexure.control_widget
+      display_name: OpenFlexure control
