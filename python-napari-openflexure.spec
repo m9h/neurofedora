@@ -1,5 +1,5 @@
 Name:           python-napari-openflexure
-Version:        0.1.0
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        Plugin to control an OpenFlexure microscope from napari
 
@@ -48,6 +48,13 @@ export QT_QPA_PLATFORM=offscreen
 %doc README.md
 
 %changelog
+* Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.1-1
+- Fix the dock widget failing to open from the Plugins menu: napari only injects
+  the active viewer when the widget __init__ parameter is named napari_viewer or
+  annotated with the Viewer type. Rename the bare `viewer` parameter to
+  `napari_viewer` (and annotate it) so OpenFlexureWidget instantiates correctly.
+  Caught by the napari-smoke.sh dock-widget instantiation check.
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.0-1
 - Initial package: napari-openflexure 0.1.0 — the napari<->OpenFlexure connector
   (new plugin; none exists upstream). Completes the napari + OpenFlexure chain.

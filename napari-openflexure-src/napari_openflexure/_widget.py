@@ -13,13 +13,13 @@ _LAYER_NAME = "openflexure"
 class OpenFlexureWidget(Container):
     """Connect to an OpenFlexure microscope, capture images and jog the stage.
 
-    napari injects the active viewer (by type annotation) when the widget is
-    created from the Plugins menu.
+    napari injects the active viewer (via the napari_viewer parameter) when the
+    widget is created from the Plugins menu.
     """
 
-    def __init__(self, viewer) -> None:
+    def __init__(self, napari_viewer: "napari.viewer.Viewer") -> None:
         super().__init__()
-        self._viewer = viewer
+        self._viewer = napari_viewer
         self._client: MicroscopeClient | None = None
 
         self._host = LineEdit(
