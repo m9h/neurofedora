@@ -8,7 +8,7 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
@@ -170,7 +170,18 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_GrowCut:BOOL=ON \
     -DModule_SimpleITKFilters:BOOL=ON \
     -DModule_LabelErodeDilate:BOOL=ON \
+%if 0%{?fedora} >= 45
+    `# rawhide (f45+) hdf5 cmake added a strict re-include guard` \
+    `# (hdf5-targets.cmake:42) that errors when VtkGlue ->` \
+    `# find_package(VTK) -> VTK's find_package(HDF5) re-includes the` \
+    `# system hdf5 export set ("Some (but not all) targets ... already` \
+    `# defined"). With our HDF5 bundled, VtkGlue is the only path that` \
+    `# pulls in the system HDF5, so disable it on rawhide until the` \
+    `# Fedora hdf5 cmake guard is fixed. F44 keeps VtkGlue (no guard).` \
+    -DModule_ITKVtkGlue:BOOL=OFF \
+%else
     -DModule_ITKVtkGlue:BOOL=ON \
+%endif
     -DModule_ITKIOPhilipsREC:BOOL=ON \
     -DModule_ITKDeprecated:BOOL=ON \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
@@ -254,7 +265,7 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 - Bundle GDCM and MINC to fix ITK 6.0 beta target errors
 - Clean up spec file and use versioned install paths
 
-* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-1
+* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-1
 - Update to ITK 6.0 beta 2
 - Fix Source0 and build paths
 
