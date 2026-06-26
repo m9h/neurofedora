@@ -1,6 +1,6 @@
 Name:           python-trame-vtk
 Version:        2.11.12
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        VTK web rendering bindings for trame
 
 License:        BSD-3-Clause
@@ -46,6 +46,11 @@ Requires:       python3-trame-client
 %doc README.rst
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 2.11.12-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15
+  build strictly supersedes the lingering same-NVR py3.14 RPM that
+  was still winning in the COPR buildroot repo.
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2.11.12-1
 - Update to 2.11.12 (current upstream; freshness sweep 2026-06-14)
 

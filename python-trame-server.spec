@@ -1,6 +1,6 @@
 Name:           python-trame-server
 Version:        3.12.5
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Internal server-side implementation of trame
 
 License:        Apache-2.0
@@ -51,6 +51,11 @@ Requires:       python3-wslink >= 2.5.7
 %doc README.rst
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 3.12.5-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15
+  build strictly supersedes the lingering same-NVR py3.14 RPM that
+  was still winning in the COPR buildroot repo.
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 3.12.5-1
 - Update to 3.12.5 (current upstream; freshness sweep 2026-06-14)
 

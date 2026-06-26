@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        12%{?dist}
+Release:        13%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -206,6 +206,14 @@ done
 %build
 export CFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
 export CXXFLAGS="%{optflags} -D_UNICODE -DHAVE_UINTPTR_T"
+%if 0%{?fedora} >= 45
+# GDAL 3.13 (rawhide) tightened const-correctness: CSLFetchNameValue() and
+# friends now return CSLConstList (const char* const*), but VTK 9.6.2's
+# IO/GDAL/vtkGDALRasterReader.cxx still assigns them to char**. -fpermissive
+# downgrades that invalid-conversion to a warning (the reader does not mutate
+# the list). Scoped to f45+ so F44 (older GDAL) keeps strict checking.
+export CXXFLAGS="$CXXFLAGS -fpermissive"
+%endif
 
 %cmake -GNinja \
     -DCMAKE_INSTALL_LIBDIR:PATH=%{_lib} \
@@ -345,6 +353,12 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-13
+- Fix rawhide FTBFS against GDAL 3.13: add -fpermissive on f45+ so
+  IO/GDAL/vtkGDALRasterReader.cxx tolerates GDAL's new CSLConstList
+  (const char* const*) return types. Also picks up the rawhide
+  Python 3.15 wrappings. F44 unchanged.
+
 * Tue Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-12
 - Rebuild for rawhide's Python 3.15 transition. The -11 python3-vtk in copr_base
   still required python(abi)=3.14 (an older same-NVR build shadowed the rebuilt

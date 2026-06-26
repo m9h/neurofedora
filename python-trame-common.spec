@@ -1,6 +1,6 @@
 Name:           python-trame-common
 Version:        1.2.4
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Dependency-less helpers shared across trame packages
 
 License:        Apache-2.0
@@ -44,6 +44,11 @@ Summary:        %{summary}
 %doc README.md
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.4-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15
+  build strictly supersedes the lingering same-NVR py3.14 RPM that
+  was still winning in the COPR buildroot repo.
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.4-1
 - Update to 1.2.4 (current upstream; freshness sweep 2026-06-14)
 

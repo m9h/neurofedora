@@ -1,6 +1,6 @@
 Name:           python-wslink
 Version:        2.5.7
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Python/JavaScript WebSocket transport layer used by trame
 
 License:        BSD-3-Clause
@@ -44,5 +44,10 @@ Summary:        %{summary}
 %doc README.md
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.7-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15
+  build strictly supersedes the lingering same-NVR py3.14 RPM that
+  was still winning in the COPR buildroot repo.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 2.5.7-1
 - Initial package for the trame-slicer dependency chain.

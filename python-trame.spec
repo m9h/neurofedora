@@ -1,6 +1,6 @@
 Name:           python-trame
 Version:        3.13.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Python framework for building reactive web applications
 
 License:        Apache-2.0
@@ -55,5 +55,10 @@ Requires:       python3-pyyaml
 %doc README.rst
 
 %changelog
+* Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 3.13.2-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15
+  build strictly supersedes the lingering same-NVR py3.14 RPM that
+  was still winning in the COPR buildroot repo.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 3.13.2-1
 - Initial package for the trame-slicer dependency chain.
