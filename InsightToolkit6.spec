@@ -48,7 +48,12 @@ BuildRequires:  expat-devel
 BuildRequires:  hdf5-devel
 BuildRequires:  gdcm-devel
 BuildRequires:  libminc-devel
+# VtkGlue (the only VTK consumer) is disabled on rawhide (f45+) to dodge the
+# hdf5 cmake re-include guard, so vtk-devel is not needed there. Gating it off
+# also decouples ITK6 rawhide from VTK rebuild churn (e.g. gdal SONAME bumps).
+%if 0%{?fedora} < 45
 BuildRequires:  vtk-devel
+%endif
 BuildRequires:  double-conversion-devel
 BuildRequires:  json-devel
 BuildRequires:  utf8cpp-devel
@@ -77,7 +82,10 @@ an extensive suite of software tools for image analysis.
 %package devel
 Summary:        Development files for ITK v6
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+# No VtkGlue on rawhide (f45+) -> no VTK linkage -> no vtk-devel dep there.
+%if 0%{?fedora} < 45
 Requires:       vtk-devel
+%endif
 Requires:       fftw-devel
 Requires:       hdf5-devel
 
@@ -229,6 +237,17 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
+* Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-7
+- Fix rawhide (f45+) FTBFS: disable Module_ITKVtkGlue there. Rawhide hdf5
+  added a strict export-set re-include guard (hdf5-targets.cmake:42) that
+  errors when VtkGlue -> find_package(VTK) -> VTK find_package(HDF5)
+  re-includes the system hdf5 targets. With HDF5 bundled, VtkGlue was the
+  only system-HDF5 entry point.
+- Consequently gate vtk-devel BuildRequires/Requires off on f45+, decoupling
+  ITK6 rawhide from VTK rebuild churn (e.g. the gdal 3.13 SONAME bump that
+  made vtk-9.6.2-12 transiently uninstallable). F44 unchanged (VtkGlue ON).
+- Fix bogus changelog weekday (Apr 23 2026 = Thu).
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-6
 - Give Source0 a real URL (github tag archive v6.0b02 -> ITK-6.0b02.tar.gz,
   extracts to ITK-6.0b02/) so the GitLab-SCM build can fetch the main ITK
