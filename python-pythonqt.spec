@@ -23,7 +23,7 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.17.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.18.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
@@ -152,7 +152,8 @@ sed -i \
 # QTimer's chrono RETURN types are the killer. Remove just the chrono members so
 # QTimer's int-based API (setInterval(int), start(int), timeout signal,
 # singleShot(int,…)) still wraps.
-perl -0pi -e 's{<object-type name="QTimer"/>}{<object-type name="QTimer">\n    <modify-function signature="setInterval(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="start(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="intervalAsDuration()const" remove="all"/>\n    <modify-function signature="remainingTimeAsDuration()const" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n  </object-type>}' \
+# (sed, not perl — perl is not in the minimal mock/COPR build chroot.)
+sed -i 's|<object-type name="QTimer"/>|<object-type name="QTimer">\n    <modify-function signature="setInterval(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="start(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="intervalAsDuration()const" remove="all"/>\n    <modify-function signature="remainingTimeAsDuration()const" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n  </object-type>|' \
     generator/typesystem_core.xml
 grep -q 'modify-function signature="setInterval(std::chrono' generator/typesystem_core.xml \
     || { echo "ERROR: QTimer chrono typesystem patch did not apply" >&2; exit 1; }
@@ -313,7 +314,7 @@ sed -e 's|@VERSION@|%{version}|g' \
 %{_libdir}/cmake/PythonQt/
 
 %changelog
-* Fri Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.17.20260329git7ef4c5ee
+* Fri Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.18.20260329git7ef4c5ee
 - Fix missing qt.QTimer on top of the -0.15 QtAll wrap fix. -0.15 enabled the
   per-module wrap libs so QtAll::init() registers their classes, but QTimer was
   never *generated*: Qt6's std::chrono overloads (esp. the chrono-returning
@@ -322,7 +323,7 @@ sed -e 's|@VERSION@|%{version}|g' \
   Remove just QTimer's chrono members in typesystem_core.xml so its int-based API
   wraps and qt.QTimer exists. Restores SegmentEditorEffects (GrowCut/
   GrowFromSeeds/FillBetweenSlices). Caught by the new headless slicer.bats.
-  (Supersedes the mis-based 0.16/COPR 10653989, which was built off stale 0.14.)
+  Use sed not perl in %prep (perl absent from mock chroot — what failed 0.16/0.17).
 
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.15.20260329git7ef4c5ee
 - Compile the full per-module Qt wrappers into libPythonQt, not just the
