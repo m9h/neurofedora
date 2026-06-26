@@ -175,3 +175,21 @@ python3-mcp-slicer	cli	/usr/bin/python3 -c "import mcp_slicer; print('mcp_slicer
 3dslicer-totalsegmentator	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/TotalSegmentator.py
 3dslicer-openigtlink	gui	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules/libqSlicerOpenIGTLinkIFModule.so
 3dslicer-monailabel	data	test -f /usr/lib/slicer/lib/Slicer-5.11/qt-scripted-modules/MONAILabel.py
+
+# ─── 3D Slicer platform ────────────────────────────────────────────────────────
+# Version-agnostic paths (Slicer-* glob): work across 5.11/5.12 without edits.
+# Deep functional coverage (headless launch, module registration, MRML/CLI) is
+# in the hand-written slicer.bats, which drives slicer/slicer_selftest.py.
+3dslicer	gui	test -x /usr/bin/Slicer
+3dslicer-devel	lib	ls /usr/lib/slicer/lib/Slicer-*/SlicerConfig.cmake
+3dslicer-elastix	lib	ls /usr/lib/slicer/lib/Slicer-*/qt-scripted-modules/Elastix.py
+3dslicer-totalsegmentator	lib	ls /usr/lib/slicer/lib/Slicer-*/qt-scripted-modules/TotalSegmentator.py
+3dslicer-monailabel	lib	ls /usr/lib/slicer/lib/Slicer-*/qt-scripted-modules/MONAILabel*.py
+3dslicer-openlifu	lib	ls /usr/lib/slicer/lib/Slicer-*/qt-scripted-modules/OpenLIFU*.py
+3dslicer-spharm-pdm	lib	ls /usr/lib/slicer/lib/Slicer-*/qt-scripted-modules/ShapeAnalysisModule.py
+3dslicer-srep	lib	rpm -ql 3dslicer-srep | grep -q 'Slicer-[0-9]'
+3dslicer-openigtlink	lib	rpm -ql 3dslicer-openigtlink | grep -q 'Slicer-[0-9]'
+3dslicer-dmri	lib	rpm -ql 3dslicer-dmri | grep -q 'Slicer-[0-9]'
+3dslicer-rt	lib	rpm -ql 3dslicer-rt | grep -q 'Slicer-[0-9]'
+3dslicer-jupyter	lib	rpm -ql 3dslicer-jupyter | grep -qi jupyter
+3dslicer-dcmqi	cli	command -v itkimage2segimage

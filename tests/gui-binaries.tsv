@@ -31,3 +31,4 @@ mricron	/usr/bin/mricron	xvfb	5
 # WIP-F44: mricrogl	/usr/bin/MRIcroGL	xvfb	5
 # WIP-F44: babelbrain	/usr/bin/BabelBrain	xvfb	5
 # WIP: open-ephys-gui	/usr/bin/open-ephys	xvfb	5
+Slicer	/usr/bin/Slicer	offscreen	120	--no-splash --no-main-window --ignore-slicerrc --exit-after-startup
