@@ -23,7 +23,7 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.18.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.19.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
@@ -140,23 +140,14 @@ sed -i \
     -e '/<QtXmlPatterns\/QtXmlPatterns>/d' \
     generator/qtscript_masterinclude.h
 
-# Qt6 grew std::chrono overloads on QTimer (setInterval/start/singleShot take
-# std::chrono::milliseconds|nanoseconds; intervalAsDuration/remainingTimeAsDuration
-# RETURN std::chrono::milliseconds). PythonQt's generator cannot marshal chrono —
-# it already wholesale-rejects QChronoTimer for the same reason — and here it
-# silently drops the ENTIRE QTimer wrapper, so even with the per-module wrap libs
-# enabled (the -0.15 QtAll fix), qt.QTimer stays undefined: there is no generated
-# wrapper for QtAll::init() to register. Every SegmentEditorEffect that does
-# `qt.QTimer()` (GrowCut, GrowFromSeeds, FillBetweenSlices, …) then fails. QThread
-# survives because its lone chrono method only takes a chrono arg and returns void;
-# QTimer's chrono RETURN types are the killer. Remove just the chrono members so
-# QTimer's int-based API (setInterval(int), start(int), timeout signal,
-# singleShot(int,…)) still wraps.
-# (sed, not perl — perl is not in the minimal mock/COPR build chroot.)
-sed -i 's|<object-type name="QTimer"/>|<object-type name="QTimer">\n    <modify-function signature="setInterval(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="start(std::chrono::milliseconds)" remove="all"/>\n    <modify-function signature="intervalAsDuration()const" remove="all"/>\n    <modify-function signature="remainingTimeAsDuration()const" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::milliseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,const QObject*,const char*)" remove="all"/>\n    <modify-function signature="singleShot(std::chrono::nanoseconds,Qt::TimerType,const QObject*,const char*)" remove="all"/>\n  </object-type>|' \
-    generator/typesystem_core.xml
-grep -q 'modify-function signature="setInterval(std::chrono' generator/typesystem_core.xml \
-    || { echo "ERROR: QTimer chrono typesystem patch did not apply" >&2; exit 1; }
+# NOTE: qt.QTimer is still MISSING under Qt6 — PythonQt's generator drops the
+# QTimer class because it cannot parse QTimer's Qt6 template singleShot
+# declarations (an upstream-acknowledged gap: the masterinclude carries a
+# Qt5-only Q_CLANG_QDOC workaround commented "does not work in Qt6 … needs other
+# fixes"). Typesystem modify-function removals and masterinclude Q_QDOC blocks
+# have NO effect (the generator parses each class's header directly). The real
+# fix is a post-generation hand-written QTimer wrapper + registerClass, tracked
+# separately. -0.16..-0.18 attempted typesystem fixes that did nothing; reverted.
 
 # Inject VERSION/SOVERSION onto the PythonQt cmake target so the built
 # shared lib gets a proper SONAME (libPythonQt.so.4 → libPythonQt.so.4.0.1).
@@ -314,6 +305,17 @@ sed -e 's|@VERSION@|%{version}|g' \
 %{_libdir}/cmake/PythonQt/
 
 %changelog
+* Fri Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.19.20260329git7ef4c5ee
+- Revert the ineffective QTimer typesystem edit from 0.16-0.18. Investigation
+  (local patched generator + LD_PRELOAD runtime probe) proved qt.QTimer is
+  dropped at the generator's HEADER-PARSE stage on QTimer's Qt6 template
+  singleShot — an upstream-acknowledged limitation (masterinclude: the Qt5
+  Q_CLANG_QDOC workaround "does not work in Qt6 … needs other fixes"). Typesystem
+  modify-function removals and a Qt6 Q_QDOC masterinclude block both produced
+  byte-identical output, so 0.16-0.18 were no-ops. Functionally identical to
+  0.15; the real fix (post-generation hand-written QTimer wrapper +
+  registerClass) is tracked separately. qt.QTimer remains absent for now.
+
 * Fri Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.18.20260329git7ef4c5ee
 - Fix missing qt.QTimer on top of the -0.15 QtAll wrap fix. -0.15 enabled the
   per-module wrap libs so QtAll::init() registers their classes, but QTimer was
