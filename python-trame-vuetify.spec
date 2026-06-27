@@ -1,6 +1,6 @@
 Name:           python-trame-vuetify
 Version:        3.2.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Vuetify (Material-Design) component bindings for trame
 
 License:        MIT
@@ -46,5 +46,9 @@ Requires:       python3-trame-client
 %doc README.rst
 
 %changelog
+* Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 3.2.2-2
+- Rebuild against Python 3.15 (rawhide). Release bump so the py3.15 build
+  supersedes the lingering same-NVR py3.14 RPM in the COPR repo.
+
 * Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 3.2.2-1
 - Initial package for the trame-slicer dependency chain.
