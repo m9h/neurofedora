@@ -21,6 +21,8 @@ BuildRequires:  python3-setuptools
 BuildRequires:  python3-wheel
 BuildRequires:  python3-Cython
 BuildRequires:  python3-numpy
+# jpeg_ls.data_io imports PIL; needed for the %%check import
+BuildRequires:  python3-pillow
 
 %description
 pyjpegls is a Python interface to the CharLS JPEG-LS (ISO/IEC 14495-1)
@@ -31,6 +33,7 @@ and encode JPEG-LS compressed DICOM images.
 %package -n python3-%{pypi_name}
 Summary:        %{summary}
 Requires:       python3-numpy
+Requires:       python3-pillow
 
 %description -n python3-%{pypi_name}
 Python interface to the CharLS JPEG-LS library, providing pydicom's
@@ -47,7 +50,8 @@ JPEG-LS pixel-data handler.
 %pyproject_save_files jpeg_ls _CharLS
 
 %check
-%pyproject_check_import
+# Exclude the test modules (need pytest) and the example script.
+%pyproject_check_import -e 'jpeg_ls.tests.*' -e 'jpeg_ls.example'
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 # Upstream ships no standalone license file; pyjpegls is MIT (declared in

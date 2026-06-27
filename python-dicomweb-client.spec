@@ -57,6 +57,7 @@ sed -i 's/, "uv-dynamic-versioning"//' pyproject.toml
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %license LICENSE
 %doc README.md
+%{_bindir}/dicomweb_client
 
 %changelog
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.61.0-1
