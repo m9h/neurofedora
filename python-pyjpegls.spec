@@ -56,7 +56,7 @@ JPEG-LS pixel-data handler.
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 # Upstream ships no standalone license file; pyjpegls is MIT (declared in
 # project metadata), bundled CharLS is BSD-3-Clause.
-%doc README.md
+%doc readme.md
 
 %changelog
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.1-1
