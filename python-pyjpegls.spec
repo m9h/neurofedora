@@ -47,8 +47,7 @@ JPEG-LS pixel-data handler.
 %pyproject_save_files jpeg_ls _CharLS
 
 %check
-cd /
-%{python3} -c "import jpeg_ls; print('pyjpegls ok')"
+%pyproject_check_import
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 # Upstream ships no standalone license file; pyjpegls is MIT (declared in

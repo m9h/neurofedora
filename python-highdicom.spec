@@ -15,6 +15,11 @@ BuildRequires:  python3-devel
 BuildRequires:  python3-pip
 BuildRequires:  python3-setuptools >= 64
 BuildRequires:  python3-wheel
+# Needed for the %%check import (highdicom imports them at module load)
+BuildRequires:  python3-numpy
+BuildRequires:  python3-pillow
+BuildRequires:  python3-pydicom >= 3.0.1
+BuildRequires:  python3-typing-extensions
 
 %description
 highdicom provides high-level abstractions for reading and writing DICOM
@@ -47,8 +52,7 @@ High-level DICOM abstractions for Python, built on pydicom.
 %pyproject_save_files %{pypi_name}
 
 %check
-cd /
-%{python3} -c "import highdicom; print('highdicom', highdicom.__version__)"
+%pyproject_check_import
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %license LICENSE

@@ -40,8 +40,7 @@ A fork of the standard library cgi and cgitb modules (removed in Python 3.13).
 %pyproject_save_files cgi cgitb
 
 %check
-cd /
-%{python3} -c "import cgi, cgitb; print('legacy cgi/cgitb ok')"
+%pyproject_check_import
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %license LICENSE

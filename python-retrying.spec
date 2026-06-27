@@ -40,8 +40,7 @@ adding retry behavior to just about anything.
 %pyproject_save_files %{pypi_name}
 
 %check
-cd /
-%{python3} -c "import retrying; print('retrying ok')"
+%pyproject_check_import
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
 %license LICENSE.txt
