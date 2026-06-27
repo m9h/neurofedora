@@ -67,7 +67,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        54%{?dist}
+Release:        55%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -219,6 +219,12 @@ Requires:       qt6-qtwebengine
 Requires:       qt6-qtmultimedia
 Requires:       hicolor-icon-theme
 Requires:       libGL
+# Python deps for the scripted modules. The headless slicer.bats suite caught
+# the DICOM module failing to load (No module named dicomweb_client / highdicom)
+# and several modules hitting the Python 3.13 removal of cgi.
+Requires:       python3-dicomweb-client
+Requires:       python3-highdicom
+Requires:       python3-legacy-cgi
 
 %description
 3D Slicer is a free, open-source software platform for biomedical image
@@ -680,6 +686,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-5.11/CMake/
 
 %changelog
+* Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-55
+- Require python3-dicomweb-client, python3-highdicom and python3-legacy-cgi.
+  The headless slicer.bats suite caught the DICOM scripted module failing to
+  load (No module named dicomweb_client / highdicom — neither was in Fedora) and
+  modules importing the stdlib cgi module removed in Python 3.13. All three are
+  now packaged in the COPR; wire them in so a fresh install resolves them.
+
 * Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-54
 - Add the ITK link closure to the generated imported targets (the ITK analog of
   the -52 VTK closure / -53 inter-Slicer+CTK closure). The Slicer C++ libs
