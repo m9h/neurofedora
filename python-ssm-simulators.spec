@@ -42,6 +42,10 @@ Summary:        %{summary}
 sed -i 's/,<3.14"/,<3.16"/' pyproject.toml
 # LICENSE and README ship with spurious executable bits in the sdist.
 chmod 0644 LICENSE README.md
+# NOTE: the parallel (nogil/prange) Cython modules require Cython >= 3.2 (as on
+# Fedora 44+/rawhide). Older Cython (3.1.x on Fedora 43) rejects them with
+# "Assignment of Python object not allowed without gil", so this package is
+# built only for Fedora 44 and newer.
 
 %generate_buildrequires
 %pyproject_buildrequires
