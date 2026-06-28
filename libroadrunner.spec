@@ -74,6 +74,18 @@ Headers and C API for building against libRoadRunner.
 # Apply the Fedora-clean / no-NLEQ / system-libs / global-libSBML transform.
 bash %{SOURCE1} .
 
+# LLVM 14 (rawhide) trimmed transitive includes: the legacy-pass InstCombine.h no
+# longer pulls in Pass.h, so FunctionPass/AnalysisUsage are undeclared. Inject
+# Pass.h before it. Idempotent/harmless on llvm13 (F44).
+sed -i '\#include "llvm/Transforms/InstCombine/InstCombine.h"#i #include <llvm/Pass.h>' \
+    source/llvm/LLVMIncludes.h
+
+%if 0%{?fedora} >= 45
+# LLVM 14 moved TargetRegistry.h from llvm/Support/ to llvm/MC/.
+sed -i 's#llvm/Support/TargetRegistry.h#llvm/MC/TargetRegistry.h#' \
+    source/llvm/Jit.cpp source/llvm/ModelGeneratorContext.cpp source/llvm/ModelResources.cpp
+%endif
+
 %build
 export LLVM_DIR=%{_libdir}/llvm%{llvmver}
 %cmake -GNinja \
