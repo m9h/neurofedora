@@ -1,9 +1,18 @@
 %global debug_package %{nil}
+# LLVM JIT version. RoadRunner 2.9.2's codegen uses typed-pointer IR, so it must
+# stay on an LLVM that still defaults to typed pointers (<= 14; 15+ forces opaque
+# pointers and would break ModelDataIRBuilder). Rawhide (f45+) retired llvm13, so
+# target the next-oldest available compat there: llvm14 (the code's >=13 guards
+# also cover 14). F44 keeps the proven llvm13.
+%if 0%{?fedora} >= 45
+%global llvmver 14
+%else
 %global llvmver 13
+%endif
 
 Name:           libroadrunner
 Version:        2.9.2
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        High-performance SBML simulation library (LLVM-JIT), no-NLEQ build
 
 # RoadRunner is Apache-2.0. Bundled header-only deps: parallel-hashmap (Apache-2.0),
@@ -21,9 +30,8 @@ BuildRequires:  ninja-build
 BuildRequires:  swig
 BuildRequires:  python3-devel
 BuildRequires:  python3-numpy
-# RoadRunner 2.9.2's LLVM-JIT is pinned to LLVM 13. The llvm13 compat package was
-# retired from rawhide (F45+), so this package builds on F44 only. Build with
-# `copr-cli build -r fedora-44-x86_64` (rawhide lacks llvm13-devel and will FTBFS).
+# LLVM JIT: llvm13 on F44 (proven), llvm14 on rawhide (llvm13 was retired there).
+# See the %%global llvmver block above for the typed-pointer rationale.
 BuildRequires:  llvm%{llvmver}-devel
 BuildRequires:  libsbml-devel
 BuildRequires:  sundials-devel
@@ -105,6 +113,12 @@ find %{buildroot} -name '*.so' -o -name '*.so.*' | xargs -r chrpath --delete 2>/
 %{_includedir}/rr/
 
 %changelog
+* Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-2
+- Build on rawhide (f45+) against llvm14 (llvm13 compat retired there);
+  F44 stays on llvm13. RoadRunner's >=13 codegen guards cover 14, and 14
+  still defaults to typed pointers (15+ opaque pointers would break the
+  IR builder). No longer F44-only.
+
 * Thu Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.9.2-1
 - Initial package: libRoadRunner 2.9.2, Fedora-clean no-NLEQ build.
 - Links system libSBML/SUNDIALS-7/POCO/LLVM-13/rr-libstruct (no superbuild);
