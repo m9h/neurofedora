@@ -33,6 +33,9 @@ Summary:        %{summary}
 
 %prep
 %autosetup -n %{dist_name}-%{version}
+# Upstream caps requires-python at <3.15, which excludes rawhide's Python 3.15;
+# the Cython sources build and import fine there, so relax the upper bound.
+sed -i 's/,<3.15"/,<3.16"/' pyproject.toml
 
 %generate_buildrequires
 %pyproject_buildrequires

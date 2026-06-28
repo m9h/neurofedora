@@ -37,9 +37,9 @@ Summary:        %{summary}
 %prep
 %autosetup -n %{dist_name}-%{version}
 # Upstream conservatively caps requires-python at <3.14; the Cython sources
-# build and import fine on 3.14, so relax the upper bound to cover current
-# Fedora Python (3.14) and rawhide.
-sed -i 's/,<3.14"/,<3.15"/' pyproject.toml
+# build and import fine on newer Python, so relax the upper bound to cover
+# current Fedora (3.14) and rawhide (3.15).
+sed -i 's/,<3.14"/,<3.16"/' pyproject.toml
 # LICENSE and README ship with spurious executable bits in the sdist.
 chmod 0644 LICENSE README.md
 
