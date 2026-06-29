@@ -17,15 +17,13 @@
 # Parallel-install layout under the prefix lib/slicer dir to leave
 # room for slicer 6.x someday.
 
-# NOTE: Slicer 5.10.0 release is Qt5-only (find_package(Qt5) hardcoded in
-# CMake/SlicerBlockFindQtAndCheckVersion.cmake). Qt6 support landed only
-# after the 5.10.0 tag on main. Until 5.11.0 ships, "stable 3dslicer"
-# tracks a pinned main-branch commit that has the Qt6 conditional.
-# Different commit from slicer-preview so stable users get less churn.
-%global slicer_commit 208adb862bc329e6370ae400fef1b18e9ac54cbd
+# Slicer 5.12.0 is the current STABLE release (even minor = stable). It has
+# full Qt6 support (landed during the 5.11 preview cycle). Built from the
+# v5.12.0 tag. The dev/preview track (5.13.0, odd minor) is slicer-preview.
+%global slicer_xy   5.12
+%global slicer_commit a5df71450f1d27d87dc1c513bc25c57c702bf71d
 %global slicer_shortcommit %(c=%{slicer_commit}; echo ${c:0:8})
-%global slicer_snapdate 20260517
-%global slicer_ver  5.11.0~pre.%{slicer_snapdate}git%{slicer_shortcommit}
+%global slicer_ver  5.12.0
 %global slicer_inst %{_prefix}/lib/slicer
 
 # Slicer ships ~600 MB of shared libs + bundled Python — debuginfo balloons
@@ -67,12 +65,12 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        55%{?dist}
+Release:        1%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
 URL:            https://slicer.org/
-Source0:        https://github.com/Slicer/Slicer/archive/%{slicer_commit}/Slicer-%{slicer_shortcommit}.tar.gz
+Source0:        https://github.com/Slicer/Slicer/archive/refs/tags/v%{slicer_ver}/Slicer-%{slicer_ver}.tar.gz
 
 # Profile environment hook (sets $Slicer_HOME, prepends bin to PATH)
 Source1:        slicer.sh
@@ -259,7 +257,7 @@ Headers, cmake configuration, and devel symlinks for building Slicer
 extension modules out of tree.
 
 %prep
-%autosetup -p1 -n Slicer-%{slicer_commit}
+%autosetup -p1 -n Slicer-%{slicer_ver}
 
 # Slicer main HEAD already supports Qt6 and VTK 9.6 natively — no sed
 # patches needed for those. Python version: defaults to 3.12.10 floor;
@@ -528,9 +526,9 @@ EOF
 # verbatim), and there is no install(EXPORT SlicerTargets). So the installed
 # config points every path at the vanished build tree and ships no imported
 # targets. We repair all three gaps here.
-_sdir=%{_builddir}/Slicer-%{slicer_commit}
+_sdir=%{_builddir}/Slicer-%{slicer_ver}
 _bdir="$_sdir/%{_vpath_builddir}"
-_scmake=%{buildroot}%{slicer_inst}/lib/Slicer-5.11/CMake
+_scmake=%{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake
 
 # 1. Ship the FULL source CMake/ + Extensions/CMake/ — the installed subset is
 #    missing extension-support modules (SlicerBlockAdditionalLauncherSettings,
@@ -545,12 +543,12 @@ cp -an "$_sdir"/Extensions/CMake/. "$_scmake"/ || :
 
 # 2. Ship the VTK wrap-hierarchy files (.txt) generated in the build tree —
 #    needed to python-wrap an extension's VTK classes against Slicer's libs.
-mkdir -p %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy
+mkdir -p %{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}/hierarchy
 # The files are named <Target>Hierarchy.txt (MRMLCoreHierarchy.txt,
 # vtkTeemHierarchy.txt, ...) in the build root — NOT *-hierarchy.txt.
 find "$_bdir" -name '*Hierarchy.txt' 2>/dev/null \
   | while read -r h; do cp -an "$h" \
-      %{buildroot}%{slicer_inst}/lib/Slicer-5.11/hierarchy/ 2>/dev/null || :; done
+      %{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}/hierarchy/ 2>/dev/null || :; done
 
 # 2b. Ship the generated *Export.h headers (CMake GenerateExportHeader output,
 #     e.g. vtkMRMLExport.h) that Slicer's install rules omit — public library
@@ -558,7 +556,7 @@ find "$_bdir" -name '*Hierarchy.txt' 2>/dev/null \
 #     Self-discovering: for each installed library include dir, find which
 #     *Export.h its headers reference and copy that file next to them.
 for _d in %{buildroot}%{slicer_inst}/include/* \
-          %{buildroot}%{slicer_inst}/include/Slicer-5.11/*; do
+          %{buildroot}%{slicer_inst}/include/Slicer-%{slicer_xy}/*; do
     [ -d "$_d" ] || continue
     grep -rhoE '#include "[A-Za-z0-9_]+Export\.h"' "$_d" 2>/dev/null \
       | sed -E 's/.*"([^"]+)".*/\1/' | sort -u | while read -r _eh; do
@@ -572,9 +570,9 @@ done
 #     generated export/configure headers). Slicer installs almost none of these,
 #     but C++ extensions #include them widely (vtkSlicerBaseLogic.h,
 #     vtkSlicerColorLogic.h, vtkMRMLMarkupsNode.h, ...). Flatten into
-#     include/Slicer-5.11, which is on every extension's include path. Source
+#     include/Slicer-%{slicer_xy}, which is on every extension's include path. Source
 #     headers first, then build-tree generated headers (*Export.h, *Configure.h).
-_si=%{buildroot}%{slicer_inst}/include/Slicer-5.11
+_si=%{buildroot}%{slicer_inst}/include/Slicer-%{slicer_xy}
 for _base in "$_sdir" "$_bdir"; do
     for _hd in "$_base"/Base/Logic "$_base"/Base/CLI "$_base"/Base/QTCLI \
                "$_base"/Modules/Loadable/*/Logic \
@@ -591,7 +589,7 @@ done
 # 2c-bis. Ship Slicer's Libs/ public headers PRESERVING the Libs/<lib>/ path, so
 #   extensions that include them source-root-relative (e.g. SlicerDMRI's
 #   `#include <Libs/vtkTeem/vtkTeemNRRDReader.h>` in its diffusion CLIs) resolve
-#   against include/Slicer-5.11 (already on every extension's include path). Both
+#   against include/Slicer-%{slicer_xy} (already on every extension's include path). Both
 #   the source tree (public *.h) and the build tree (generated *Export.h /
 #   *Configure.h the headers reference) are copied with their Libs/<lib>/ prefix.
 ( cd "$_sdir" && find Libs -name '*.h' -exec cp -an --parents {} "$_si/" \; ) 2>/dev/null || :
@@ -609,14 +607,14 @@ _semw=$(find "$_bdir" "$_sdir" -name 'SEMCommandLineLibraryWrapper.cxx' 2>/dev/n
 #    the installed libs. No --root => the config derives its prefix from its own
 #    location at load time (fully relocatable).
 python3 %{SOURCE10} \
-    %{buildroot}%{slicer_inst}/lib/Slicer-5.11/SlicerConfig.cmake \
-    %{buildroot}%{slicer_inst}/lib/Slicer-5.11
+    %{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}/SlicerConfig.cmake \
+    %{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}
 
 # 4. CLI module discovery: Slicer's CLI executables land in bin/ but the
-#    launcher scans lib/Slicer-5.11/cli-modules (which ends up empty), so CLI
+#    launcher scans lib/Slicer-%{slicer_xy}/cli-modules (which ends up empty), so CLI
 #    modules are unfindable. Symlink the cli-modules dir's expected contents
 #    from the installed CLI binaries + their .xml descriptors.
-_clidir=%{buildroot}%{slicer_inst}/lib/Slicer-5.11/cli-modules
+_clidir=%{buildroot}%{slicer_inst}/lib/Slicer-%{slicer_xy}/cli-modules
 mkdir -p "$_clidir"
 for x in %{buildroot}%{slicer_inst}/bin/*.xml; do
     [ -e "$x" ] || continue
@@ -629,7 +627,7 @@ done
 # ---------------------------------------------------------------------------
 
 # Slicer source bug #5/#8: several installed wizard/utility scripts (e.g.
-# libexec/Slicer-5.11/ExtensionWizard.py, ModuleWizard.py, and the ScriptedCLI
+# libexec/Slicer-%{slicer_xy}/ExtensionWizard.py, ModuleWizard.py, and the ScriptedCLI
 # Wizard template TemplateKey.py) carry non-system python shebangs:
 #  - "#!/usr/bin/env python"  -> brp-mangle-shebangs rejects (ambiguous), fails %install (bug #5)
 #  - "#!/usr/bin/python-real" -> RPM's script-dep generator turns it into an
@@ -671,9 +669,9 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{_sysconfdir}/profile.d/slicer.sh
 %{slicer_inst}/
 %exclude %{slicer_inst}/include/
-# Slicer's CMake config installs under lib/Slicer-5.11/CMake/ (not lib/cmake/);
+# Slicer's CMake config installs under lib/Slicer-%%{slicer_xy}/CMake/ (not lib/cmake/);
 # route it to -devel. (bug #7: the old lib/cmake/ path matched nothing.)
-%exclude %{slicer_inst}/lib/Slicer-5.11/CMake/
+%exclude %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 # bug #6: Slicer installs Qt6 designer/iconengine/style plugins into the system
 # Qt6 plugin tree (outside the slicer_inst prefix); package them explicitly.
 %{_libdir}/qt6/plugins/designer/libqMRMLWidgetsPlugins.so
@@ -683,9 +681,16 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 
 %files devel
 %{slicer_inst}/include/
-%{slicer_inst}/lib/Slicer-5.11/CMake/
+%{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-1
+- Promote stable 3dslicer from the 5.11.0~pre main snapshot to the 5.12.0
+  RELEASE (tag v5.12.0). Parametrize the install paths as %%{slicer_xy}=5.12.
+  Carries the DICOM Python deps (python3-{dicomweb-client,highdicom,legacy-cgi})
+  and all the -36..-55 packaging fixes forward. The dev/preview track moves to
+  5.13.0 separately (slicer-preview, parallel-installable).
+
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~pre.20260517git208adb86-55
 - Require python3-dicomweb-client, python3-highdicom and python3-legacy-cgi.
   The headless slicer.bats suite caught the DICOM scripted module failing to
