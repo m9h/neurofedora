@@ -7,14 +7,14 @@
 # branch HEAD whenever rebuilding. The release suffix encodes the date
 # so subsequent rebuilds compare cleanly.
 
-%global snapdate 20260517
-%global commit   208adb862bc329e6370ae400fef1b18e9ac54cbd
+%global snapdate 20260628
+%global commit   9774a684fb062714f5cc7e0e732c5d036d3dd87f
 %global shortcommit %(c=%{commit}; echo ${c:0:8})
 
 # We pin to the upcoming-release nominal version 5.11.0~preview… so RPM
 # treats us as newer than 3dslicer 5.10.0 stable, and any in-between
 # Slicer 5.11.0 release will compare cleanly newer than this preview.
-%global preview_ver 5.11.0~preview.%{snapdate}git%{shortcommit}
+%global preview_ver 5.13.0~preview.%{snapdate}git%{shortcommit}
 %global slicer_inst %{_prefix}/lib/slicer-preview
 
 %define debug_package %{nil}
@@ -240,6 +240,12 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-1
+- Refresh the dev/preview track from the 5.11.0~preview snapshot to the current
+  5.13.0 main HEAD (Slicer's dev version; even minor 5.12 is now stable in
+  3dslicer). Parallel-installable with stable 3dslicer (separate
+  /usr/lib/slicer-preview root + /usr/bin/slicer-preview launcher).
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.11.0~preview.20260517git208adb86-1
 - Initial preview-channel package tracking Slicer main branch.
 - Same system-deps strategy as the stable 3dslicer package (5.10.0).
