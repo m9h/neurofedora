@@ -11,9 +11,9 @@
 %global commit   9774a684fb062714f5cc7e0e732c5d036d3dd87f
 %global shortcommit %(c=%{commit}; echo ${c:0:8})
 
-# We pin to the upcoming-release nominal version 5.11.0~preview… so RPM
-# treats us as newer than 3dslicer 5.10.0 stable, and any in-between
-# Slicer 5.11.0 release will compare cleanly newer than this preview.
+# Nominal version tracks Slicer's dev minor (5.13.0, odd = dev). RPM treats
+# 5.13.0~preview as newer than stable 3dslicer 5.12.0 (even = stable), and a
+# future 5.13.0 tag would compare cleanly newer than this preview snapshot.
 %global preview_ver 5.13.0~preview.%{snapdate}git%{shortcommit}
 %global slicer_inst %{_prefix}/lib/slicer-preview
 
@@ -22,7 +22,7 @@
 
 Name:           slicer-preview
 Version:        %{preview_ver}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        3D Slicer development snapshot (main branch) for medical image analysis
 
 License:        BSD-3-Clause
@@ -136,11 +136,13 @@ Requires:       libGL
 %description
 3D Slicer Preview tracks the current Slicer development branch (main) and
 is intended for users who want access to features and bug-fixes that
-have landed since the last stable release (5.10.0).
+have landed since the current stable release (5.12.0).
 
-This package coexists with the stable 3dslicer package. Stable installs
-to /usr/lib/slicer-5.10.0/ and is invoked as `slicer`. Preview installs
-to /usr/lib/slicer-preview/ and is invoked as `slicer-preview`.
+This package coexists with the stable 3dslicer package via parallel install:
+stable installs to /usr/lib/slicer and is invoked as `Slicer`; preview installs
+to /usr/lib/slicer-preview and is invoked as `slicer-preview`. User settings and
+downloaded extensions are revision-keyed under ~/.config/slicer.org, so the two
+stay isolated.
 
 Use stable for routine work; use preview to validate upcoming-release
 behaviour or to use new modules before they reach a tagged release.
@@ -188,6 +190,14 @@ export QT_QPA_PLATFORM=offscreen
     `# Store settings + extensions in the user's home, not the read-only system` \
     `# tree (else the Extensions Manager fails on a system install). See 3dslicer.` \
     -DSlicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR:BOOL=OFF \
+    `# Tarball builds have no .git, so pre-define the revision (else it is empty).` \
+    `# With STORE_SETTINGS=OFF the user-home settings/extensions paths are` \
+    `# revision-keyed (~/.config/slicer.org/Slicer-<rev>.ini, Extensions-<rev>), so` \
+    `# a distinct revision is what keeps this preview isolated from stable 3dslicer` \
+    `# in parallel installs — and the Extensions Manager queries the server by it.` \
+    -DSlicer_REVISION:STRING=%{shortcommit} \
+    -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-06-28 \
+    -DSlicer_WC_URL:STRING=https://github.com/Slicer/Slicer/commit/%{commit} \
     -DSlicer_USE_PYTHONQT:BOOL=ON \
     -DSlicer_USE_NUMPY:BOOL=ON \
     -DSlicer_USE_SCIPY:BOOL=ON \
@@ -243,6 +253,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-3
+- Pre-define Slicer_REVISION (=shortcommit) + WC date/URL. With
+  STORE_SETTINGS=OFF the user-home settings/extensions paths are revision-keyed,
+  so a distinct revision is what keeps preview isolated from stable 3dslicer in
+  parallel installs; an empty revision also breaks the Extensions Manager's
+  by-revision server query. 3dslicer already sets this.
+
 * Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-2
 - Slicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR=OFF so user settings + extensions
   land in the user's home, not the read-only install tree (Extensions Manager fix;
