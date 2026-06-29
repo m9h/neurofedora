@@ -22,7 +22,7 @@
 
 Name:           slicer-preview
 Version:        %{preview_ver}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        3D Slicer development snapshot (main branch) for medical image analysis
 
 License:        BSD-3-Clause
@@ -185,6 +185,9 @@ export QT_QPA_PLATFORM=offscreen
     -DDCMTK_DIR:PATH=%{_libdir}/cmake/dcmtk \
     -DCTKAppLauncher_DIR:PATH=%{_libdir}/cmake/CTKAppLauncher \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
+    `# Store settings + extensions in the user's home, not the read-only system` \
+    `# tree (else the Extensions Manager fails on a system install). See 3dslicer.` \
+    -DSlicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR:BOOL=OFF \
     -DSlicer_USE_PYTHONQT:BOOL=ON \
     -DSlicer_USE_NUMPY:BOOL=ON \
     -DSlicer_USE_SCIPY:BOOL=ON \
@@ -240,6 +243,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-2
+- Slicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR=OFF so user settings + extensions
+  land in the user's home, not the read-only install tree (Extensions Manager fix;
+  see 3dslicer 5.12.0-2).
+
 * Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-1
 - Refresh the dev/preview track from the 5.11.0~preview snapshot to the current
   5.13.0 main HEAD (Slicer's dev version; even minor 5.12 is now stable in

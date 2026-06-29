@@ -65,7 +65,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -469,6 +469,13 @@ EOF
     `# tries find_package(Qt5) and aborts with "Qt5 was not found".` \
     -DQt6_DIR:PATH=%{_libdir}/cmake/Qt6 \
     \
+    `# Store user settings + downloaded extensions in the user's home, NOT the` \
+    `# application home dir. Upstream defaults this ON ("portable" install), which` \
+    `# points settings at <app>/slicer.org/Slicer-<rev>.ini and the extensions` \
+    `# install dir into the read-only system tree (/usr/lib/slicer/...), so the` \
+    `# Extensions Manager fails with "Extensions can not be installed" on a system` \
+    `# RPM install. OFF routes them to ~/.config/slicer.org + a user-writable dir.` \
+    -DSlicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR:BOOL=OFF \
     `# Feature toggles` \
     -DSlicer_USE_PYTHONQT:BOOL=ON \
     -DSlicer_USE_NUMPY:BOOL=ON \
@@ -684,6 +691,13 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-2
+- Fix "Extensions can not be installed" on system installs: set
+  Slicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR=OFF. Upstream defaults it ON
+  (portable mode), which points the settings file and the extensions install dir
+  into the read-only /usr/lib/slicer tree. OFF stores them under the user's home
+  (~/.config/slicer.org), so the Extensions Manager works without root.
+
 * Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-1
 - Promote stable 3dslicer from the 5.11.0~pre main snapshot to the 5.12.0
   RELEASE (tag v5.12.0). Parametrize the install paths as %%{slicer_xy}=5.12.
