@@ -22,7 +22,7 @@
 
 Name:           slicer-preview
 Version:        %{preview_ver}
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        3D Slicer development snapshot (main branch) for medical image analysis
 
 License:        BSD-3-Clause
@@ -173,6 +173,8 @@ export QT_QPA_PLATFORM=offscreen
     -DSlicer_USE_SYSTEM_VTK:BOOL=ON \
     -DSlicer_USE_SYSTEM_CTK:BOOL=ON \
     -DSlicer_USE_SYSTEM_DCMTK:BOOL=ON \
+    `# Use system OpenJPEG so 5.12+ CPack does not fatal bundling it. See 3dslicer.` \
+    -DSlicer_USE_SYSTEM_OpenJPEG:BOOL=ON \
     -DSlicer_USE_SYSTEM_teem:BOOL=ON \
     -DSlicer_USE_SYSTEM_SlicerExecutionModel:BOOL=ON \
     -DSlicer_USE_SYSTEM_jsoncpp:BOOL=ON \
@@ -253,6 +255,10 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
 %{slicer_inst}/lib/cmake/
 
 %changelog
+* Mon Jun 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-4
+- Slicer_USE_SYSTEM_OpenJPEG=ON to fix the 5.12+ CPack OpenJPEG configure fatal
+  (see 3dslicer 5.12.0-3).
+
 * Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-3
 - Pre-define Slicer_REVISION (=shortcommit) + WC date/URL. With
   STORE_SETTINGS=OFF the user-home settings/extensions paths are revision-keyed,

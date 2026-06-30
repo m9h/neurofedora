@@ -65,7 +65,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -418,6 +418,11 @@ EOF
     -DSlicer_USE_SYSTEM_VTK:BOOL=ON \
     -DSlicer_USE_SYSTEM_CTK:BOOL=ON \
     -DSlicer_USE_SYSTEM_DCMTK:BOOL=ON \
+    `# 5.12 added SlicerBlockInstallOpenJPEG: with DICOM support ON but` \
+    `# Slicer_USE_SYSTEM_OpenJPEG unset, CPack tries to bundle OpenJPEG and fatals` \
+    `# on the unset OpenJPEG_INSTALL_DIR at configure. We use system openjpeg (via` \
+    `# gdcm/dcmtk), so flip it ON to skip the bundling block.` \
+    -DSlicer_USE_SYSTEM_OpenJPEG:BOOL=ON \
     -DSlicer_USE_SYSTEM_teem:BOOL=ON \
     -DSlicer_USE_SYSTEM_SlicerExecutionModel:BOOL=ON \
     -DSlicer_USE_SYSTEM_jsoncpp:BOOL=ON \
@@ -691,6 +696,11 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Mon Jun 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-3
+- Fix cmake configure FATAL on 5.12: set Slicer_USE_SYSTEM_OpenJPEG=ON. 5.12
+  added SlicerBlockInstallOpenJPEG (CPack) which, with DICOM support on and the
+  flag unset, fatals on the unset OpenJPEG_INSTALL_DIR. We use system openjpeg.
+
 * Sun Jun 28 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-2
 - Fix "Extensions can not be installed" on system installs: set
   Slicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR=OFF. Upstream defaults it ON
