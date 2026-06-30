@@ -1,6 +1,6 @@
 Name:           python-napari
 Version:        0.7.1
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Fast, interactive, multi-dimensional image viewer for Python
 
 License:        BSD-3-Clause
@@ -12,6 +12,10 @@ BuildRequires:  python3-devel
 BuildRequires:  pyproject-rpm-macros
 # A Qt binding must be importable for the %check (napari imports qtpy).
 BuildRequires:  python3-pyqt6
+# Desktop integration: validate the .desktop file and rasterize the app icon
+# from upstream's icon.ico into the hicolor theme.
+BuildRequires:  desktop-file-utils
+BuildRequires:  ImageMagick
 
 %global _description %{expand:
 napari is a fast, interactive, multi-dimensional image viewer for Python. It is
@@ -95,6 +99,41 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=%{version}
 # this distribution.
 %pyproject_save_files napari napari_builtins
 
+# --- Desktop integration (menu entry + icon) ---------------------------------
+# Upstream ships no .desktop file and installs its logo only inside the Python
+# package (src/napari/resources), so on Fedora the menu entry had no icon.
+# Generate a launcher and install the brand logo into the hicolor icon theme as
+# `napari`, matching the Icon= key below.
+install -d %{buildroot}%{_datadir}/applications
+cat > %{buildroot}%{_datadir}/applications/napari.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=napari
+GenericName=Image Viewer
+Comment=Fast, interactive, multi-dimensional image viewer
+Exec=napari %F
+Icon=napari
+Terminal=false
+Categories=Graphics;Science;
+Keywords=imaging;microscopy;bioimaging;visualization;
+StartupNotify=true
+StartupWMClass=napari
+EOF
+
+# Scalable vector icon (the official napari gradient logo).
+install -d %{buildroot}%{_datadir}/icons/hicolor/scalable/apps
+install -m 0644 src/napari/resources/logos/gradient-plain-dark.svg \
+    %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/napari.svg
+# Raster sizes, rasterized losslessly from upstream's bundled icon.ico (its
+# largest frame is a 256x256 PNG).
+for s in 16 32 48 64 128 256; do
+    install -d %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps
+    magick src/napari/resources/icon.ico[0] -resize ${s}x${s} \
+        %{buildroot}%{_datadir}/icons/hicolor/${s}x${s}/apps/napari.png
+done
+
+desktop-file-validate %{buildroot}%{_datadir}/applications/napari.desktop
+
 %check
 # Headless Qt; top-level import only (-t). The full GUI/_qt/_vispy submodules
 # need a real display/GL context not present in mock.
@@ -105,11 +144,19 @@ export QT_QPA_PLATFORM=offscreen
 %license LICENSE
 %doc README.md
 %{_bindir}/napari
+%{_datadir}/applications/napari.desktop
+%{_datadir}/icons/hicolor/*/apps/napari.png
+%{_datadir}/icons/hicolor/scalable/apps/napari.svg
 
 %files -n napari
 # metapackage: no payload
 
 %changelog
+* Tue Jun 30 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-3
+- Add desktop integration: ship a napari.desktop launcher plus the brand logo
+  in the hicolor icon theme (scalable SVG + 16-256px PNGs rasterized from
+  upstream icon.ico). Fixes the missing menu icon on Fedora.
+
 * Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-2
 - Prefer a Qt6 binding (PyQt6, then PySide6) at import time when QT_API is unset,
   so napari never runs on a coinstalled PyQt5 (which it does not support and which
