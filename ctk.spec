@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.17.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.18.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -300,6 +300,21 @@ install -d %{buildroot}%{python3_sitelib}
 ln -s %{_bindir}/Python/qt  %{buildroot}%{python3_sitelib}/qt
 ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 
+# Same bug #9a problem, one level deeper: ctk/__init__.py loads each wrapped
+# kit with a plain Python-level "from CTK<Kit>PythonQt import *", but those
+# CTK*PythonQt.so extension modules are installed to CTK_INSTALL_LIB_DIR
+# (%{_libdir} here) — not on sys.path (bare /usr/lib64 never is, only its
+# python3.14/site-packages subdirectory is). Every kit import therefore
+# raises ImportError, silently swallowed by ctk/__init__.py's try/except,
+# leaving "ctk" a class-less module even though __kits_to_load now correctly
+# lists all 11 kits. Symlink each built wrapper module into
+# %{python3_sitelib} so Python's import machinery can actually find it.
+for kit in Core Widgets DICOMCore DICOMWidgets VisualizationVTKCore \
+           VisualizationVTKWidgets ImageProcessingITKCore \
+           ScriptingPythonWidgets QtTesting; do
+    ln -s %{_libdir}/CTK${kit}PythonQt.so %{buildroot}%{python3_sitelib}/CTK${kit}PythonQt.so
+done
+
 %files
 %doc README.md
 %license NOTICE LICENSE
@@ -325,10 +340,15 @@ ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 # kit: CTKCorePythonQt.so, CTKWidgetsPythonQt.so, CTKDICOMCorePythonQt.so,
 # CTKDICOMWidgetsPythonQt.so, CTKVisualizationVTK{Core,Widgets}PythonQt.so,
 # CTKImageProcessingITKCorePythonQt.so, CTKQtTestingPythonQt.so, ...). Built
-# as MODULE libraries with no "lib" prefix, unversioned. These are what
-# populate ctk/__init__.py's __kits_to_load — without them "import ctk"
-# yields a module with zero real classes.
+# as MODULE libraries with no "lib" prefix, unversioned. ctk/__init__.py
+# imports each of these by bare module name for every kit in
+# __kits_to_load — without them present, "import ctk" yields a module
+# with zero real classes.
 %{_libdir}/CTK*PythonQt.so
+# Symlinks onto the default Python path (bug #9a, one level deeper — see
+# above): bare %%{_libdir} is never on sys.path, so ctk/__init__.py's plain
+# "from CTK<Kit>PythonQt import *" can't find these otherwise.
+%{python3_sitelib}/CTK*PythonQt.so
 # CTK builds Python stubs under /usr/bin/Python/ (upstream layout — not ideal,
 # but moving them breaks find_package(CTK) for Slicer).
 /usr/bin/Python/ctk/
@@ -351,6 +371,19 @@ ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Fri Jul 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.18.20260126gitfd37b874
+- Fix -0.17 turning out to be a no-op on the actual failure: ctk.ctkSettingsPanel
+  etc. were still AttributeError after upgrading, verified live in 3D Slicer.
+  ctk/__init__.py loads each wrapped kit with a plain Python-level
+  "from CTK<Kit>PythonQt import *", but -0.17 only fixed __kits_to_load
+  (via CTK_ENABLE_Python_Wrapping) — it left the resulting CTK*PythonQt.so
+  modules installed to %{_libdir} (bare /usr/lib64), which is never on
+  sys.path (only its python3.14/site-packages subdirectory is). Every kit
+  import therefore still raised ImportError, silently swallowed by
+  ctk/__init__.py's try/except. Same root shape as bug #9a (-0.15), one
+  level deeper: symlink each of the 9 built CTK*PythonQt.so wrapper modules
+  into %{python3_sitelib} alongside the existing qt/ctk stub symlinks.
+
 * Thu Jul 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.17.20260126gitfd37b874
 - Fix "import ctk" yielding a class-less module (ctk.ctkSettingsPanel,
   ctk.ctkErrorLogContext, etc. all AttributeError), breaking 3D Slicer's
