@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.16.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.17.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -231,6 +231,17 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     `# unconditionally, so without this Slicer fails linking` \
     `# libqSlicerBaseQTCore.so with an undefined reference.` \
     -DCTK_LIB_Scripting/Python/Core_PYTHONQT_USE_VTK:BOOL=ON \
+    `# CTK's top-level CMakeLists.txt (~line 927) does` \
+    `#   set(CTK_WRAP_PYTHONQT_LIGHT ${CTK_ENABLE_Python_Wrapping})` \
+    `# which unconditionally overwrites our -DCTK_WRAP_PYTHONQT_LIGHT=ON below` \
+    `# with this variable's value (default OFF), silently disabling` \
+    `# ctkMacroBuildLibWrapper for every kit (Core/Widgets/DICOM/VTK/ITK/` \
+    `# QtTesting). That leaves ctk/__init__.py's templated __kits_to_load` \
+    `# empty, so "import ctk" yields a module with zero real classes` \
+    `# (ctk.ctkSettingsPanel, ctk.ctkErrorLogContext, ... all missing),` \
+    `# breaking 3D Slicer's DICOM, ExtensionWizard, and Segment Editor` \
+    `# modules at runtime. Must set this explicitly.` \
+    -DCTK_ENABLE_Python_Wrapping=ON \
     -DCTK_WRAP_PYTHONQT_LIGHT=ON \
     -DPYTHONQT_INSTALL_DIR=%{_prefix} \
     -DPythonQt_DIR=%{_libdir}/cmake/PythonQt \
@@ -310,6 +321,14 @@ ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 
 %files python
 %{_libdir}/libCTKScriptingPython*.so.%{soname_version}{,.*}
+# Per-kit PythonQt wrapper modules (ctkMacroBuildLibWrapper, one per wrapped
+# kit: CTKCorePythonQt.so, CTKWidgetsPythonQt.so, CTKDICOMCorePythonQt.so,
+# CTKDICOMWidgetsPythonQt.so, CTKVisualizationVTK{Core,Widgets}PythonQt.so,
+# CTKImageProcessingITKCorePythonQt.so, CTKQtTestingPythonQt.so, ...). Built
+# as MODULE libraries with no "lib" prefix, unversioned. These are what
+# populate ctk/__init__.py's __kits_to_load — without them "import ctk"
+# yields a module with zero real classes.
+%{_libdir}/CTK*PythonQt.so
 # CTK builds Python stubs under /usr/bin/Python/ (upstream layout — not ideal,
 # but moving them breaks find_package(CTK) for Slicer).
 /usr/bin/Python/ctk/
@@ -332,6 +351,19 @@ ln -s %{_bindir}/Python/ctk %{buildroot}%{python3_sitelib}/ctk
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Thu Jul 02 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.17.20260126gitfd37b874
+- Fix "import ctk" yielding a class-less module (ctk.ctkSettingsPanel,
+  ctk.ctkErrorLogContext, etc. all AttributeError), breaking 3D Slicer's
+  DICOM, ExtensionWizard, and Segment Editor modules at runtime on every
+  Slicer version. Root cause: CTK's top-level CMakeLists.txt unconditionally
+  overwrites our -DCTK_WRAP_PYTHONQT_LIGHT=ON with
+  set(CTK_WRAP_PYTHONQT_LIGHT ${CTK_ENABLE_Python_Wrapping}), and
+  CTK_ENABLE_Python_Wrapping defaults OFF and was never set by this spec —
+  so ctkMacroBuildLibWrapper never ran for any kit, no CTK*PythonQt.so
+  wrapper modules were built, and ctk/__init__.py's templated
+  __kits_to_load ended up empty. Add -DCTK_ENABLE_Python_Wrapping=ON and
+  package the resulting per-kit CTK*PythonQt.so modules in -python.
+
 * Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.16.20260126gitfd37b874
 - Obsolete ctk-plugin-framework < this version. We build with PluginFramework=OFF
   so we ship no ctk-plugin-framework; without the Obsoletes, Fedora's
