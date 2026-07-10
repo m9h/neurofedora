@@ -1,0 +1,25 @@
+# neurofedora Slicer CTest farm node — CONTAINERIZED (host-safe).
+# Everything (the VTK 9.5->9.6 swap, the build, the test run) happens INSIDE the
+# container. The host is never modified — so this runs on ANY Fedora box with
+# podman/docker: laptop, workstation, NUC, CI, cloud. It contributes to
+# my.cdash.org/neurofedora over outbound https, same as a bare-metal node.
+FROM registry.fedoraproject.org/fedora:44
+
+LABEL org.opencontainers.image.source="https://github.com/m9h/neurofedora"
+LABEL org.opencontainers.image.description="neurofedora Slicer CTest farm node (containerized, host-safe)"
+
+# COPR + build toolchain + the runtime deps the CTest suite imports + xvfb (SW GL).
+# builddep (the heavy VTK/ITK/ctk/PythonQt pull) runs at RUN time so the image
+# stays current with the COPR without rebuilds.
+RUN dnf -y install dnf-plugins-core \
+ && dnf -y copr enable mhough/neurofedora \
+ && dnf -y install rpm-build rpmdevtools cmake ninja-build gcc-c++ gcc-gfortran \
+      git-core xorg-x11-server-Xvfb glx-utils mesa-dri-drivers chrpath \
+      python3-vtkAddon python3-dicomweb-client python3-highdicom python3-legacy-cgi \
+ && dnf clean all
+
+COPY run-slicer-ctest.sh container-entrypoint.sh /opt/farm/
+RUN chmod +x /opt/farm/*.sh
+ENV RPMBUILD=/root/rpmbuild
+ENTRYPOINT ["/opt/farm/container-entrypoint.sh"]
+CMD ["stable"]

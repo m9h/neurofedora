@@ -1,0 +1,41 @@
+name: build-farm-image
+# Builds the host-safe Slicer CTest farm container and publishes it to GHCR,
+# so any Fedora box can join with: podman run ghcr.io/m9h/slicer-ctest-farm stable
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cdash-driver/container/**'
+      - 'cdash-driver/run-slicer-ctest.sh'
+      - '.github/workflows/farm-image.yml'
+  schedule:
+    - cron: '0 6 * * 1'   # weekly: refresh base Fedora 44 + COPR contents
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to GHCR
+        uses: redhat-actions/podman-login@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image
+        id: build
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: slicer-ctest-farm
+          tags: latest ${{ github.sha }}
+          context: ./cdash-driver/container
+          containerfiles: ./cdash-driver/container/Containerfile
+      - name: Push to GHCR
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: slicer-ctest-farm
+          tags: latest ${{ github.sha }}
+          registry: ghcr.io/m9h
