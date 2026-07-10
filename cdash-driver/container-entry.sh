@@ -26,7 +26,7 @@ case "$TRACK" in
   *) echo "error: unknown TRACK=$TRACK (use stable|preview)" >&2; exit 2 ;;
 esac
 
-echo "=== container-entry: track=$TRACK pkg=$PKG mode=$MODE site=$(hostname) ==="
+echo "=== container-entry: track=$TRACK pkg=$PKG mode=$MODE site=$(uname -n) ==="
 
 # --- refresh to the CURRENT COPR source RPM ---------------------------------
 # The baked image pinned whatever SRPM existed at build time; pull the latest so

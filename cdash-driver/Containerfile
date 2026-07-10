@@ -23,7 +23,7 @@ RUN dnf -y install dnf5-plugins dnf-plugins-core \
  && dnf -y copr enable mhough/neurofedora \
  && dnf -y install \
       rpm-build rpmdevtools cmake ninja-build gcc-c++ gcc-gfortran git-core chrpath \
-      xorg-x11-server-Xvfb glx-utils mesa-dri-drivers mesa-libGL \
+      hostname xorg-x11-server-Xvfb glx-utils mesa-dri-drivers mesa-libGL \
       python3-vtkAddon python3-dicomweb-client python3-highdicom python3-legacy-cgi \
  && dnf clean all
 
