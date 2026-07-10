@@ -80,7 +80,16 @@ cp -f "$DRIVER_DIR/CTestConfig.cmake" "$BT/CTestConfig.cmake"
 # 4. Run + submit. Prefer REAL hardware GL on the live :0 session (Intel iGPU /
 #    NVIDIA), which matches upstream's rendered baselines far better than xvfb's
 #    llvmpipe software GL. Fall back to xvfb only if no hardware-GL :0 is reachable.
-CTEST_STEPS=(-D "${MODEL}Start" -D "${MODEL}Test" -D "${MODEL}Submit")
+#
+# Submission is opt-out: SLICER_CTEST_SUBMIT=0 runs Start+Test but skips the
+# CDash Submit step, so a container / CI / third-party node can validate a build
+# locally without publishing to the public my.cdash.org/neurofedora dashboard.
+if [[ "${SLICER_CTEST_SUBMIT:-1}" == 0 ]]; then
+  echo "--- SLICER_CTEST_SUBMIT=0 — running tests WITHOUT CDash submission ---"
+  CTEST_STEPS=(-D "${MODEL}Start" -D "${MODEL}Test")
+else
+  CTEST_STEPS=(-D "${MODEL}Start" -D "${MODEL}Test" -D "${MODEL}Submit")
+fi
 
 # Find the session's X auth cookie (GNOME/Wayland → Xwayland at :0).
 _xw="$(ls -1t /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1)"
