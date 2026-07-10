@@ -1,0 +1,52 @@
+# Containerfile — rootless, host-neutral Slicer CTest farm node.
+#
+# This is the "runnable from any system" counterpart to farm-bootstrap.sh.
+# farm-bootstrap.sh mutates the HOST (swaps system VTK 9.5 -> COPR 9.6, removes
+# vtk-java, installs a root systemd service) and is therefore only safe on a
+# DEDICATED Fedora box. This image does all of that INSIDE a throwaway container
+# instead: the COPR VTK 9.6 and every build dep live in the image, so the host
+# is never touched and only needs `podman` (any Linux, rootless).
+#
+# Build (deps are baked at image-build time, per track):
+#   podman build --build-arg TRACK=stable  -t localhost/neurofedora-farm:stable  -f Containerfile .
+#   podman build --build-arg TRACK=preview -t localhost/neurofedora-farm:preview -f Containerfile .
+# Usually you invoke it via ../cdash-driver/farm-run.sh, which builds on demand.
+
+FROM registry.fedoraproject.org/fedora:44
+
+# stable -> 3dslicer (5.12) ; preview -> slicer-preview (5.13/main)
+ARG TRACK=stable
+
+# dnf5-plugins provides the `copr` and `builddep` subcommands on Fedora 44 (dnf5);
+# dnf-plugins-core is kept for the `dnf download --source` path used at runtime.
+RUN dnf -y install dnf5-plugins dnf-plugins-core \
+ && dnf -y copr enable mhough/neurofedora \
+ && dnf -y install \
+      rpm-build rpmdevtools cmake ninja-build gcc-c++ gcc-gfortran git-core chrpath \
+      xorg-x11-server-Xvfb glx-utils mesa-dri-drivers mesa-libGL \
+      python3-vtkAddon python3-dicomweb-client python3-highdicom python3-legacy-cgi \
+ && dnf clean all
+
+# Bake the Slicer BuildRequires into the image so each run is just the compile,
+# not a multi-hundred-package dep install. We fetch the CURRENT COPR source RPM
+# for the track and builddep its spec. --allowerasing lets COPR VTK 9.6 replace
+# the Fedora 9.5 that some of the above pulled in (same soname; container-local).
+RUN case "$TRACK" in \
+      preview) PKG=slicer-preview ;; \
+      stable)  PKG=3dslicer ;; \
+      *) echo "unknown TRACK=$TRACK (use stable|preview)" >&2; exit 2 ;; \
+    esac \
+ && rpmdev-setuptree \
+ && cd /tmp \
+ && dnf download --source "$PKG" \
+ && rpm -Uvh --nodeps ./"$PKG"-*.src.rpm \
+ && dnf -y builddep --allowerasing /root/rpmbuild/SPECS/*.spec \
+ && dnf clean all \
+ && rm -f /tmp/*.src.rpm
+
+# The driver scripts (run-slicer-ctest.sh, slicer-ctest-loop.sh, CTestConfig.cmake,
+# container-entry.sh) are bind-mounted at /opt/cdash-driver by farm-run.sh so the
+# image never goes stale on driver tweaks. RPMBUILD lives at /root/rpmbuild.
+ENV RPMBUILD=/root/rpmbuild
+WORKDIR /root
+ENTRYPOINT ["/opt/cdash-driver/container-entry.sh"]
