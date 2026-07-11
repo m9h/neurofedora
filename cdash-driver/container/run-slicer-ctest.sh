@@ -82,17 +82,25 @@ cp -f "$DRIVER_DIR/CTestConfig.cmake" "$BT/CTestConfig.cmake"
 #    llvmpipe software GL. Fall back to xvfb only if no hardware-GL :0 is reachable.
 CTEST_STEPS=(-D "${MODEL}Start" -D "${MODEL}Test" -D "${MODEL}Submit")
 
-# Find the session's X auth cookie (GNOME/Wayland → Xwayland at :0).
+# GL backend selection. SLICER_GL: auto (default) | hw (force :0) | sw (force xvfb).
+# IMPORTANT: hardware GL via :0 is only clean when :0 is DEDICATED/IDLE. On a box
+# with an ACTIVE interactive session, the render/GUI tests pop windows onto the
+# live desktop and TIME OUT fighting the window manager (observed: an interactive
+# node went 37->53 fails, +21 timeouts, vs an idle display box 37->32). Set
+# SLICER_GL=sw on any box you actually use; keep auto/hw only on dedicated nodes.
 _xw="$(ls -1t /run/user/$(id -u)/.mutter-Xwaylandauth.* 2>/dev/null | head -1)"
 [[ -z "$_xw" && -f "$HOME/.Xauthority" ]] && _xw="$HOME/.Xauthority"
 _hw_gl=0
-if [[ -e /tmp/.X11-unix/X0 && -n "$_xw" ]]; then
-  # Confirm :0 gives a HARDWARE renderer (not llvmpipe/softpipe) before using it.
-  if DISPLAY=:0 XAUTHORITY="$_xw" glxinfo 2>/dev/null | grep -iE "OpenGL renderer" \
-       | grep -qivE "llvmpipe|softpipe|swrast"; then
-    _hw_gl=1
-  fi
-fi
+case "${SLICER_GL:-auto}" in
+  sw|xvfb|software) _hw_gl=0 ;;
+  hw|hardware) [[ -n "$_xw" ]] && _hw_gl=1 ;;
+  *)  # auto: use :0 only if it exists AND reports a hardware renderer
+    if [[ -e /tmp/.X11-unix/X0 && -n "$_xw" ]] && \
+       DISPLAY=:0 XAUTHORITY="$_xw" glxinfo 2>/dev/null | grep -iE "OpenGL renderer" \
+         | grep -qivE "llvmpipe|softpipe|swrast"; then
+      _hw_gl=1
+    fi ;;
+esac
 
 if [[ "$_hw_gl" == 1 ]]; then
   _rend="$(DISPLAY=:0 XAUTHORITY="$_xw" glxinfo 2>/dev/null | grep -i 'OpenGL renderer' | sed 's/.*: //')"

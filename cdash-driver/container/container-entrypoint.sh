@@ -20,11 +20,22 @@ rpmdev-setuptree
 
 run_cycle() {
   local t; t="$(mktemp -d)"; cd "$t"
-  echo "--- fetching current $PKG SRPM from COPR ---"
-  dnf download --source "$PKG"
+  # Source of the spec+sources. Primary: the farm-srpms GitHub release (always
+  # carries the current bcond spec — no COPR build-latency wait). Fallback: COPR.
+  echo "--- fetching current $PKG SRPM ---"
+  local url
+  url="$(curl -sSL https://api.github.com/repos/m9h/neurofedora/releases/tags/farm-srpms \
+        | python3 -c "import sys,json;[print(a['browser_download_url']) for a in json.load(sys.stdin).get('assets',[]) if a['name'].startswith('$PKG-') and a['name'].endswith('.src.rpm')]" 2>/dev/null | head -1)"
+  if [ -n "$url" ]; then
+    echo "    from farm-srpms release: $(basename "$url")"
+    curl -sSLO "$url"
+  else
+    echo "    from COPR (release asset not found)"
+    dnf download --source "$PKG"
+  fi
   rpm -Uvh --nodeps --define "_topdir $RPMBUILD" ./"$PKG"-*.src.rpm
   if ! grep -q '%bcond.*testing' "$RPMBUILD/SPECS/$SPEC"; then
-    echo "error: COPR $PKG predates the CTest 'testing' bcond — retry after the owner rebuilds it" >&2
+    echo "error: $PKG SRPM predates the CTest 'testing' bcond" >&2
     exit 1
   fi
   echo "--- builddep (inside container; host VTK untouched) ---"
