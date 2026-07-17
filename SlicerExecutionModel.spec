@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -28,6 +28,9 @@ BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  InsightToolkit5-devel
 BuildRequires:  expat-devel
+# find_package(ITK) loads ITKVtkGlue -> vtk-config, and VTK 9.6's cmake
+# config now does find_package(CLI11) for all consumers at configure time.
+BuildRequires:  cli11-devel
 
 # Bundled tclap (header-only library, Slicer-modified version)
 Provides:       bundled(tclap)
@@ -160,7 +163,7 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DBUILD_TESTING=OFF \
     -DCMAKE_CXX_STANDARD=17 \
     -DCMAKE_CXX_STANDARD_REQUIRED=ON \
-    -DCMAKE_SKIP_INSTALL_RPATH=ON \
+    -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
     -DSlicerExecutionModel_INSTALL_BIN_DIR=%{_bindir} \
     -DSlicerExecutionModel_INSTALL_LIB_DIR=%{_libdir}/%{name} \
     -DSlicerExecutionModel_INSTALL_NO_DEVELOPMENT=OFF \
@@ -173,14 +176,42 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %install
 %cmake_install
 
+# Upstream's GenerateCLP/CMakeLists.txt doesn't install GenerateCLP.cmake,
+# but UseGenerateCLP.cmake's last line does
+#   include(${GenerateCLP_CMAKE_DIR}/GenerateCLP.cmake)
+# so downstream cmake calls (e.g. 3D Slicer's SEMMacroBuildCLI) abort with
+# "include could not find requested file: /usr/lib64/GenerateCLP/GenerateCLP.cmake".
+install -p -m 0644 GenerateCLP/GenerateCLP.cmake \
+    %{buildroot}%{_libdir}/GenerateCLP/
+
+# Drop GenerateCLPLauncher: it's a CTKAppLauncher wrapper that, with no
+# *LauncherSettings.ini shipped, resolves the real binary via the baked-in
+# default <launcherDir>/../GenerateCLP = /usr/GenerateCLP (nonexistent),
+# breaking downstream CLP generation (3D Slicer Modules/CLI). The launcher
+# only existed to inject LD_LIBRARY_PATH for the private
+# libModuleDescriptionParser.so; with that .so now installed into the standard
+# %{_libdir}, GenerateCLP runs standalone and the launcher is dead weight.
+rm -f %{buildroot}%{_bindir}/GenerateCLPLauncher
+
+# Move libModuleDescriptionParser.so out of the private %{_libdir}/%{name}
+# into the standard library path. Downstream consumers (3D Slicer's
+# SlicerBaseCLI) link it as a bare "-lModuleDescriptionParser" with no -L,
+# because UseModuleDescriptionParser.cmake.in's link_directories() line is
+# commented out upstream and ModuleDescriptionParser_LIBRARY_DIRS points at the
+# config dir, not the .so dir. Installing into %{_libdir} makes both the link
+# (default -L) and runtime (ldconfig) resolution work without rpath hacks.
+mv %{buildroot}%{_libdir}/%{name}/libModuleDescriptionParser.so \
+    %{buildroot}%{_libdir}/libModuleDescriptionParser.so
+
+%ldconfig_scriptlets
+
 %files
 %license License.txt tclap/COPYING
 %doc README.md NOTICE
-%{_libdir}/%{name}/libModuleDescriptionParser.so
+%{_libdir}/libModuleDescriptionParser.so
 
 %files devel
 %{_bindir}/GenerateCLP
-%{_bindir}/GenerateCLPLauncher
 %{_includedir}/ModuleDescriptionParser/
 %{_includedir}/tclap/
 %dir %{_libdir}/%{name}
@@ -192,6 +223,63 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Sun Jul 13 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.10
+- MAJOR FIX: guard the DEFAULT_CLI_* output/install dir variables in the shipped
+  SlicerExecutionModelConfig.cmake with if(NOT DEFINED ...). They were set
+  unconditionally, and find_package(SlicerExecutionModel) is called MANY times by a
+  consumer (3D Slicer: Base/CLI, Base/Logic, Base/QTCLI, Base/QTCore + every CLI
+  module). Each call clobbered the consumer's values, so Slicer's central
+  lib/Slicer-X.Y/cli-modules/ path was overwritten with our relative bin/lib64
+  defaults; all 39 CLI modules built into their own per-module dirs and Slicer
+  loaded ZERO of them. The shipped 3dslicer therefore had NO working CLI modules
+  (Threshold/Resample/Cast/N4/...) and CropVolume could not load its dependency.
+  Caught by the CTest farm; fix verified on a live build tree (AddScalarVolumes now
+  links into lib/Slicer-5.12/cli-modules/).
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.9.20260301git3bd8e038
+- Install libModuleDescriptionParser.so into the standard %%{_libdir} instead
+  of the private %%{_libdir}/SlicerExecutionModel. 3D Slicer's SlicerBaseCLI
+  links it as a bare "-lModuleDescriptionParser" with no -L (upstream's
+  UseModuleDescriptionParser.cmake.in comments out link_directories() and
+  ModuleDescriptionParser_LIBRARY_DIRS points at the config dir, not the .so
+  dir), so the -0.8 build failed with "cannot find -lModuleDescriptionParser".
+  Standard libdir makes both link-time (-L) and runtime (ldconfig) resolution
+  work; restore CMAKE_SKIP_INSTALL_RPATH=ON (the GenerateCLP rpath hack is no
+  longer needed) and add %%ldconfig_scriptlets.
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.8.20260301git3bd8e038
+- Add cli11-devel BR. VTK 9.6's cmake config now does find_package(CLI11)
+  for every consumer; SEM reaches it via find_package(ITK) -> ITKVtkGlue
+  -> vtk-config. -0.6 predated the VTK 9.6 bump so didn't hit it. (The
+  -0.7 launcher fix below never published — folded in here.)
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.7.20260301git3bd8e038
+- Drop the broken GenerateCLPLauncher and run GenerateCLP directly.
+  The launcher (a CTKAppLauncher wrapper) shipped without a settings
+  .ini, so it resolved the real binary via the baked-in default
+  <launcherDir>/../GenerateCLP = /usr/GenerateCLP and failed
+  ("Error converting executable file /usr/bin/../GenerateCLP to real
+  path"), breaking 3D Slicer's Modules/CLI CLP-header generation at
+  build time. The install config's find_program preferred the launcher
+  over GenerateCLP. Now: reorder NAMES to prefer GenerateCLP, give
+  GenerateCLP an rpath to %%{_libdir}/SlicerExecutionModel so it loads
+  the private libModuleDescriptionParser.so standalone, and stop
+  shipping the launcher. Surfaced by 3dslicer-21.
+
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.6.20260301git3bd8e038
+- Install GenerateCLP/GenerateCLP.cmake explicitly. Upstream's
+  GenerateCLP/CMakeLists.txt has no install() rule for it, but
+  UseGenerateCLP.cmake's last line includes it via
+  ${GenerateCLP_CMAKE_DIR}/GenerateCLP.cmake. Downstream cmake calls
+  to SEMMacroBuildCLI (e.g. 3D Slicer's Modules/CLI/*) abort without it.
+
+* Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.5.20260301git3bd8e038
+- Rebump (skip -0.3, -0.4 that built but silently regressed and
+  shipped without SlicerExecutionModelConfig.cmake — discovered when
+  3D Slicer's find_package(SlicerExecutionModel) in Libs/MRML/CLI
+  failed against the COPR-shipped -0.4 binary). No spec changes from
+  -0.2 which was last known good.
+
 * Wed Mar 04 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.2.20260301git3bd8e038
 - Fix install-tree CMake config generation for all components
 - Add GenerateCLP and top-level SEM install configs (upstream TODO)
