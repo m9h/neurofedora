@@ -13,12 +13,31 @@ set(SlicerExecutionModel_LIBRARIES ModuleDescriptionParser)
 set(SlicerExecutionModel_USE_FILE "${_sem_config_dir}/UseSlicerExecutionModel.cmake")
 set(SlicerExecutionModel_CMAKE_DIR "${_sem_config_dir}/CMake")
 
-set(SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY bin)
-set(SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
-set(SlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
-set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION bin)
-set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION @SEM_INSTALL_LIB_DIR@)
-set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION @SEM_INSTALL_LIB_DIR@)
+# NOTE (Fedora): these CLI output/install dirs MUST be guarded. find_package(
+# SlicerExecutionModel) is invoked many times by a consumer (3D Slicer calls it from
+# Base/CLI, Base/Logic, Base/QTCLI, Base/QTCore and every CLI module). If we set them
+# unconditionally, each call CLOBBERS the values the consumer set, so Slicer's central
+# lib/Slicer-X.Y/cli-modules/ path is overwritten with these relative bin/lib64 defaults
+# and every CLI module scatters into its own build dir -- Slicer then finds and loads
+# ZERO CLI modules. Guarding lets the consumer win.
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY)
+  set(SlicerExecutionModel_DEFAULT_CLI_RUNTIME_OUTPUT_DIRECTORY bin)
+endif()
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY)
+  set(SlicerExecutionModel_DEFAULT_CLI_LIBRARY_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
+endif()
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY)
+  set(SlicerExecutionModel_DEFAULT_CLI_ARCHIVE_OUTPUT_DIRECTORY @SEM_INSTALL_LIB_DIR@)
+endif()
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION)
+  set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_RUNTIME_DESTINATION bin)
+endif()
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION)
+  set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_LIBRARY_DESTINATION @SEM_INSTALL_LIB_DIR@)
+endif()
+if(NOT DEFINED SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION)
+  set(SlicerExecutionModel_DEFAULT_CLI_INSTALL_ARCHIVE_DESTINATION @SEM_INSTALL_LIB_DIR@)
+endif()
 set(SlicerExecutionModel_DEFAULT_CLI_TARGETS_FOLDER_PREFIX "")
 set(SlicerExecutionModel_DEFAULT_CLI_LIBRARY_WRAPPER_CXX
   "${_sem_config_dir}/CMake/SEMCommandLineLibraryWrapper.cxx")

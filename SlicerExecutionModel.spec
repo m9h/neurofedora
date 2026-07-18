@@ -10,7 +10,7 @@
 
 Name:           SlicerExecutionModel
 Version:        2.0.0
-Release:        0.9.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.10.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        CMake macros and tools for building 3D Slicer CLI modules
 
 # Main code: 3D-Slicer-1.0 (BSD-style)
@@ -223,6 +223,19 @@ mv %{buildroot}%{_libdir}/%{name}/libModuleDescriptionParser.so \
 %{_libdir}/%{name}/UseSlicerExecutionModel.cmake
 
 %changelog
+* Sun Jul 13 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.10
+- MAJOR FIX: guard the DEFAULT_CLI_* output/install dir variables in the shipped
+  SlicerExecutionModelConfig.cmake with if(NOT DEFINED ...). They were set
+  unconditionally, and find_package(SlicerExecutionModel) is called MANY times by a
+  consumer (3D Slicer: Base/CLI, Base/Logic, Base/QTCLI, Base/QTCore + every CLI
+  module). Each call clobbered the consumer's values, so Slicer's central
+  lib/Slicer-X.Y/cli-modules/ path was overwritten with our relative bin/lib64
+  defaults; all 39 CLI modules built into their own per-module dirs and Slicer
+  loaded ZERO of them. The shipped 3dslicer therefore had NO working CLI modules
+  (Threshold/Resample/Cast/N4/...) and CropVolume could not load its dependency.
+  Caught by the CTest farm; fix verified on a live build tree (AddScalarVolumes now
+  links into lib/Slicer-5.12/cli-modules/).
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.9.20260301git3bd8e038
 - Install libModuleDescriptionParser.so into the standard %%{_libdir} instead
   of the private %%{_libdir}/SlicerExecutionModel. 3D Slicer's SlicerBaseCLI
