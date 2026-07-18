@@ -23,7 +23,7 @@
 
 Name:           python-pythonqt
 Version:        4.0.1
-Release:        0.19.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.21.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Python bindings for Qt — dynamic Python/Qt object interop
 
 License:        LGPL-2.1-only
@@ -228,6 +228,90 @@ sed -i \
     's|QElapsedTimer  __lt__(QElapsedTimer\* theWrappedObject, const QElapsedTimer\&  lhs, const QElapsedTimer\&  rhs);|bool  __lt__(QElapsedTimer* theWrappedObject, const QElapsedTimer\&  rhs);|' \
     generated_cpp_qt6/generated_cpp/com_trolltech_qt_core/com_trolltech_qt_core0.h
 
+# THE QTimer FIX. The generator drops QTimer at PARSE time — its Qt6 templated
+# singleShot(chrono, Functor) declarations break the parser, so no wrapper and no
+# registration are emitted and qt.QTimer is absent (breaking every Slicer
+# SegmentEditorEffect that does `self.timer = qt.QTimer()`). Typesystem and
+# masterinclude workarounds all proved no-ops (the parser reads each class header
+# directly). Fix = inject a hand-written wrapper post-generation and register it
+# by staticMetaObject, exactly as the generator does for QThread. QTimer is a
+# QObject, so Qt's meta-object system exposes start/stop/setInterval/interval/
+# singleShot/isActive/timeout via introspection at runtime — the wrapper only has
+# to supply the constructor (QTimer's ctor is not Q_INVOKABLE, so meta-object
+# registration alone can't construct it). Validated on the CTest farm (the py_
+# SegmentEditor tests that failed on qt.QTimer pass with this in place).
+CORE=generated_cpp_qt6/generated_cpp/com_trolltech_qt_core
+cat >> "${CORE}/com_trolltech_qt_core0.h" <<'QTIMEREOF'
+
+#include <QTimer>
+// Decorator wrapper for QTimer (PythonQt convention: instance methods take the
+// wrapped object as first arg; new_/delete_ are ctor/dtor). registerClass with
+// &QTimer::staticMetaObject additionally exposes the timeout() signal, the
+// active/interval/singleShot/timerType properties, and the start()/stop() slots
+// via Qt introspection — but QTimer's setInterval()/setSingleShot()/start(int)
+// etc. are NOT slots, so they must be wrapped explicitly here or Slicer's
+// SegmentEditor code (setInterval/setSingleShot) can't call them.
+class PythonQtWrapper_QTimer : public QObject
+{ Q_OBJECT
+public Q_SLOTS:
+QTimer* new_QTimer(QObject* parent = nullptr) { return new QTimer(parent); }
+void delete_QTimer(QTimer* obj) { delete obj; }
+int  interval(QTimer* o) const { return o->interval(); }
+bool isActive(QTimer* o) const { return o->isActive(); }
+bool isSingleShot(QTimer* o) const { return o->isSingleShot(); }
+int  remainingTime(QTimer* o) const { return o->remainingTime(); }
+void setInterval(QTimer* o, int msec) { o->setInterval(msec); }
+void setSingleShot(QTimer* o, bool s) { o->setSingleShot(s); }
+void setTimerType(QTimer* o, Qt::TimerType t) { o->setTimerType(t); }
+void start(QTimer* o, int msec) { o->start(msec); }
+void start(QTimer* o) { o->start(); }
+void stop(QTimer* o) { o->stop(); }
+Qt::TimerType timerType(QTimer* o) const { return o->timerType(); }
+};
+
+// Same generator gap as QTimer: QProcess is dropped at parse time, so qt.QProcess
+// is absent — and Slicer launches its CLI modules through QProcess, which breaks the
+// CLI test cluster + DCMTKPrivateDict. Hand-wrap it identically. The meta-object
+// supplies the signals (finished/errorOccurred/readyRead*), the kill()/terminate()
+// slots and the enums; these decorators supply the ctor and the non-slot methods.
+#include <QProcess>
+#include <QStringList>
+class PythonQtWrapper_QProcess : public QObject
+{ Q_OBJECT
+public:
+Q_ENUMS(ProcessState ExitStatus ProcessError)
+enum ProcessState { NotRunning = QProcess::NotRunning, Starting = QProcess::Starting, Running = QProcess::Running };
+enum ExitStatus  { NormalExit = QProcess::NormalExit, CrashExit = QProcess::CrashExit };
+enum ProcessError{ FailedToStart = QProcess::FailedToStart, Crashed = QProcess::Crashed, Timedout = QProcess::Timedout,
+                   ReadError = QProcess::ReadError, WriteError = QProcess::WriteError, UnknownError = QProcess::UnknownError };
+public Q_SLOTS:
+QProcess* new_QProcess(QObject* parent = nullptr) { return new QProcess(parent); }
+void delete_QProcess(QProcess* o) { delete o; }
+void start(QProcess* o, const QString& program, const QStringList& args) { o->start(program, args); }
+void start(QProcess* o) { o->start(); }
+void startCommand(QProcess* o, const QString& cmd) { o->startCommand(cmd); }
+bool waitForStarted(QProcess* o, int msecs = 30000) { return o->waitForStarted(msecs); }
+bool waitForFinished(QProcess* o, int msecs = 30000) { return o->waitForFinished(msecs); }
+QByteArray readAllStandardOutput(QProcess* o) { return o->readAllStandardOutput(); }
+QByteArray readAllStandardError(QProcess* o) { return o->readAllStandardError(); }
+int  exitCode(QProcess* o) const { return o->exitCode(); }
+int  exitStatus(QProcess* o) const { return (int)o->exitStatus(); }
+int  state(QProcess* o) const { return (int)o->state(); }
+int  error(QProcess* o) const { return (int)o->error(); }
+void setProgram(QProcess* o, const QString& p) { o->setProgram(p); }
+QString program(QProcess* o) const { return o->program(); }
+void setArguments(QProcess* o, const QStringList& a) { o->setArguments(a); }
+QStringList arguments(QProcess* o) const { return o->arguments(); }
+void setWorkingDirectory(QProcess* o, const QString& d) { o->setWorkingDirectory(d); }
+QString workingDirectory(QProcess* o) const { return o->workingDirectory(); }
+qint64 processId(QProcess* o) const { return o->processId(); }
+void closeWriteChannel(QProcess* o) { o->closeWriteChannel(); }
+qint64 write(QProcess* o, const QByteArray& b) { return o->write(b); }
+};
+QTIMEREOF
+sed -i '/registerClass(&QThread::staticMetaObject/a PythonQt::priv()->registerClass(&QTimer::staticMetaObject, "QtCore", PythonQtCreateObject<PythonQtWrapper_QTimer>, NULL, module, 0);\nPythonQt::priv()->registerClass(&QProcess::staticMetaObject, "QtCore", PythonQtCreateObject<PythonQtWrapper_QProcess>, NULL, module, 0);' \
+    "${CORE}/com_trolltech_qt_core_init.cpp"
+
 # Further generator bugs exposed by compiling the full QtGui wrapper, all from
 # Qt6 API changes the v4.0.1 generator predates. Each target string is unique
 # across the whole generated tree (verified). Fixing the bodies only; the
@@ -305,6 +389,25 @@ sed -e 's|@VERSION@|%{version}|g' \
 %{_libdir}/cmake/PythonQt/
 
 %changelog
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.21.20260329git7ef4c5ee
+- Wrap qt.QProcess (same generator gap as QTimer, same post-generation technique).
+  A probe of 23 common Qt classes in Slicer showed QProcess was the ONLY remaining
+  missing one -- and Slicer launches CLI modules through it, so its absence breaks
+  the CLI test cluster (py_CLIEventTest, TwoCLIsInARow/Parallel, qSlicerCLIModuleTest1)
+  and DCMTKPrivateDictTest with "module 'qt' has no attribute 'QProcess'".
+
+* Wed Jul 08 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.20.20260329git7ef4c5ee
+- FINALLY FIX qt.QTimer (the real fix, after 0.16-0.19 dead ends). The generator
+  drops QTimer at parse time (Qt6 template singleShot), so no wrapper/registration
+  is emitted. Inject a hand-written PythonQtWrapper_QTimer + registerClass(
+  &QTimer::staticMetaObject, ..., PythonQtCreateObject<PythonQtWrapper_QTimer>)
+  into the generated QtCore post-generation, modeled on the generator's own
+  QThread registration. QTimer being a QObject, its meta-object exposes start/
+  stop/interval/timeout at runtime; the wrapper only supplies the constructor
+  (QTimer's ctor isn't Q_INVOKABLE). Developed + validated on the intel-skullcandy
+  CTest farm (the py_ SegmentEditor self-tests that AttributeError'd on qt.QTimer
+  pass with this lib installed). Restores GrowCut/GrowFromSeeds/FillBetweenSlices.
+
 * Fri Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0.1-0.19.20260329git7ef4c5ee
 - Revert the ineffective QTimer typesystem edit from 0.16-0.18. Investigation
   (local patched generator + LD_PRELOAD runtime probe) proved qt.QTimer is
