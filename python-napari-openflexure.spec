@@ -1,5 +1,5 @@
 Name:           python-napari-openflexure
-Version:        0.1.1
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Plugin to control an OpenFlexure microscope from napari
 
@@ -17,8 +17,9 @@ BuildRequires:  python3-pyqt6
 %global _description %{expand:
 napari-openflexure is a napari plugin that adds an OpenFlexure microscope
 control dock widget: connect by host or auto-discover over mDNS, capture
-full-resolution images into a napari image layer, and jog the stage in X/Y/Z.
-It is a thin wrapper around openflexure-microscope-client.}
+full-resolution images into a napari image layer, jog the stage in X/Y/Z, and
+raster a whole-slide mosaic scan. It is a thin wrapper around
+openflexure-microscope-client.}
 
 %description %{_description}
 
@@ -48,6 +49,21 @@ export QT_QPA_PLATFORM=offscreen
 %doc README.md
 
 %changelog
+* Fri Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.0-1
+- Add whole-slide mosaic scanning. Rasters an NxN snake grid over the slide,
+  using the camera_stage_mapping image_to_stage_displacement matrix to convert a
+  (overlapped) field-of-view pixel step into the stage move that produces it, so
+  tiles land on a regular pixel grid. Two modes: full-res (one image layer per
+  tile, translated into place -> a zoomable mosaic) and overview (fast
+  preview-stream tiles painted into a single slide_overview canvas -> a cheap
+  whole-slide map). Runs in a napari thread_worker yielding tiles to the GUI
+  thread, optionally autofocuses first, and always returns the stage home.
+- Add a full-resolution capture path: capture_image only returns the low-res
+  preview stream, so trigger a temporary gallery capture, download its JPEG and
+  delete it so the microscope gallery is not left cluttered. Exposed as a
+  "Full resolution" toggle.
+- Declare the requests and pillow dependencies the full-res download needs
+  (previously undeclared; %%pyproject_check_import would fail without them).
 * Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.1-1
 - Fix the dock widget failing to open from the Plugins menu: napari only injects
   the active viewer when the widget __init__ parameter is named napari_viewer or
