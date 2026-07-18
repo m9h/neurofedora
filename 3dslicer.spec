@@ -21,10 +21,16 @@
 # full Qt6 support (landed during the 5.11 preview cycle). Built from the
 # v5.12.0 tag. The dev/preview track (5.13.0, odd minor) is slicer-preview.
 %global slicer_xy   5.12
-%global slicer_commit a5df71450f1d27d87dc1c513bc25c57c702bf71d
+%global slicer_commit 30a9c0f86a9ac626b98d4671df7d12894983b82b
 %global slicer_shortcommit %(c=%{slicer_commit}; echo ${c:0:8})
-%global slicer_ver  5.12.0
+%global slicer_ver  5.12.1
 %global slicer_inst %{_prefix}/lib/slicer
+
+# Nightly CTest dashboard switch. Default OFF so the shipped RPM never carries
+# test binaries. Build the dashboard tree with `rpmbuild -bc --with testing ...`
+# to compile Slicer's CTest suite against this EXACT Fedora (system-libs) config,
+# then run `ctest` in the build tree. Mirrors slicer-preview.spec. See cdash-driver/.
+%bcond_with testing
 
 # Slicer ships ~600 MB of shared libs + bundled Python — debuginfo balloons
 # to several GB. Disable.
@@ -61,7 +67,11 @@
 # on a low-RAM builder) -- the lottery threshold is below -j2 too. Drop to -j1
 # for guaranteed completion; serial compile is slow (~8-10h) but --timeout 86400
 # absorbs it, and this build (-42) is only the cosmetic launcher rename.
+# ONLY for the shipped/COPR build: the --with testing CTest dashboard runs on
+# real boxes with RAM to spare, where the driver passes its own -j via --define.
+%if %{without testing}
 %global _smp_mflags -j1
+%endif
 
 Name:           3dslicer
 Version:        %{slicer_ver}
@@ -223,6 +233,14 @@ Requires:       libGL
 Requires:       python3-dicomweb-client
 Requires:       python3-highdicom
 Requires:       python3-legacy-cgi
+# Slicer is built with -DSlicer_USE_SCIPY=ON; without this the shipped RPM has
+# SciPy support enabled but no SciPy installed and scipy-importing modules break.
+Requires:       python3-scipy
+# Slicer's bin/Python/vtkAddon.py does "from vtkAddonPython import *"; the
+# wrapper ships in python3-vtkAddon (vtkAddonPython.so), NOT vtkAddon-devel.
+# Without this, every scripted module that touches vtkAddon fails at runtime
+# with "No module named 'vtkAddonPython'" (caught by the CTest dashboard).
+Requires:       python3-vtkAddon
 
 %description
 3D Slicer is a free, open-source software platform for biomedical image
@@ -359,6 +377,36 @@ done
 sed -i 's|${CMAKE_CURRENT_BINARY_DIR}/qSlicerModuleGenericTest.py.in|${CMAKE_CURRENT_SOURCE_DIR}/qSlicerModuleGenericTest.py.in|' \
     Base/QTCore/Testing/Python/CMakeLists.txt
 
+# Python 3.13 REMOVED the 'pipes' module (F44 ships 3.14), but Slicer's own test
+# helper Applications/SlicerApp/Testing/Python/SlicerAppTesting.py still does
+# "import pipes" / pipes.quote(). That kills ~5 py_ tests at import. pipes.quote
+# moved to shlex.quote -- the documented migration. (Same class as the cgi removal.)
+sed -i -e 's/^import pipes$/import shlex/' -e 's/pipes\.quote/shlex.quote/g' \
+    Applications/SlicerApp/Testing/Python/SlicerAppTesting.py
+
+
+# Slicer source bug (only bites BUILD_TESTING=ON, i.e. the CTest dashboard):
+# SlicerMacroConfigureModuleCxxTestDriver unconditionally #includes
+# vtkWin32OutputWindow.h in every generated module CxxTest driver, while the code
+# that USES it is correctly #ifdef _WIN32-guarded. With system VTK 9.6 that
+# Windows-only header is absent on Linux, so all ~10 module test drivers FTBFS
+# (fatal error: vtkWin32OutputWindow.h: No such file). Drop the unconditional
+# include (swap for the harmless vtkVersionMacros.h already pulled in); the
+# _WIN32-guarded usage is not compiled on Linux. Harmless when testing is OFF.
+sed -i 's|set(EXTRA_INCLUDE "vtkWin32OutputWindow.h|set(EXTRA_INCLUDE "vtkVersionMacros.h|' \
+    CMake/SlicerMacroConfigureModuleCxxTestDriver.cmake
+
+# N4ITKBiasFieldCorrection.cxx is an ITK-template memory bomb: compiling it at -O2
+# peaks ~22 GB, which OOMs memory-constrained builders and the CTest farm nodes
+# (a single translation unit, so lowering -j does not help). Compile just this one
+# CLI source at -O1 -- much lower peak, and N4 is not perf-critical. Same class of
+# reduction Fedora/Debian apply to heavy ITK TUs.
+cat >> Modules/CLI/N4ITKBiasFieldCorrection/CMakeLists.txt <<'N4EOF'
+set_source_files_properties(
+  ${CMAKE_CURRENT_SOURCE_DIR}/N4ITKBiasFieldCorrection.cxx
+  PROPERTIES COMPILE_OPTIONS "-O1")
+N4EOF
+
 # Slicer source bug #4: SlicerCPack.cmake installs the Qt-designer launcher by
 # copying the CTKAppLauncher binary from ${CTKAppLauncher_DIR}/bin/ — correct in
 # the superbuild, where the launcher build tree and its CMake config share a
@@ -451,6 +499,12 @@ EOF
     `# then rejects. Pre-define them from spec globals.` \
     -DSlicer_REVISION:STRING=%{slicer_shortcommit} \
     -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-05-17 \
+    `# The version header is emitted by a build-time 'cmake -P' script`\
+    `# (SlicerConfigureVersionHeaderTarget), which only receives the Slicer_FORCED_*`\
+    `# args. Plain Slicer_REVISION / Slicer_WC_LAST_CHANGED_DATE never reach it, so`\
+    `# Slicer_BUILDDATE compiled to "" and vtkSlicerVersionConfigureTest1 failed.`\
+    -DSlicer_FORCED_REVISION:STRING=%{slicer_shortcommit} \
+    -DSlicer_FORCED_WC_LAST_CHANGED_DATE:STRING=2026-05-17 \
     -DSlicer_WC_URL:STRING=https://github.com/Slicer/Slicer/commit/%{slicer_commit} \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
@@ -519,7 +573,7 @@ EOF
     -DSlicer_INSTALL_DEVELOPMENT:BOOL=ON \
     \
     `# Misc` \
-    -DBUILD_TESTING:BOOL=OFF \
+    -DBUILD_TESTING:BOOL=%{?with_testing:ON}%{!?with_testing:OFF} \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
     -DCMAKE_BUILD_TYPE:STRING=Release \
@@ -696,6 +750,44 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Wed Jul 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-3
+- Compile N4ITKBiasFieldCorrection.cxx at -O1: at -O2 this single ITK-template-heavy
+  CLI source peaks ~22 GB and OOMs memory-constrained builders / CTest farm nodes
+  (lowering -j does not help -- it is one TU). N4 is not perf-critical.
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-2
+- Add Requires: python3-scipy. The spec builds with -DSlicer_USE_SCIPY:BOOL=ON but
+  never required SciPy, so the shipped RPM has SciPy support enabled with no SciPy
+  installed -- every scipy-importing scripted module fails at runtime. This is a
+  real user-facing defect (same class as the missing python3-vtkAddon Requires);
+  it accounted for ~17 of the 32 CTest failures, including the whole CLI cluster.
+- %%prep: Python 3.13 removed the 'pipes' module (F44 has 3.14) but Slicer's test
+  helper SlicerAppTesting.py still imports it; migrate pipes.quote -> shlex.quote.
+
+* Fri Jul 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-1
+- Update to upstream 3D Slicer v5.12.1 (was v5.12.0). Carries forward all
+  packaging fixes: python3-vtkAddon Requires, %bcond_with testing + guarded
+  -j1, and the %prep vtkWin32OutputWindow.h test-driver fix. %prep verified
+  clean against the 5.12.1 tree.
+
+* Fri Jul 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-5
+- Add python3-vtkAddon runtime Requires: Slicer's bin/Python/vtkAddon.py does
+  "from vtkAddonPython import *" (ships in python3-vtkAddon, not vtkAddon-devel);
+  without it scripted modules fail with "No module named 'vtkAddonPython'".
+  Caught by the CTest farm.
+- Add `%%bcond_with testing` + guard `_smp_mflags -j1` behind `%%{without testing}`
+  so the CDash farm builds this exact Fedora config with BUILD_TESTING=ON at full
+  -j; shipped RPM unchanged (tests off, -j1).
+- %%prep: drop the unconditional Windows-only vtkWin32OutputWindow.h include the
+  test-driver macro injects (breaks module CxxTest drivers on Linux with system
+  VTK 9.6 when BUILD_TESTING=ON).
+
+* Tue Jul 07 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-4
+- Rebuild against ctk 0.18 (CTK_ENABLE_Python_Wrapping=ON) to pick up the
+  non-empty `import ctk` fix. The -3 build was linked against ctk 0.16 whose
+  scripting libs produced no importable CTK<kit>PythonQt modules. No spec
+  changes beyond the Release bump; NVR bump so the rebuild wins the repo.
+
 * Mon Jun 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.0-3
 - Fix cmake configure FATAL on 5.12: set Slicer_USE_SYSTEM_OpenJPEG=ON. 5.12
   added SlicerBlockInstallOpenJPEG (CPack) which, with DICOM support on and the
