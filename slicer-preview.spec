@@ -7,15 +7,23 @@
 # branch HEAD whenever rebuilding. The release suffix encodes the date
 # so subsequent rebuilds compare cleanly.
 
-%global snapdate 20260628
-%global commit   9774a684fb062714f5cc7e0e732c5d036d3dd87f
+%global snapdate 20260709
+%global commit   98d8e3af372448e0050ad4e49a7dcfc1cf9f5814
 %global shortcommit %(c=%{commit}; echo ${c:0:8})
 
 # Nominal version tracks Slicer's dev minor (5.13.0, odd = dev). RPM treats
 # 5.13.0~preview as newer than stable 3dslicer 5.12.0 (even = stable), and a
 # future 5.13.0 tag would compare cleanly newer than this preview snapshot.
 %global preview_ver 5.13.0~preview.%{snapdate}git%{shortcommit}
+%global slicer_xy   5.13
 %global slicer_inst %{_prefix}/lib/slicer-preview
+
+# Nightly CTest dashboard switch. Default OFF so the shipped RPM never carries
+# test binaries. Build the dashboard tree with `rpmbuild -bc --with testing ...`
+# to compile Slicer's CTest suite against this EXACT Fedora (system-libs) config,
+# then run `ctest` in the build tree. This is how the CDash nightly tests the
+# Fedora build itself (not an upstream superbuild). See cdash-driver/.
+%bcond_with testing
 
 %define debug_package %{nil}
 
@@ -28,7 +36,12 @@
 # compiles that start at ninja step ~705 blow memory on low-RAM COPR builders
 # and swap-stall (3dslicer proved -j8/-j4/-j2 all stall there). -j1 + a raised
 # --timeout 86400 on submission is the working combination.
+# ONLY for the shipped/COPR build: the --with testing dashboard runs on real
+# boxes with plenty of RAM, where -j1 wastes the machine — there we let the
+# CTest driver pass its own -j via --define "_smp_mflags".
+%if %{without testing}
 %global _smp_mflags -j1
+%endif
 
 # Slicer's ctkAppLauncher shebang normalization can leave a /usr/bin/python-real
 # auto-dependency that no package provides; exclude it as a backstop.
@@ -36,7 +49,7 @@
 
 Name:           slicer-preview
 Version:        %{preview_ver}
-Release:        5%{?dist}
+Release:        4%{?dist}
 Summary:        3D Slicer development snapshot (main branch) for medical image analysis
 
 License:        BSD-3-Clause
@@ -45,6 +58,12 @@ Source0:        https://github.com/Slicer/Slicer/archive/%{commit}/Slicer-previe
 # Profile.d hook (shared script: re-uses logic from stable, looks for
 # both slicer-VER and slicer-preview)
 Source1:        slicer-preview.sh
+
+# Python 3.14 (F44/rawhide) removed the private _PyInterpreterState_GetConfigCopy
+# / _PyInterpreterState_SetConfig functions that qSlicerCoreApplication used to
+# refresh sys.argv post-PythonQt. Rewrite that block to set sys.argv via the
+# stable public API (PySys_SetObject). Same fix carried by 3dslicer.spec.
+Patch0:         slicer-python314-interpreter-config.patch
 
 # Build infrastructure — same as 3dslicer; see 3dslicer.spec for rationale.
 BuildRequires:  cmake >= 3.20.6
@@ -157,6 +176,14 @@ Requires:       libGL
 Requires:       python3-dicomweb-client
 Requires:       python3-highdicom
 Requires:       python3-legacy-cgi
+# Slicer is built with -DSlicer_USE_SCIPY=ON; without this the shipped RPM has
+# SciPy support enabled but no SciPy installed and scipy-importing modules break.
+Requires:       python3-scipy
+# vtkAddon runtime: the unversioned libvtkAddon.so has no auto-generated SONAME
+# dep, and Slicer's bin/Python/vtkAddon.py does "from vtkAddonPython import *"
+# (ships in python3-vtkAddon). Pull both explicitly.
+Requires:       vtkAddon
+Requires:       python3-vtkAddon
 
 %description
 3D Slicer Preview tracks the current Slicer development branch (main) and
@@ -276,6 +303,36 @@ done
 sed -i 's|${CMAKE_CURRENT_BINARY_DIR}/qSlicerModuleGenericTest.py.in|${CMAKE_CURRENT_SOURCE_DIR}/qSlicerModuleGenericTest.py.in|' \
     Base/QTCore/Testing/Python/CMakeLists.txt
 
+# Python 3.13 REMOVED the 'pipes' module (F44 ships 3.14), but Slicer's own test
+# helper Applications/SlicerApp/Testing/Python/SlicerAppTesting.py still does
+# "import pipes" / pipes.quote(). That kills ~5 py_ tests at import. pipes.quote
+# moved to shlex.quote -- the documented migration. (Same class as the cgi removal.)
+sed -i -e 's/^import pipes$/import shlex/' -e 's/pipes\.quote/shlex.quote/g' \
+    Applications/SlicerApp/Testing/Python/SlicerAppTesting.py
+
+
+# Slicer source bug (only bites BUILD_TESTING=ON, i.e. the CTest dashboard):
+# SlicerMacroConfigureModuleCxxTestDriver unconditionally #includes
+# vtkWin32OutputWindow.h in every generated module CxxTest driver, while the code
+# that USES it is correctly #ifdef _WIN32-guarded. With system VTK 9.6 that
+# Windows-only header is absent on Linux, so all ~10 module test drivers FTBFS
+# (fatal error: vtkWin32OutputWindow.h: No such file). Drop the unconditional
+# include (swap for the harmless vtkVersionMacros.h already pulled in); the
+# _WIN32-guarded usage is not compiled on Linux. Harmless when testing is OFF.
+sed -i 's|set(EXTRA_INCLUDE "vtkWin32OutputWindow.h|set(EXTRA_INCLUDE "vtkVersionMacros.h|' \
+    CMake/SlicerMacroConfigureModuleCxxTestDriver.cmake
+
+# N4ITKBiasFieldCorrection.cxx is an ITK-template memory bomb: compiling it at -O2
+# peaks ~22 GB, which OOMs memory-constrained builders and the CTest farm nodes
+# (a single translation unit, so lowering -j does not help). Compile just this one
+# CLI source at -O1 -- much lower peak, and N4 is not perf-critical. Same class of
+# reduction Fedora/Debian apply to heavy ITK TUs.
+cat >> Modules/CLI/N4ITKBiasFieldCorrection/CMakeLists.txt <<'N4EOF'
+set_source_files_properties(
+  ${CMAKE_CURRENT_SOURCE_DIR}/N4ITKBiasFieldCorrection.cxx
+  PROPERTIES COMPILE_OPTIONS "-O1")
+N4EOF
+
 # Slicer source bug #4: SlicerCPack.cmake copies the Qt-designer launcher from
 # ${CTKAppLauncher_DIR}/bin/ — correct in the superbuild but wrong on Fedora,
 # where commontk-applauncher splits the binary (%{_bindir}) from its cmake
@@ -369,6 +426,12 @@ EOF
     `# in parallel installs — and the Extensions Manager queries the server by it.` \
     -DSlicer_REVISION:STRING=%{shortcommit} \
     -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-06-28 \
+    `# The version header is emitted by a build-time 'cmake -P' script`\
+    `# (SlicerConfigureVersionHeaderTarget), which only receives the Slicer_FORCED_*`\
+    `# args. Plain Slicer_REVISION / Slicer_WC_LAST_CHANGED_DATE never reach it, so`\
+    `# Slicer_BUILDDATE compiled to "" and vtkSlicerVersionConfigureTest1 failed.`\
+    -DSlicer_FORCED_REVISION:STRING=%{shortcommit} \
+    -DSlicer_FORCED_WC_LAST_CHANGED_DATE:STRING=2026-06-28 \
     -DSlicer_WC_URL:STRING=https://github.com/Slicer/Slicer/commit/%{commit} \
     -DSlicer_USE_PYTHONQT:BOOL=ON \
     -DSlicer_USE_NUMPY:BOOL=ON \
@@ -397,7 +460,7 @@ EOF
     -DCMAKE_INSTALL_PREFIX:PATH=%{slicer_inst} \
     -DSlicer_INSTALL_ROOT:PATH=%{slicer_inst} \
     -DSlicer_INSTALL_DEVELOPMENT:BOOL=ON \
-    -DBUILD_TESTING:BOOL=OFF \
+    -DBUILD_TESTING:BOOL=%{?with_testing:ON}%{!?with_testing:OFF} \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
     -DCMAKE_BUILD_TYPE:STRING=Release \
@@ -407,6 +470,22 @@ EOF
 
 %install
 %cmake_install
+
+# Slicer source bug #5/#8: several installed wizard/utility scripts (e.g.
+# libexec/Slicer-5.13/ExtensionWizard.py, ModuleWizard.py) carry non-system
+# python shebangs:
+#  - "#!/usr/bin/env python"  -> brp-mangle-shebangs rejects (ambiguous), fails %install
+#  - "#!/usr/bin/python-real" -> unsatisfiable Requires: /usr/bin/python-real
+# Slicer runs these through its own launcher, so the shebang is cosmetic.
+# Normalize EVERY non-system python shebang on line 1 to /usr/bin/python3.
+# (Same block 3dslicer.spec carries; %{slicer_inst}-scoped, version-agnostic.)
+find %{buildroot}%{slicer_inst} -type f -print0 | while IFS= read -r -d '' f; do
+    IFS= read -r line0 < "$f" 2>/dev/null || continue
+    case "$line0" in
+        '#!'*python*) sed -i -E '1s|^#!.*/(env[[:space:]]+)?python[0-9.]*(-real)?$|#!/usr/bin/python3|' "$f" ;;
+    esac
+done
+
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_sysconfdir}/profile.d/slicer-preview.sh
 install -d %{buildroot}%{_bindir}
 ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
@@ -418,13 +497,75 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/slicer-preview
 %{_sysconfdir}/profile.d/slicer-preview.sh
 %{slicer_inst}/
 %exclude %{slicer_inst}/include/
-%exclude %{slicer_inst}/lib/cmake/
+# Slicer's CMake config installs under lib/Slicer-%%{slicer_xy}/CMake/ (NOT lib/cmake/);
+# route it to -devel. The old lib/cmake/ path matched nothing, so %%files aborted with
+# "Directory not found" — this is why slicer-preview never packaged. (3dslicer bug #7.)
+%exclude %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
+# Slicer installs Qt6 designer/iconengine/style plugins into the SYSTEM Qt6 plugin
+# tree (outside slicer_inst); package them explicitly. (3dslicer bug #6.)
+%{_libdir}/qt6/plugins/designer/libqMRMLWidgetsPlugins.so
+%{_libdir}/qt6/plugins/designer/libqSlicer*Plugins.so
+%{_libdir}/qt6/plugins/iconengines/libqSlicerIconEnginePlugin.so
+%{_libdir}/qt6/plugins/styles/libqSlicerBaseQTGUIStylePlugins.so
 
 %files devel
 %{slicer_inst}/include/
-%{slicer_inst}/lib/cmake/
+%{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Wed Jul 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260709git98d8e3af-4
+- Compile N4ITKBiasFieldCorrection.cxx at -O1: at -O2 this single ITK-template-heavy
+  CLI source peaks ~22 GB and OOMs memory-constrained builders / CTest farm nodes
+  (lowering -j does not help -- it is one TU). N4 is not perf-critical.
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260709git98d8e3af-3
+- Add Requires: python3-scipy (spec sets Slicer_USE_SCIPY=ON but never required it;
+  real runtime defect -- scipy-importing scripted modules fail). See 3dslicer.
+- %%prep: migrate SlicerAppTesting.py pipes.quote -> shlex.quote ('pipes' removed
+  in Python 3.13; F44 ships 3.14).
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260709git98d8e3af-2
+- Fix %%files: slicer-preview has NEVER packaged because it listed
+  %%{slicer_inst}/lib/cmake/, a path Slicer does not create — %%files aborted with
+  "Directory not found" AFTER a full successful compile (2846/2846). Slicer installs
+  its CMake config under lib/Slicer-5.13/CMake/. Port 3dslicer's proven layout:
+  correct the CMake dir (bug #7) and package the Qt6 designer/iconengine/style
+  plugins that install into the system Qt6 tree (bug #6). Add %%global slicer_xy 5.13.
+
+* Fri Jul 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260709git98d8e3af-1
+- Refresh main-branch snapshot to 98d8e3af (2026-07-09), 24 commits past the
+  prior 9774a684 (2026-06-28) pin, per the bump policy. %prep (Patch0 + VTK
+  link injection + vtkWin32 fix + all seds) verified clean against the new tree.
+  Carries the python3-vtkAddon Requires + testing bcond forward.
+
+* Fri Jul 10 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-8
+- Add python3-vtkAddon (+ vtkAddon) runtime Requires: Slicer's
+  bin/Python/vtkAddon.py does "from vtkAddonPython import *", which ships in
+  python3-vtkAddon, not vtkAddon-devel — without it, scripted modules fail at
+  runtime with "No module named 'vtkAddonPython'". Caught by the CTest farm.
+- Add `%%bcond_with testing` + guard `_smp_mflags -j1` behind `%%{without testing}`
+  so the CDash farm can build this exact Fedora config with BUILD_TESTING=ON at
+  full -j; shipped RPM is unchanged (tests off, -j1).
+- %%prep: drop the unconditional Windows-only vtkWin32OutputWindow.h include the
+  test-driver macro injects (breaks all module CxxTest drivers on Linux with
+  system VTK 9.6 when BUILD_TESTING=ON).
+
+* Wed Jul 08 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-7
+- Port the %install shebang-normalization block from 3dslicer.spec. -6 compiled
+  fully (2845/2845, Patch0 python314 fix confirmed working) but died in %install:
+  brp-mangle-shebangs rejected the ambiguous "#!/usr/bin/env python" in
+  libexec/Slicer-5.13/ExtensionWizard.py. Normalize every non-system python
+  shebang under %{slicer_inst} to /usr/bin/python3 (cosmetic; Slicer uses its own
+  launcher). Also picks up ctk 0.18 (import ctk fix) as the repo's current ctk.
+
+* Tue Jul 07 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-6
+- Add Patch0 (slicer-python314-interpreter-config.patch): the -5 parity port
+  ported the seds + cmake hints but missed the two actual .patch files. -5
+  FTBFS on F44 at ninja 351/2845 compiling qSlicerCoreApplication.cxx:
+  '_PyInterpreterState_GetConfigCopy'/'_PyInterpreterState_SetConfig' not
+  declared (Python 3.14 removed these private APIs). Patch rewrites the argv
+  refresh via the stable PySys_SetObject path. Same fix 3dslicer carries.
+
 * Wed Jul 01 2026 Morgan Hough <morgan.hough@gmail.com> - 5.13.0~preview.20260628git9774a684-5
 - Full parity port of the stable 3dslicer system-libs build recipe (this preview
   spec had never built — -1..-4 all FTBFS on missing build machinery):
