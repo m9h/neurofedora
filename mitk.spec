@@ -5,8 +5,8 @@
 %global _smp_mflags -j4
 
 Name:           mitk
-Version:        2025.12.2
-Release:        13%{?dist}
+Version:        2026.06
+Release:        6%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -146,12 +146,47 @@ sed -i 's|IOBioRad+IOBMP|IOBioRad+IOBMP+IOPhilipsREC|' Modules/Core/CMakeLists.t
 
 # Fix cpp-httplib API break: Fedora ships 0.30+ which renamed
 # MultipartFormDataItems → UploadFormDataItems (same struct, just renamed)
-sed -i 's/httplib::MultipartFormDataItems/httplib::UploadFormDataItems/g' \
-    Modules/Segmentation/Interactions/mitkMonaiLabelTool.cpp
+# (2026.06: mitkMonaiLabelTool.cpp was refactored away and the httplib
+# MultipartFormDataItems->UploadFormDataItems rename landed upstream — sed dropped.)
 
 # Fix LZ4 target name: VTK's FindLZ4 creates LZ4::LZ4 but MITK
 # expects LZ4::lz4_shared from its superbuild
 sed -i 's/LZ4::lz4_shared/LZ4::LZ4/g' Modules/DataTypesExt/CMakeLists.txt
+
+# MITK 2026.06 upstream bug: Modules/PET/CMakeLists.txt adds its test/ subdir
+# UNCONDITIONALLY (Modules/Core correctly wraps it in if(BUILD_TESTING)). That test
+# dir includes cmake/PETIBSIData.cmake, which FetchContent-git-clones an IBSI PET
+# dataset (oncoray/suv_computation.git) at CONFIGURE time. In mock/COPR there is no
+# network, so configure dies -- and downloading sources at build time violates Fedora
+# policy regardless. Guard it exactly like Core so BUILD_TESTING=OFF really skips it.
+sed -i 's|^add_subdirectory(test)$|if(BUILD_TESTING)\n  add_subdirectory(test)\nendif()|' \
+    Modules/PET/CMakeLists.txt
+
+# MITK 2026.06 calls OFTime::hasTimeZone() (Modules/DICOM/src/mitkDICOMTimeUtil.cpp),
+# which Fedora's DCMTK 3.6.9 does not provide (it has only get/setTimeZone()).
+# Version-guard the UTC-normalization block: keep the feature on a newer DCMTK, and
+# on 3.6.9 skip it -- which is exactly upstream's documented fallback ("leave the
+# value as-is ... keeps the common single-timezone path bit-identical").
+python3 - Modules/DICOM/src/mitkDICOMTimeUtil.cpp <<'PYFIX'
+import sys
+p = sys.argv[1]
+src = open(p).read()
+old = """    if (time.getTime().hasTimeZone())
+    {
+      const double tzHours = time.getTime().getTimeZone();
+      tp -= milliseconds{std::llround(tzHours * 3600.0 * 1000.0)};
+    }"""
+new = """#if defined(DCMTK_VERSION_NUMBER) && DCMTK_VERSION_NUMBER > 369
+    if (time.getTime().hasTimeZone())
+    {
+      const double tzHours = time.getTime().getTimeZone();
+      tp -= milliseconds{std::llround(tzHours * 3600.0 * 1000.0)};
+    }
+#endif"""
+assert old in src, "hasTimeZone block not found -- upstream changed it"
+open(p, "w").write(src.replace(old, new, 1))
+print("DCMTK hasTimeZone block version-guarded")
+PYFIX
 
 # Boost 1.87+ removed boost::detail::lcast_get_precision<T>().
 # It always returned std::numeric_limits<T>::max_digits10; substitute that.
@@ -168,10 +203,8 @@ grep -q '^#include <limits>' Modules/Core/include/mitkLexicalCast.h || \
 # with replacement hint "Use vtkCellTypes::GetDimension(type) instead."
 # Replace the static buffer-fill with an inline loop using the new API,
 # and pull in <vtkCellTypes.h> for the declaration.
-sed -i 's|vtkCutter::GetCellTypeDimensions(cellTypeDimensions);|for (int __i = 0; __i < VTK_NUMBER_OF_CELL_TYPES; ++__i) cellTypeDimensions[__i] = vtkCellTypes::GetDimension(__i);|' \
-    Modules/MapperExt/src/vtkPointSetSlicer.cxx
-grep -q '^#include "vtkCellTypes.h"\|^#include <vtkCellTypes.h>' Modules/MapperExt/src/vtkPointSetSlicer.cxx || \
-    sed -i '0,/^#include "vtkCutter.h"/s||#include "vtkCellTypes.h"\n#include "vtkCutter.h"|' Modules/MapperExt/src/vtkPointSetSlicer.cxx
+# (2026.06: Modules/MapperExt/src/vtkPointSetSlicer.cxx was removed upstream —
+# the vtkCutter::GetCellTypeDimensions VTK9 workaround is no longer needed.)
 
 # MitkCore enables ITK_IO_FACTORY_REGISTER_MANAGER, which generates a
 # header listing every IO factory in ITK_MODULES_ENABLED. Our COPR
@@ -232,7 +265,7 @@ EOF
 
 %build
 # --- GCC 15 / Fedora 43 Fixes ---
-export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable"
+export CXXFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=c++17 -include cstdint -Wno-error=template-id-cdtor -Wno-error=unused-but-set-variable -Wno-error=array-bounds"
 export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 
 # Unset env vars to prevent Conda/system tool interference
@@ -290,8 +323,19 @@ rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
 %files
 %license LICENSE
 %doc README.md
-# MITK modules ship without SOVERSION upstream — only libMitk*.so exists,
-# no .so.<n> symlink chain. Ship the unversioned libs in the main package.
+# MITK 2026.06 installs its shared libraries as RUNTIME artifacts, so they land in
+# %{_bindir} (+ per-module micro-service subdirs), NOT %{_libdir}. The old
+# %{_libdir}/libMitk*.so glob matched nothing -> 196 unpackaged files. MITK modules
+# ship without SOVERSION (only libMitk*.so, no .so.<n> chain).
+%{_bindir}/libMitk*.so
+%dir %{_bindir}/MitkCore
+%{_bindir}/MitkCore/libMitk*.so
+%dir %{_bindir}/MitkDICOM
+%{_bindir}/MitkDICOM/libMitk*.so
+%dir %{_bindir}/MitkModelFit
+%{_bindir}/MitkModelFit/libMitk*.so
+# MITK also installs the flat shared libs to %{_libdir} (same SONAMEs, dual RUNTIME+
+# LIBRARY destinations); package those too or ~98 stay unpackaged.
 %{_libdir}/libMitk*.so
 
 %files devel
@@ -299,6 +343,49 @@ rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
 %{_libdir}/libqtsingleapplication.a
 
 %changelog
+* Thu Jul 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-6
+- Complete the %%files fix: MITK 2026.06 installs its shared libs to BOTH %%{_bindir}
+  AND %%{_libdir} (dual RUNTIME+LIBRARY destinations). -5 packaged only %%{_bindir},
+  leaving 98 %%{_libdir}/libMitk*.so unpackaged. Add the %%{_libdir} glob.
+
+* Tue Jul 15 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-5
+- Fix %%files: MITK 2026.06 compiled 100%% (2079/2079) but failed packaging with 196
+  unpackaged files. It installs shared libs as RUNTIME artifacts under %%{_bindir}
+  (+ MitkCore/MitkDICOM/MitkModelFit micro-service subdirs), not %%{_libdir}, so the
+  old %%{_libdir}/libMitk*.so glob matched nothing. Package the real locations.
+
+* Tue Jul 14 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-4
+- Add -Wno-error=array-bounds. MITK builds with -Werror, and GCC's -Warray-bounds
+  fires a false positive inside ITK's own header (itkIndex.h:430, on
+  itk::Index<2>), which killed MitkSegmentation (mitkCorrectorAlgorithm,
+  mitkImageLiveWireContourModelFilter) at step 1784/2079. Same treatment already
+  applied to template-id-cdtor and unused-but-set-variable.
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-3
+- Fix compile against Fedora's DCMTK 3.6.9: MITK 2026.06's mitkDICOMTimeUtil.cpp
+  calls OFTime::hasTimeZone(), which 3.6.9 does not provide (only get/setTimeZone).
+  Version-guard the UTC-normalization block on DCMTK_VERSION_NUMBER > 369 -- the
+  feature stays on newer DCMTK, and on 3.6.9 it degrades to upstream's own
+  documented fallback (leave as-is; the single-timezone path is bit-identical).
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-2
+- Fix configure FTBFS in mock/COPR: MITK 2026.06's Modules/PET/CMakeLists.txt adds
+  its test/ subdir unconditionally (Modules/Core correctly guards with
+  if(BUILD_TESTING)). That subdir FetchContent-git-clones an IBSI PET dataset at
+  CONFIGURE time, which fails with no network and violates Fedora's no-downloads
+  policy. Guard the PET test subdir on BUILD_TESTING so -DBUILD_TESTING=OFF honors it.
+
+* Sun Jul 12 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-1
+- Update to upstream MITK v2026.06 (released 2026-07-07; was 2025.12.2, which was
+  also FTBFS on F44). Two %%prep seds dropped as upstream fixes landed:
+  * mitkMonaiLabelTool.cpp refactored away + the httplib
+    MultipartFormDataItems->UploadFormDataItems rename is upstream.
+  * Modules/MapperExt/src/vtkPointSetSlicer.cxx removed upstream, so the
+    vtkCutter::GetCellTypeDimensions VTK9 workaround is obsolete.
+  Still required and verified against the 2026.06 tree: system-ZLIB external-project
+  removal, IOPhilipsREC reader, LZ4::lz4_shared->LZ4::LZ4, Gizmo vtkVectorOperators
+  ->vtkVector include. %%prep verified clean.
+
 * Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2025.12.2-13
 - Realign %%files to what actually lands. -12's cmake patch installed
   49 MITK module libraries but they're unversioned (MITK doesn't set
