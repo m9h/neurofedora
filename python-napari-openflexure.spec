@@ -49,7 +49,7 @@ export QT_QPA_PLATFORM=offscreen
 %doc README.md
 
 %changelog
-* Fri Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.0-1
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.0-1
 - Add whole-slide mosaic scanning. Rasters an NxN snake grid over the slide,
   using the camera_stage_mapping image_to_stage_displacement matrix to convert a
   (overlapped) field-of-view pixel step into the stage move that produces it, so
