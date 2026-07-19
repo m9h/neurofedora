@@ -20,7 +20,7 @@ Detailed documentation is available at http://nilearn.github.io/.}
 %global forgeurl https://github.com/nilearn/nilearn
 
 Name:           python-nilearn
-Version:        0.14.0
+Version:        0.13.1
 Release:        1%{?dist}
 Summary:        Python module for fast and easy statistical learning on NeuroImaging data
 
@@ -97,9 +97,6 @@ export SETUPTOOLS_SCM_PRETEND_VERSION='%{version}'
 %doc README.rst
 
 %changelog
-* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.14.0-1
-- Update to 0.14.0
-
 * Wed Mar 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.13.1-1
 - Update to 0.13.1 (from orphaned Fedora 0.11.1)
 - Switch build system from setuptools to hatchling/hatch-vcs

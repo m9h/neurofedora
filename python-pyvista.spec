@@ -50,7 +50,7 @@ export PYVISTA_OFF_SCREEN=true
 %{python3} -c "import pyvista; print('pyvista', pyvista.__version__)"
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
-%doc README.rst
+%doc README.md
 %license LICENSE
 %{_bindir}/pyvista
 
