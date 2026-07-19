@@ -2,9 +2,9 @@
 # up to the OpenCL 3.0 API, unbundles pybind11, and makes the installed package
 # resolve its kernels + Random123 from %%{_datadir}/sodecl (upstream avramidis/sodecl
 # hardcoded them relative to CWD and shipped no install rules for the Python module).
-%global commit      1d138bef442524f2ed68f0002fc4af45cd6c8f95
+%global commit      8c8d25a70bc0ea3632b91cfb94ad86b3c7c578be
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
-%global snapdate    20260710
+%global snapdate    20260718
 
 # Random123 headers (BSD-3-Clause) are shipped as OpenCL kernel include data.
 %global _description %{expand:
@@ -99,6 +99,9 @@ chrpath --delete %{buildroot}%{python3_sitearch}/sodecl_interface*.so
 %{_libdir}/cmake/sodecl/
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.1-1^20260718git8c8d25a
+- Fix build on Fedora 43 (older pybind11): request Python3 Interpreter component
+
 * Fri Jul 10 2026 Morgan Hough <morgan.hough@gmail.com> - 0.2.1-1^20260710git1d138be
 - Initial package from the OpenCL-3.0-modernized m9h/sodecl fork
 - Builds against OpenCL 3.0 headers; system pybind11; installable kernel/Random123 data
