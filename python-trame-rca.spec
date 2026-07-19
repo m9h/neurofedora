@@ -1,6 +1,6 @@
 Name:           python-trame-rca
-Version:        2.4.3
-Release:        2%{?dist}
+Version:        2.7.0
+Release:        1%{?dist}
 Summary:        Remote Controlled Area image streaming for trame
 
 License:        Apache-2.0
@@ -56,6 +56,9 @@ Requires:       python3-pillow
 %doc README.rst
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.7.0-1
+- Update to 2.7.0
+
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.4.3-2
 - Rebuild against Python 3.15 (rawhide). Release bump so the py3.15 build
   supersedes the lingering same-NVR py3.14 RPM in the COPR repo.

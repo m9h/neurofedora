@@ -2,7 +2,7 @@
 %global dist_name hddm_wfpt
 
 Name:           python-%{pypi_name}
-Version:        0.1.6
+Version:        0.1.7
 Release:        1%{?dist}
 Summary:        Wiener first-passage-time likelihoods for drift-diffusion models
 
@@ -57,5 +57,8 @@ sed -i 's/,<3.15"/,<3.16"/' pyproject.toml
 %doc Readme.rst
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.7-1
+- Update to 0.1.7
+
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.1.6-1
 - Initial package (HSSM WFPT likelihood core; partial HSSM dependency stack)

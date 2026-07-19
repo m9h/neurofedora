@@ -1,7 +1,7 @@
 %global pypi_name pyvista
 
 Name:           python-%{pypi_name}
-Version:        0.48.0
+Version:        0.48.4
 Release:        1%{?dist}
 Summary:        3D plotting and mesh analysis through a streamlined interface to VTK
 
@@ -55,6 +55,9 @@ export PYVISTA_OFF_SCREEN=true
 %{_bindir}/pyvista
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.48.4-1
+- Update to 0.48.4
+
 * Sat Jun 21 2026 Morgan Hough <morgan.hough@gmail.com> - 0.48.0-1
 - Initial package: PyVista 0.48.0, the actively-developed Pythonic VTK interface
   for 3D plotting and mesh analysis (modern successor to mayavi). Net-new to

@@ -1,5 +1,5 @@
 Name:           python-plotly
-Version:        6.8.0
+Version:        6.9.0
 Release:        1%{?dist}
 # Fill in the actual package summary to submit package to Fedora
 Summary:        An open-source interactive data visualization library for Python

@@ -1,5 +1,5 @@
 Name:           python-narwhals
-Version:        2.22.1
+Version:        2.24.0
 Release:        %autorelease
 # Fill in the actual package summary to submit package to Fedora
 Summary:        Extremely lightweight compatibility layer between dataframe libraries

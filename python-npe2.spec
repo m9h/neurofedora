@@ -1,6 +1,6 @@
 Name:           python-npe2
-Version:        0.8.2
-Release:        2%{?dist}
+Version:        0.8.3
+Release:        1%{?dist}
 Summary:        Version 2 of the napari plugin engine
 
 License:        BSD-3-Clause
@@ -47,6 +47,9 @@ export HATCH_VCS_PRETEND_VERSION=%{version}
 %{_bindir}/npe2
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.3-1
+- Update to 0.8.3
+
 * Mon Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.2-2
 - Capitalize Summary (rpmlint).
 

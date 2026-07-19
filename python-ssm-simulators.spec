@@ -2,7 +2,7 @@
 %global dist_name ssm_simulators
 
 Name:           python-%{pypi_name}
-Version:        0.12.3
+Version:        0.13.2
 Release:        1%{?dist}
 Summary:        Simulators and training-data generators for sequential sampling models
 
@@ -72,5 +72,8 @@ sed -i '1{/^#!/d}' %{buildroot}%{python3_sitearch}/ssms/cli/generate.py
 %{_bindir}/generate
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.13.2-1
+- Update to 0.13.2
+
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.12.3-1
 - Initial package (HSSM simulator backend; partial HSSM dependency stack)

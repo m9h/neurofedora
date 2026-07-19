@@ -32,7 +32,7 @@ and a broad academic-clinical community) and is widely used as the model
 layer behind tools such as MONAI Label and 3D Slicer's AI extensions.}
 
 Name:           python-%{pypi_name}
-Version:        1.5.2
+Version:        1.6.0
 Release:        1%{?dist}
 Summary:        AI toolkit for healthcare imaging (PyTorch-based)
 
@@ -96,6 +96,9 @@ export BUILD_MONAI=0
 %doc README.md
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.6.0-1
+- Update to 1.6.0
+
 * Tue Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.2-1
 - Initial package for the mhough/neurofedora COPR.
 - Pure-Python noarch build (BUILD_MONAI=0); hard deps torch + numpy are

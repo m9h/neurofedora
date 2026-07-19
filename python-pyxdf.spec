@@ -5,7 +5,7 @@
 %global ex_commit 387ba537c3a0dd5da2c9a51c578c8f1296e3edeb
 
 Name:           python-%{pypi_name}
-Version:        1.17.4
+Version:        1.17.5
 Release:        1%{?dist}
 Summary:        Python package for importing XDF (Extensible Data Format) files
 
@@ -92,6 +92,9 @@ ln -s ../example-files-%{ex_commit}/ example-files
 
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.5-1
+- Update to 1.17.5
+
 * Mon Jun 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.17.4-1
 - Rebase from Fedora dist-git (orphaned, retired) onto 1.17.4 for the
   mhough/neurofedora COPR. Add python3-pyxdf-examples Requires:

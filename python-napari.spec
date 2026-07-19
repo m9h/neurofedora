@@ -1,6 +1,6 @@
 Name:           python-napari
-Version:        0.7.1
-Release:        3%{?dist}
+Version:        0.8.0
+Release:        1%{?dist}
 Summary:        Fast, interactive, multi-dimensional image viewer for Python
 
 License:        BSD-3-Clause
@@ -152,6 +152,9 @@ export QT_QPA_PLATFORM=offscreen
 # metapackage: no payload
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.8.0-1
+- Update to 0.8.0
+
 * Tue Jun 30 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-3
 - Add desktop integration: ship a napari.desktop launcher plus the brand logo
   in the hicolor icon theme (scalable SVG + 16-256px PNGs rasterized from

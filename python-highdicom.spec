@@ -1,7 +1,7 @@
 %global pypi_name highdicom
 
 Name:           python-%{pypi_name}
-Version:        0.27.0
+Version:        0.28.0
 Release:        1%{?dist}
 Summary:        High-level DICOM abstractions for Python
 
@@ -59,5 +59,8 @@ High-level DICOM abstractions for Python, built on pydicom.
 %doc README.md
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.28.0-1
+- Update to 0.28.0
+
 * Sat Jun 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0.27.0-1
 - Initial package (3D Slicer DICOM module runtime dependency)

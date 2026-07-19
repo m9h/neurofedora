@@ -3,8 +3,8 @@
 %global debug_package %{nil}
 
 Name:           python-babelviscofdtd
-Version:        1.2.6
-Release:        4%{?dist}
+Version:        1.2.7
+Release:        1%{?dist}
 Summary:        GPU/CPU 3D FDTD solution of viscoelastic equation
 
 License:        BSD-3-Clause
@@ -66,6 +66,9 @@ GPU/CPU 3D FDTD solution of viscoelastic equation.
 %{python3_sitearch}/babelviscofdtd-*.dist-info
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.7-1
+- Update to 1.2.7
+
 * Wed Jun 10 2026 Morgan Hough <morgan.hough@gmail.com> - 1.2.6-4
 - Fix BackendUnavailable FTBFS: pyproject.toml uses
   build-backend = scikit_build_core.build, but the spec only BuildRequired
