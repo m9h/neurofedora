@@ -2,8 +2,8 @@
 %global sover 3.1
 
 Name:           OpenImageIO
-Version:        3.1.14.0
-Release:        2%{?dist}
+Version:        3.1.15.0
+Release:        1%{?dist}
 Epoch:          1
 Summary:        Library for reading and writing images
 
@@ -205,6 +205,9 @@ cp -a src/doc/*.1 %{buildroot}%{_mandir}/man1
 
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 3.1.15.0-1
+- Update to 3.1.15.0
+
 * Sun Jun 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1:3.1.14.0-2
 - Rebuild against dcmtk 3.7.0 (libdcm*.so.20) for the mhough/neurofedora COPR,
   whose imaging stack (ITK/SimpleITK/MITK/Slicer) requires dcmtk 3.7.0. Fedora's

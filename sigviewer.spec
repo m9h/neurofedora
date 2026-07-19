@@ -1,6 +1,6 @@
 Name:           sigviewer
-Version:        0.7.1
-Release:        5%{?dist}
+Version:        0.7.2
+Release:        1%{?dist}
 Summary:        Viewing and inspection of biosignals (EEG, EMG, ECG)
 License:        GPL-3.0-or-later
 URL:            https://github.com/cbrnr/sigviewer
@@ -106,6 +106,8 @@ fi
 %{_datadir}/icons/hicolor/scalable/apps/sigviewer.svg
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.2-1
+- Update to 0.7.2
 
 * Tue May 26 2026 Morgan Hough <morgan.hough@gmail.com> - 0.7.1-5
 - Strip apostrophes from %%install comments. The %%cmake_install

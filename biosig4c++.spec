@@ -6,7 +6,7 @@ supporting more than 30 different data formats is also provided.}
 %global pretty_name biosig
 
 Name:       biosig4c++
-Version:    3.9.4
+Version:    3.9.7
 Release:    1%{?dist}
 Summary:    A software library for processing of biomedical signals
 
