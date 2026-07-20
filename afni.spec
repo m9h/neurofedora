@@ -13,7 +13,7 @@
 %global _python_bytecompile_errors_terminate_build 0
 
 Name:           afni
-Version:        26.1.04
+Version:        26.2.01
 Release:        1%{?dist}
 Summary:        Analysis of Functional NeuroImages
 
@@ -714,6 +714,9 @@ ls %{buildroot}%{_libdir}/libmri.so.* >/dev/null 2>&1
 
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 26.2.01-1
+- Update to 26.2.01
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 26.1.04-1
 - Update to 26.1.04 (current upstream; freshness sweep 2026-06-14)
 

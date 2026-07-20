@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           dart
-Version:        6.18.0
+Version:        6.19.4
 Release:        1%{?dist}
 Summary:        Dynamic Animation and Robotics Toolkit
 
@@ -239,6 +239,9 @@ export CXXFLAGS="%{optflags} -std=c++17"
 %{_libdir}/libdart-gui-osg.so
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 6.19.4-1
+- Update to 6.19.4
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 6.18.0-1
 - Update to 6.18.0 (current upstream; freshness sweep 2026-06-14)
 
