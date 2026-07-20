@@ -1,5 +1,5 @@
 Name:           libigl
-Version:        2.3.0
+Version:        2.6.0
 Release:        1%{?dist}
 Summary:        Simple C++ geometry processing library (header-only)
 
@@ -44,6 +44,9 @@ cp -a include/igl %{buildroot}%{_includedir}/
 %{_includedir}/igl/
 
 %changelog
+* Sat Jul 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.0-1
+- Update to 2.6.0
+
 * Wed Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.3.0-1
 - Initial package (header-only libigl v2.3.0, the version ShapeWorks pins).
   Ships only the header-only core; the network-downloading optional modules are
