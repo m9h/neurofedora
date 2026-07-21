@@ -23,7 +23,7 @@ BuildRequires:  cmake(Qt6Test)
 
 # External libraries — both at the exact versions upstream pins (now both
 # in COPR mhough/neurofedora: libxdf 0.99.10 and biosig4c++ 3.9.4).
-BuildRequires:  libxdf-devel >= 0.99.10
+BuildRequires:  libxdf-devel >= 1.0.1
 BuildRequires:  biosig4c++-devel >= 3.9.4
 
 Requires:       qt6-qtbase
@@ -42,8 +42,8 @@ It supports various data formats including XDF, GDF, EDF, BDF.
 # check by writing the file directly with the expected version strings.
 mkdir -p external
 cat > external/versions.cmake <<EOF
-set(LIBXDF_VERSION_INSTALLED    "0.99.10")
-set(LIBBIOSIG_VERSION_INSTALLED "3.9.4")
+set(LIBXDF_VERSION_INSTALLED    "1.0.1")
+set(LIBBIOSIG_VERSION_INSTALLED "3.9.5")
 EOF
 
 # Repoint upstream's STATIC IMPORTED targets at the system *shared* libraries
