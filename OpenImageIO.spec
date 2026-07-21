@@ -16,7 +16,6 @@ Source0:        https://github.com/AcademySoftwareFoundation/OpenImageIO/archive
 #Source1:        https://github.com/OpenImageIO/oiio-images/archive/master/oiio-images.tar.gz
 
 # LifHeif modifies the headers to make things work for multilib systems.
-Patch0:         oiio-libheif_version.patch
 
 # OpenVDB no longer builds for i686
 ExcludeArch:    i686
