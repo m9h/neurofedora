@@ -1,8 +1,8 @@
 %global realname urdfdom_headers
 
 Name:           urdfdom-headers
-Version:        1.1.2
-Release:        3%{?dist}
+Version:        3.0.0
+Release:        1%{?dist}
 Summary:        The URDF (U-Robot Description Format) headers
 
 License:        BSD-3-Clause
@@ -12,7 +12,6 @@ BuildArch:      noarch
 
 # Install configs to arch independent paths
 # https://github.com/ros/urdfdom_headers/issues/27
-Patch0:         urdfdom-headers-1.1.2-fedora.patch
 
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
@@ -35,7 +34,12 @@ For now, the details of the URDF specifications reside on
 http://ros.org/wiki/urdf
 
 %prep
-%autosetup -Sgendiff -p1 -n %{realname}-%{version}
+%autosetup -p1 -n %{realname}-%{version}
+
+# noarch package: install cmake config + pkgconfig arch-independently (datadir,
+# not the hardcoded libdir). Replaces the old version-pinned -fedora.patch.
+sed -i 's|${CMAKE_INSTALL_LIBDIR}/${PROJECT_NAME}/cmake|${CMAKE_INSTALL_DATADIR}/${PROJECT_NAME}/cmake|g' CMakeLists.txt
+sed -i 's|${CMAKE_INSTALL_LIBDIR}/pkgconfig|${CMAKE_INSTALL_DATADIR}/pkgconfig|g' CMakeLists.txt
 
 %build
 %cmake -DCMAKE_BUILD_TYPE:STRING=Release
