@@ -1,8 +1,8 @@
-%global libversion 4.0
+%global libversion 6
 
 Name:       urdfdom
-Version:    4.0.2
-Release:    2%{?dist}
+Version:    6.0.0
+Release:    1%{?dist}
 Summary:    U-Robot Description Format Document Object Model
 
 License:    BSD-3-Clause
@@ -46,7 +46,7 @@ rm -rf %{buildroot}%{_bindir}/urdf_mem_test
 %files
 %license LICENSE
 %{_bindir}/*
-%{_libdir}/*.so.%{libversion}
+%{_libdir}/*.so.%{libversion}*
 %{_datadir}/%{name}
 
 %files devel
