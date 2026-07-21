@@ -34,7 +34,7 @@ sed -i '/#include <cmath>/a #include <cstdint>' xdf.cpp
 # FIX 3: Force SONAME versioning for Fedora compliance
 # We append a CMake command to set the SOVERSION to 0 and VERSION to 0.99
 # This makes the build produce libxdf.so.0 and libxdf.so.0.99
-echo 'set_target_properties(xdf PROPERTIES VERSION %{version} SOVERSION 0)' >> CMakeLists.txt
+echo 'set_target_properties(xdf PROPERTIES VERSION %{version} SOVERSION 1)' >> CMakeLists.txt
 
 %build
 %cmake -DBUILD_SHARED_LIBS=ON \
@@ -53,11 +53,11 @@ cp -a redhat-linux-build/libxdf.so* %{buildroot}%{_libdir}/
 install -m 0644 xdf.h %{buildroot}%{_includedir}/xdf.h
 
 %files
-%license LICENSE.txt
+%license LICENSE
 %doc README.md
 # The wildcard below catches both the soname symlink (libxdf.so.0) 
 # AND the actual binary (libxdf.so.0.99)
-%{_libdir}/libxdf.so.0*
+%{_libdir}/libxdf.so.1*
 
 %files devel
 %{_includedir}/xdf.h
