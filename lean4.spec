@@ -4,7 +4,7 @@
 %global debug_package %{nil}
 
 Name:           lean4
-Version:        4.31.0
+Version:        4.32.0
 Release:        1%{?dist}
 Summary:        Theorem prover and functional programming language (toolchain)
 
@@ -18,9 +18,11 @@ BuildRequires:  cmake
 BuildRequires:  make
 BuildRequires:  gcc
 BuildRequires:  gcc-c++
+BuildRequires:  clang
 BuildRequires:  pkgconf-pkg-config
 BuildRequires:  gmp-devel
 BuildRequires:  libuv-devel
+BuildRequires:  openssl-devel
 # find_program() picks these up so Lean does NOT download them at build time:
 BuildRequires:  cadical
 BuildRequires:  leangz
@@ -30,6 +32,7 @@ BuildRequires:  leangz
 # ships no copies of its own — they come from these packages.
 Requires:       cadical
 Requires:       leangz
+Requires:       clang
 
 %description
 Lean is an interactive theorem prover and a dependently-typed functional
@@ -52,8 +55,13 @@ it is intended for building Lean code against the distribution toolchain.
 # copies that would file-conflict with the cadical and leangz packages.
 # Raw cmake (not %%cmake): Lean's staged bootstrap is sensitive to injected flags,
 # and stage0 deliberately discards extra CXX flags — match the validated invocation.
+export CC=clang CXX=clang++
 cmake \
     -S . -B build/release \
+    -DCMAKE_C_COMPILER=clang \
+    -DCMAKE_CXX_COMPILER=clang++ \
+    -DSTAGE0_CMAKE_C_COMPILER=clang \
+    -DSTAGE0_CMAKE_CXX_COMPILER=clang++ \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=%{_prefix} \
     -DCMAKE_INSTALL_LIBDIR=lib \

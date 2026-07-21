@@ -1,6 +1,6 @@
 Name:           libxdf
-Version:        0.99.10
-Release:        2%{?dist}
+Version:        1.0.3
+Release:        1%{?dist}
 Summary:        C++ library for loading XDF (Extensible Data Format) files
 # FIX 1: Use specific SPDX identifier (Check your LICENSE file to confirm 2 or 3 clause)
 License:        BSD-3-Clause
@@ -65,6 +65,9 @@ install -m 0644 xdf.h %{buildroot}%{_includedir}/xdf.h
 %{_libdir}/libxdf.so
 
 %changelog
+* Mon Jul 20 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.3-1
+- Update to 1.0.3 (needed by sigviewer 0.7.2)
+
 * Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 0.99.10-1
 - Update to 0.99.10
 
