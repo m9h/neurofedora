@@ -63,7 +63,16 @@ cat <<EOF
 EOF
 if [ "$DRY_RUN" = 1 ]; then echo "[--dry-run] no changes made."; exit 0; fi
 if [ "$ASSUME_YES" != 1 ]; then
-  read -rp "This is a dedicated-node action. Type 'yes' to proceed: " _ans
+  # Read from the controlling terminal so `curl … | bash` still prompts (stdin is
+  # the pipe there). If there is no TTY at all, don't silently abort — explain.
+  if [ -r /dev/tty ]; then
+    read -rp "This is a dedicated-node action. Type 'yes' to proceed: " _ans < /dev/tty
+  else
+    echo "aborted: no terminal for the confirmation prompt." >&2
+    echo "  Re-run with --yes to skip it (you've already seen the plan above):" >&2
+    echo "    curl -sSL <url>/farm-bootstrap.sh | bash -s -- $TRACK --yes" >&2
+    exit 1
+  fi
   [ "$_ans" = yes ] || { echo "aborted — nothing changed."; exit 1; }
 fi
 
