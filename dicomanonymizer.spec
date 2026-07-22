@@ -6,8 +6,8 @@
 %global module_name dicomanonymizer
 
 Name:           dicomanonymizer
-Version:        1.0.13.post1
-Release:        2%{?dist}
+Version:        2.0.0
+Release:        1%{?dist}
 Summary:        Program to anonymize DICOM files with default and custom rules
 
 # SPDX — LICENSE file is BSD-3-Clause (Copyright Kitware Europe)
@@ -17,7 +17,6 @@ Source0:        https://files.pythonhosted.org/packages/source/d/%{pypi_name}/%{
 # Relax the conservative pydicom<3 cap so the package installs on Fedora's
 # pydicom 3.x. The code uses only modern pydicom APIs; verified functionally
 # against pydicom 3.0.2 (see %%check). Candidate for an upstream PR.
-Patch0:         dicomanonymizer-pydicom3.patch
 
 BuildArch:      noarch
 
@@ -78,6 +77,9 @@ PYTHONPATH=%{buildroot}%{python3_sitelib} %{python3} -c "import pydicom; from py
 
 
 %changelog
+* Mon Jul 20 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-1
+- Update to 2.0.0
+
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0.13.post1-2
 - Relax pydicom<3 cap to pydicom>=2 (Patch0) so the package installs on Fedora's
   pydicom 3.x. The code uses only modern pydicom APIs (dcmread, generate_uid,

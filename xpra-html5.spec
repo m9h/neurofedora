@@ -11,7 +11,7 @@
 %define minifier uglifyjs
 
 Name:           xpra-html5
-Version:        20
+Version:        21
 Release:        1%{?dist}
 Summary:        HTML5 client for Xpra
 License:        GPL-2.0+ AND BSD-3-Clause AND LGPL-3.0+ AND MIT
@@ -52,6 +52,9 @@ find %{buildroot}%{_datadir}/xpra/www/ -type f -exec chmod 0644 {} \;
 %{_datadir}/xpra/www
 
 %changelog
+* Mon Jul 20 2026 Morgan Hough <morgan.hough@gmail.com> - 21-1
+- Update to 21
+
 * Tue Jun 09 2026 Morgan Hough <morgan.hough@gmail.com> - 20-1
 - Initial neurofedora COPR build of xpra-html5 v20 for Fedora 44 (aarch64+x86_64).
 - Provides the browser GUI client for the student-access gateway.
