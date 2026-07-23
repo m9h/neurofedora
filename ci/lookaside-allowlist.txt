@@ -34,3 +34,8 @@ leangz-*-vendor.tar.gz
 libroadrunner-*.tar.gz
 libsbmlnetwork-*.tar.gz
 napari-openflexure-*.tar.gz
+
+# --- opencv 5.0 upstream tarballs + the 57MB face_landmark model ---
+opencv-*.tar.gz
+opencv_contrib-*.tar.gz
+face_landmark_model.dat.xz

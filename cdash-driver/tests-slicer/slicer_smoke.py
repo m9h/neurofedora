@@ -92,6 +92,21 @@ try:
 except Exception as exc:  # noqa: BLE001
     check("cli-addscalarvolumes", False, repr(exc))
 
+# 6. Packaged-extension module presence (any-of per extension) ---------------
+#    SLICER_EXPECT_MODULES is supplied by the CDash driver (run-slicer-ctest.sh)
+#    from whichever 3dslicer-<ext> packages are installed: one ';'-separated GROUP
+#    per extension, '|'-separated alternative module names within a group. A group
+#    FAILS only if NONE of its alternatives registered — catching an extension that
+#    built green but installed into a stale Slicer-X.Y path the launcher never
+#    scans, or whose scripted module raised on load. Mirrors the BATS
+#    slicer_selftest.py check so CDash and the BATS suite agree.
+registered = set(module_names)
+for group in [g for g in os.environ.get("SLICER_EXPECT_MODULES", "").split(";") if g]:
+    alts = [m for m in group.split("|") if m]
+    hit = next((m for m in alts if m in registered), None)
+    check(f"extension-group-{alts[0]}", hit is not None,
+          f"matched {hit}" if hit else f"none of {alts} registered")
+
 # Verdict --------------------------------------------------------------------
 print(f"\nSMOKE SUMMARY: {len(_failures)} failure(s)"
       + (": " + ", ".join(_failures) if _failures else ""), flush=True)

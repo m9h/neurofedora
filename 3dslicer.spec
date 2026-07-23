@@ -21,7 +21,7 @@
 # full Qt6 support (landed during the 5.11 preview cycle). Built from the
 # v5.12.0 tag. The dev/preview track (5.13.0, odd minor) is slicer-preview.
 %global slicer_xy   5.12
-%global slicer_commit 30a9c0f86a9ac626b98d4671df7d12894983b82b
+%global slicer_commit 5f75443d6e4eab9d70b78a788f09369f16b45364
 %global slicer_shortcommit %(c=%{slicer_commit}; echo ${c:0:8})
 %global slicer_ver  5.12.1
 %global slicer_inst %{_prefix}/lib/slicer
@@ -75,7 +75,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        3%{?dist}
+Release:        5%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -498,13 +498,20 @@ EOF
     `# Slicer_WC_URL variables unset, which SlicerPackageAndUploadTarget` \
     `# then rejects. Pre-define them from spec globals.` \
     -DSlicer_REVISION:STRING=%{slicer_shortcommit} \
-    -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-05-17 \
-    `# The version header is emitted by a build-time 'cmake -P' script`\
-    `# (SlicerConfigureVersionHeaderTarget), which only receives the Slicer_FORCED_*`\
-    `# args. Plain Slicer_REVISION / Slicer_WC_LAST_CHANGED_DATE never reach it, so`\
-    `# Slicer_BUILDDATE compiled to "" and vtkSlicerVersionConfigureTest1 failed.`\
+    -DSlicer_WC_LAST_CHANGED_DATE:STRING=2026-07-08 \
+    `# Version string (matters for the Fedora release). applicationVersion =`\
+    `# Slicer_MAIN_PROJECT_VERSION_FULL = "<ver>-<Slicer_MAIN_PROJECT_BUILDDATE>", and`\
+    `# SlicerVersion.cmake derives BUILDDATE ONLY from the *_FORCED_WC_LAST_CHANGED_DATE`\
+    `# vars (git is absent in a tarball). Set the DATE for BOTH the Slicer_* and`\
+    `# Slicer_MAIN_PROJECT_* families, else the shipped version is "5.12.1-" (empty date).`\
+    `# Do NOT set Slicer_MAIN_PROJECT_FORCED_REVISION: it lands UNQUOTED in`\
+    `# vtkMRMLConfigure.h, and a git short-hash beginning with a digit (5f75443d) then`\
+    `# parses as an invalid C++ numeric literal ('operator""f75443d'). The plain`\
+    `# Slicer_FORCED_REVISION is quoted elsewhere, so it is safe. Date = v5.12.1 tag`\
+    `# commit date (2026-07-08); revision is not needed for the build date.`\
     -DSlicer_FORCED_REVISION:STRING=%{slicer_shortcommit} \
-    -DSlicer_FORCED_WC_LAST_CHANGED_DATE:STRING=2026-05-17 \
+    -DSlicer_FORCED_WC_LAST_CHANGED_DATE:STRING=2026-07-08 \
+    -DSlicer_MAIN_PROJECT_FORCED_WC_LAST_CHANGED_DATE:STRING=2026-07-08 \
     -DSlicer_WC_URL:STRING=https://github.com/Slicer/Slicer/commit/%{slicer_commit} \
     -DqRestAPI_DIR:PATH=%{_libdir}/cmake/qRestAPI \
     -DPythonQt_DIR:PATH=%{_libdir}/cmake/PythonQt \
@@ -750,6 +757,22 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-5
+- Fix extension-facing SlicerConfig.cmake: gen-install-config.py hardcoded
+  Slicer-5.11 subdir (now derived from the install dir) so extensions consuming
+  the installed config no longer resolve vanished 5.11 paths. Drop
+  Slicer_MAIN_PROJECT_FORCED_REVISION (unquoted git short-hash broke
+  vtkMRMLConfigure.h numeric literal); keep the DATE var for the build-date
+  version string.
+
+* Thu Jul 17 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-4
+- Fix the shipped version string (matters for Fedora release): applicationVersion was
+  "5.12.1-" with an EMPTY build date. applicationVersion = Slicer_MAIN_PROJECT_VERSION_FULL,
+  whose BUILDDATE derives ONLY from Slicer_MAIN_PROJECT_FORCED_WC_LAST_CHANGED_DATE
+  (git absent in tarball). We set only the Slicer_FORCED_* family, not the MAIN_PROJECT_*
+  one. Set both, with the real v5.12.1 tag date (2026-07-08). Also fix slicer_commit to
+  the actual commit (5f75443d) not the tag-object SHA.
+
 * Wed Jul 16 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-3
 - Compile N4ITKBiasFieldCorrection.cxx at -O1: at -O2 this single ITK-template-heavy
   CLI source peaks ~22 GB and OOMs memory-constrained builders / CTest farm nodes

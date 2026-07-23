@@ -28,7 +28,18 @@ import os
 import re
 import sys
 
-SLICER_SUBDIR = "Slicer-5.11"
+def _detect_slicer_subdir():
+    # Derive the versioned subdir (Slicer-X.Y) from the <out dir> positional arg
+    # the spec passes (<prefix>/lib/Slicer-X.Y) so this never has to be hand-bumped
+    # on a Slicer version change. Falls back to the current stable series.
+    pos = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if len(pos) >= 2:
+        b = os.path.basename(os.path.normpath(pos[1]))
+        if b.startswith("Slicer-"):
+            return b
+    return "Slicer-5.12"
+
+SLICER_SUBDIR = _detect_slicer_subdir()
 
 # ---- scalar path variables: var name -> install-relative path (under root), or None to neutralize
 SCALAR_MAP = {
@@ -98,6 +109,19 @@ TARGET_LIBS = [
     "qSlicerApp", "qSlicerBaseQTApp", "qSlicerBaseQTCLI",
     "qSlicerBaseQTCore", "qSlicerBaseQTGUI", "qSlicerModulesCore",
 ]
+
+# The Qt-based ("q"-prefixed) Slicer libs. Their public headers pull in Qt, and
+# (the -53 fix) their object code references symbols across the whole Slicer GUI
+# stack + CTK — in the in-tree build those were carried as each target's
+# INTERFACE_LINK_LIBRARIES. We split TARGET_LIBS into Qt / non-Qt so a pure CLI
+# extension linking MRMLCLI doesn't drag in Qt/CTK, while a GUI module linking
+# qSlicerBaseQTGUI inherits the full closure transitively.
+QT_TARGET_LIBS = {
+    "qMRMLWidgets", "qSlicerApp", "qSlicerBaseQTApp", "qSlicerBaseQTCLI",
+    "qSlicerBaseQTCore", "qSlicerBaseQTGUI", "qSlicerModulesCore",
+}
+NONQT_TARGET_LIBS = [t for t in TARGET_LIBS if t not in QT_TARGET_LIBS]
+ALLQT_TARGET_LIBS = [t for t in TARGET_LIBS if t in QT_TARGET_LIBS]
 
 BUILD_PATH_RE = re.compile(r'/builddir/build/BUILD/')
 
@@ -277,10 +301,67 @@ def gen_targets(root, module_dir=None):
          'get_filename_component(_slicer_libdir "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)',
          ""]
     # Public headers of these libs (e.g. MRMLCore's vtkMRMLNode.h) #include vtkAddon
-    # headers (vtkLoggingMacros.h, ...), which the in-tree build propagated via the
-    # real targets' interface includes. Carry that on the imported targets so an
-    # extension linking them inherits the system vtkAddon include dir.
-    L += ['set(_slicer_iface_inc "/usr/include/vtkAddon")', '']
+    # headers (vtkLoggingMacros.h, ...) and Slicer base headers in subdirs (e.g.
+    # qSlicerBaseQTGUI/qSlicerAbstractModuleWidget.h). The in-tree build propagated
+    # these via the real targets' interface includes; carry them on the imported
+    # targets so an extension linking them inherits the dirs. The include base is
+    # <prefix>/include/Slicer-5.11 (libdir is <prefix>/lib/Slicer-5.11).
+    L += [
+        'get_filename_component(_slicer_prefix "${_slicer_libdir}/../.." ABSOLUTE)',
+        'set(_slicer_incbase "${_slicer_prefix}/include/%s")' % SLICER_SUBDIR,
+        'set(_slicer_iface_inc',
+        '    "/usr/include/vtkAddon"',
+        '    "${_slicer_incbase}"',
+        '    "${_slicer_incbase}/qSlicerApp"',
+        '    "${_slicer_incbase}/qSlicerBaseQTApp"',
+        '    "${_slicer_incbase}/qSlicerBaseQTCLI"',
+        '    "${_slicer_incbase}/qSlicerBaseQTCore"',
+        '    "${_slicer_incbase}/qSlicerBaseQTGUI"',
+        '    "${_slicer_incbase}/qSlicerModulesCore")',
+        '',
+        '# VTK closure: the in-tree build propagated VTK includes AND libraries',
+        '# through the real Slicer targets. Linking the VTK:: imported targets here',
+        '# carries both (each VTK module target exports its own include dir), so an',
+        '# extension linking a Slicer lib (e.g. MRMLCore) inherits VTK without the',
+        '# install(EXPORT) upstream never wired up. find_package(VTK) ran in the',
+        '# including SlicerConfig, so these targets exist.',
+        'set(_slicer_vtk_ifacelibs "")',
+        'foreach(_m CommonCore CommonExecutionModel CommonDataModel CommonMath',
+        '          CommonMisc CommonSystem CommonTransforms CommonColor',
+        '          CommonComputationalGeometry FiltersCore FiltersGeneral',
+        '          FiltersSources FiltersGeometry FiltersModeling FiltersExtraction',
+        '          ImagingCore ImagingGeneral ImagingStencil ImagingStatistics',
+        '          IOCore IOXML IOImage IOLegacy IOGeometry InteractionStyle',
+        '          RenderingCore RenderingFreeType RenderingOpenGL2)',
+        '  if(TARGET VTK::${_m})',
+        '    list(APPEND _slicer_vtk_ifacelibs VTK::${_m})',
+        '  endif()',
+        'endforeach()',
+        '',
+        '# -53 fix: CTK closure. The Slicer GUI libs (qSlicerBaseQTGUI, qMRMLWidgets)',
+        '# reference CTK symbols (ctkCollapsibleButton -> CTKWidgets,',
+        '# ctkVTKObjectEventsObserver -> CTKVisualizationVTKCore). The in-tree build',
+        '# carried these via the targets\' interface; our imported targets must too.',
+        '# Glob the system CTK .so set (ctk-devel ships the unversioned dev symlinks',
+        '# at build time; runtime DT_NEEDED resolves to ctk-widgets\' .so.N) rather',
+        '# than hardcode the module list. Empty glob (CTK absent) -> empty list.',
+        'file(GLOB _slicer_ctk_libs "/usr/lib64/libCTK*.so")',
+        '',
+        '# -54 fix: ITK closure. The Slicer C++ libs (vtkITK, MRMLCore, MRMLLogic,',
+        '# SlicerBaseLogic, vtkTeem, vtkSegmentationCore, ITKFactoryRegistration) are',
+        '# built on ITK and the in-tree build propagated the ITK libraries through',
+        '# their interface. Without it, a CLI/loadable module that links a Slicer lib',
+        '# and uses ITK itself (e.g. SlicerDMRI FiberBundleLabelSelect reading images)',
+        '# fails with undefined itk::Object::GetDebug / itk::InvalidRequestedRegionError',
+        '# — SEM\'s ${ITK_LIBRARIES} resolves empty against the install tree. Glob the',
+        '# Fedora ITK .so set (InsightToolkit5-devel ships the unversioned symlinks at',
+        '# build time; runtime DT_NEEDED resolves to the versioned .so). --as-needed',
+        '# prunes the unused ones from the consumer\'s DT_NEEDED. Both casings: the',
+        '# uppercase ITK modules (libITKCommon-*) and the lowercase third-party',
+        '# (libitkvnl-*, libitksys-*). Empty glob (ITK absent) -> empty list.',
+        'file(GLOB _slicer_itk_libs "/usr/lib64/libITK*.so" "/usr/lib64/libitk*.so")',
+        '',
+    ]
     for t in TARGET_LIBS:
         # The Qt-based libs (Slicer's "q"-prefixed targets, qSlicer*/qMRMLWidgets)
         # have public headers that #include <QObject>/<QWidget>, and the in-tree
@@ -288,26 +369,39 @@ def gen_targets(root, module_dir=None):
         # linking them inherit the Qt include dirs (and Qt libs) — otherwise a
         # consumer (e.g. PlusRemote logic using qSlicerCoreApplication) fails on
         # "QObject: No such file or directory".
-        _qt = t.startswith('q')
+        # -53 fix: carry the inter-Slicer link closure on each imported target so
+        # an extension linking one Slicer lib inherits the siblings it depended on
+        # in the in-tree build (e.g. a module Widgets lib links qMRMLWidgets and
+        # needs qSlicerBaseQTGUI/qSlicerBaseQTCore + CTK transitively). Qt libs get
+        # the full Slicer set + Qt + CTK; non-Qt libs get only the other non-Qt
+        # Slicer libs + VTK, so a pure-CLI extension isn't forced to drag in Qt/CTK.
+        _qt = t in QT_TARGET_LIBS
+        if _qt:
+            _siblings = [x for x in (NONQT_TARGET_LIBS + ALLQT_TARGET_LIBS) if x != t]
+            _ifacelibs = ('Qt6::Core;Qt6::Gui;Qt6::Widgets;Qt6::Core5Compat;'
+                          + (';'.join(_siblings) + ';' if _siblings else '')
+                          + '${_slicer_vtk_ifacelibs};${_slicer_ctk_libs};${_slicer_itk_libs}')
+        else:
+            _siblings = [x for x in NONQT_TARGET_LIBS if x != t]
+            _ifacelibs = ((';'.join(_siblings) + ';' if _siblings else '')
+                          + '${_slicer_vtk_ifacelibs};${_slicer_itk_libs}')
         L += [
             'if(NOT TARGET %s)' % t,
             '  add_library(%s SHARED IMPORTED)' % t,
             '  set_target_properties(%s PROPERTIES' % t,
             '    IMPORTED_LOCATION "${_slicer_libdir}/lib%s.so"' % t,
-            '    INTERFACE_INCLUDE_DIRECTORIES "${_slicer_iface_inc}"%s'
-            % ('' if not _qt else ''),
+            '    INTERFACE_INCLUDE_DIRECTORIES "${_slicer_iface_inc}"',
+            '    INTERFACE_LINK_LIBRARIES "%s")' % _ifacelibs,
+            'endif()', '',
         ]
-        if _qt:
-            L += ['    INTERFACE_LINK_LIBRARIES "Qt6::Core;Qt6::Gui;Qt6::Widgets;Qt6::Core5Compat")']
-        else:
-            L[-1] += ')'
-        L += ['endif()', '']
 
     # Imported targets for the installed loadable-module libraries (in
     # qt-loadable-modules/). Extensions link these by bare target name
     # (e.g. vtkSlicerMarkupsModuleMRML); without imported targets CMake emits
     # "-lvtkSlicerMarkupsModuleMRML" and the linker can't find it (non-standard
     # dir). Scan the install dir so every module lib resolves to its full path.
+    # They also carry the VTK closure + Slicer include base so consumers inherit
+    # both (the module MRML/Logic headers #include VTK and Slicer base headers).
     if module_dir and os.path.isdir(module_dir):
         L += ['', '# loadable-module libraries (qt-loadable-modules)']
         for so in sorted(os.listdir(module_dir)):
@@ -319,7 +413,9 @@ def gen_targets(root, module_dir=None):
                 'if(NOT TARGET %s)' % tname,
                 '  add_library(%s SHARED IMPORTED)' % tname,
                 '  set_target_properties(%s PROPERTIES' % tname,
-                '    IMPORTED_LOCATION "${_slicer_libdir}/qt-loadable-modules/%s")' % so,
+                '    IMPORTED_LOCATION "${_slicer_libdir}/qt-loadable-modules/%s"' % so,
+                '    INTERFACE_INCLUDE_DIRECTORIES "${_slicer_iface_inc}"',
+                '    INTERFACE_LINK_LIBRARIES "${_slicer_vtk_ifacelibs};${_slicer_itk_libs}")',
                 'endif()',
             ]
     return "\n".join(L) + "\n"

@@ -16,11 +16,11 @@
 # appear in Slicer without them present.
 
 %global slicer_inst %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-openlifu
 Version:        1.19.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        OpenLIFU (Low-Intensity Focused Ultrasound) extension for 3D Slicer
 
 # Extension source is AGPL-3.0; see the bundled LICENSE.txt.
@@ -71,6 +71,10 @@ python3 %{SOURCE1} \
 %doc README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.19.0-2
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Sat Jun 13 2026 Morgan Hough <morgan.hough@gmail.com> - 1.19.0-1
 - Initial package. SlicerOpenLIFU v1.19.0 (Openwater Low-Intensity Focused
   Ultrasound research platform) as a pure-scripted 3D Slicer extension: install

@@ -1,0 +1,45 @@
+Index: occt-V7_9_1/CMakeLists.txt
+===================================================================
+--- occt-V7_9_1.orig/CMakeLists.txt
++++ occt-V7_9_1/CMakeLists.txt
+@@ -648,7 +648,8 @@ endif()
+ if (CAN_USE_TBB AND USE_TBB)
+   add_definitions (-DHAVE_TBB)
+   OCCT_ADD_VCPKG_FEATURE ("tbb")
+-  list (APPEND OCCT_3RDPARTY_CMAKE_LIST "adm/cmake/tbb")
++  #list (APPEND OCCT_3RDPARTY_CMAKE_LIST "adm/cmake/tbb")
++  find_package(TBB CONFIG REQUIRED)
+ elseif (NOT CAN_USE_TBB)
+   OCCT_CHECK_AND_UNSET ("USE_TBB")
+   OCCT_UNSET_VCPKG_FEATURE ("tbb")
+Index: occt-V7_9_1/adm/cmake/tbb.cmake
+===================================================================
+--- occt-V7_9_1.orig/adm/cmake/tbb.cmake
++++ occt-V7_9_1/adm/cmake/tbb.cmake
+@@ -175,21 +175,21 @@ else ()
+     if ((NOT "${3RDPARTY_TBB_DIR}" STREQUAL "") AND (EXISTS "${3RDPARTY_TBB_DIR}"))
+       # Find TBB 2021.5 in existing directory.
+       find_package (
+-      TBB 2021.5
++      TBB
+       PATHS "${3RDPARTY_TBB_DIR}" NO_DEFAULT_PATH
+       REQUIRED
+       CONFIG)
+     else()
+-      # Find TBB 2021.5 in system directory.
++      # Find TBB 2021 in system directory.
+       find_package (
+-      TBB 2021.5
++      TBB
+       REQUIRED
+       CONFIG)
+     endif()
+   else()
+-    # Find TBB 2021.5 in system directory.
++    # Find TBB 2021 in system directory.
+     find_package (
+-    TBB 2021.5
++    TBB
+     REQUIRED
+     CONFIG)
+   endif()

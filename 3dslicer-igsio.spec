@@ -10,11 +10,11 @@
 %global snapdate    20260513
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-igsio
 Version:        1.0
-Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.4.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        IGSIO sequence/video tools for 3D Slicer (SlicerIGT dependency)
 
 # 3D Slicer / IGSIO extension: BSD-style.
@@ -28,7 +28,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 BuildRequires:  git-core
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-54
+BuildRequires:  3dslicer-devel >= 5.12.1
 # IGSIO library + its install-tree IGSIOConfig.cmake (igsio >= 0.2).
 BuildRequires:  igsio-devel >= 1.0-0.2
 
@@ -132,7 +132,7 @@ cp -an SlicerIGSIOCommon/*.h "$_si_inc/"
 cat > %{buildroot}%{slicer_inst}/lib/%{slicer_subdir}/SlicerIGSIOConfig.cmake <<'SICFG'
 # Relocatable install-tree SlicerIGSIOConfig.cmake (Fedora 3dslicer-igsio package).
 get_filename_component(_sigsio_libdir "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
-get_filename_component(_sigsio_incdir "${_sigsio_libdir}/../../include/Slicer-5.11" ABSOLUTE)
+get_filename_component(_sigsio_incdir "${_sigsio_libdir}/../../include/Slicer-5.12" ABSOLUTE)
 
 # Pull in the system IGSIO (the in-tree SlicerIGSIO build does this via its custom
 # config: include(${IGSIO_DIR}/IGSIOConfig.cmake)). Provides vtkIGSIOCommon etc.
@@ -163,6 +163,10 @@ SICFG
 %doc README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.4.20260513git82345aea
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260513git82345aea
 - Ship SlicerIGSIOCommon headers + a relocatable SlicerIGSIOConfig.cmake so
   SlicerIGT can find_package(SlicerIGSIO) (the Slicer generate-config macro only

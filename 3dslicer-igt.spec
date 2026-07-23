@@ -14,11 +14,11 @@
 %global snapdate    20260408
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-igt
 Version:        1.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-guided therapy / navigation toolkit for 3D Slicer (SlicerIGT)
 
 License:        BSD-3-Clause
@@ -31,7 +31,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 BuildRequires:  git-core
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-54
+BuildRequires:  3dslicer-devel >= 5.12.1
 # SlicerIGSIO extension (ships SlicerIGSIOConfig.cmake + libvtkSlicerIGSIOCommon)
 # and the IGSIO library (its IGSIOConfig.cmake).
 BuildRequires:  3dslicer-igsio >= 1.0-0.3
@@ -103,6 +103,15 @@ system igsio library.
 # the install tree doesn't ship).
 sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 
+# VolumeResliceDriver ships a Qt Designer plugin that forces its build-tree output
+# into ${Slicer_DIR}/bin. Upstream (superbuild) Slicer_DIR is the writable build
+# tree; our Slicer_DIR is the read-only SYSTEM install (/usr/lib/slicer/lib/Slicer-5.12),
+# so ninja fails: "mkdir(.../Slicer-5.12/bin): Permission denied". The Designer plugin
+# is dev-only tooling (the runtime widget is in qSlicer...ModuleWidgets); redirect its
+# output into the build tree so it compiles and installs under the buildroot normally.
+sed -i 's|set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${Slicer_DIR}/bin)|set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/Designer)|' \
+    VolumeResliceDriver/Widgets/DesignerPlugins/CMakeLists.txt
+
 # CTK/Slicer headers the modules include (e.g. ctkLayoutManager.h -> <QDomDocument>)
 # pull in Qt6 modules beyond the Core/Gui/Widgets/Core5Compat that the foundation
 # imported targets carry in their interface. Add the broader Qt6 include/link set at
@@ -152,10 +161,22 @@ PYEOF
     > %{_builddir}/igt.files
 
 %files -f %{_builddir}/igt.files
-%license LICENSE
+%license LICENSE.txt
 %doc README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.5.20260408git47c8b3a5
+- Fix %license: the SlicerIGT license file is LICENSE.txt, not LICENSE.
+
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.4.20260408git47c8b3a5
+- Redirect VolumeResliceDriver Qt Designer plugin output out of the read-only
+  system ${Slicer_DIR}/bin into the build tree (fixes mkdir Permission denied
+  under a system-installed Slicer_DIR).
+
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.3.20260408git47c8b3a5
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Mon Jun 23 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260408git47c8b3a5
 - First real build fixes (from a -k0 harvest of all 18 modules): (1) broaden the
   Qt6 include/link set at top scope — CTK/Slicer headers (ctkLayoutManager.h ->

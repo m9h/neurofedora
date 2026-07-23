@@ -16,11 +16,11 @@
 %global snapdate    20260601
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-spharm-pdm
 Version:        2.0.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Spherical-harmonics point-distribution shape analysis for 3D Slicer (SlicerSALT)
 
 License:        Apache-2.0
@@ -34,7 +34,7 @@ BuildRequires:  python3-devel
 # Common.cmake does find_package(Git REQUIRED) at configure time.
 BuildRequires:  git-core
 
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-50
+BuildRequires:  3dslicer-devel >= 5.12.1
 
 # Full Qt6 set find_package(Slicer)'s Qt check demands.
 BuildRequires:  cmake(Qt6Core)
@@ -147,6 +147,10 @@ done
 %doc README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.2.20260601git522de7b5
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Thu Jun 18 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.1.20260601git522de7b5
 - Initial package. SPHARM-PDM (spherical-harmonics PDM shape analysis CLIs +
   scripted modules) built non-superbuild against the system 3dslicer foundation

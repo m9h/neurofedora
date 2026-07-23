@@ -31,6 +31,7 @@ declare -A EXT_MODULES=(
     [3dslicer-srep]="SRep|SRepCreator"
     [3dslicer-openigtlink]="OpenIGTLinkIF|OpenIGTLinkRemote"
     [3dslicer-dmri]="TractographyDisplay|DWIToDTIEstimation"
+    [3dslicer-igt]="FiducialRegistrationWizard|Watchdog|PivotCalibration|VolumeResliceDriver|BreachWarning"
     [3dslicer-rt]="DicomRtImportExport|DoseVolumeHistogram"
     [3dslicer-jupyter]="JupyterKernel"
 )

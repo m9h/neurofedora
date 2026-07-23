@@ -14,12 +14,12 @@
 %global snapdate    20260204
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 %global qtsm          %{slicer_inst}/lib/%{slicer_subdir}/qt-scripted-modules
 
 Name:           3dslicer-monailabel
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        MONAI Label interactive AI annotation client for 3D Slicer
 
 License:        Apache-2.0
@@ -81,6 +81,10 @@ echo "%dir %{qtsm}/MONAILabelReviewerLib" >> %{_builddir}/monai.files
 %doc plugins/slicer/README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260204git6ed8f8c6
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260204git6ed8f8c6
 - Initial package. SlicerMONAILabel (MONAILabel + MONAILabelReviewer modules)
   as a pure-scripted 3D Slicer extension installed into qt-scripted-modules.

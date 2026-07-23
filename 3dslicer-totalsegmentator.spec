@@ -14,12 +14,12 @@
 %global snapdate    20260528
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 %global qtsm          %{slicer_inst}/lib/%{slicer_subdir}/qt-scripted-modules
 
 Name:           3dslicer-totalsegmentator
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        TotalSegmentator automatic AI segmentation extension for 3D Slicer
 
 License:        Apache-2.0
@@ -72,6 +72,10 @@ install -m0644 TotalSegmentator/Resources/Icons/*.png %{buildroot}%{qtsm}/Resour
 %{qtsm}/Resources/Icons/TotalSegmentator.png
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260528git519af9cb
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Tue Jun 16 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260528git519af9cb
 - Initial package. SlicerTotalSegmentator as a pure-scripted 3D Slicer extension:
   install the TotalSegmentator module + resources into qt-scripted-modules, no

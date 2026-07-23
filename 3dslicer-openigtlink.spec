@@ -18,11 +18,11 @@
 %global snapdate    20260603
 
 %global slicer_inst   %{_prefix}/lib/slicer
-%global slicer_subdir Slicer-5.11
+%global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-openigtlink
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        OpenIGTLink real-time IGT communication extension for 3D Slicer
 
 # 3D Slicer license: BSD-style.
@@ -38,7 +38,7 @@ BuildRequires:  gcc-c++
 BuildRequires:  python3-devel
 
 # Foundation + the openigtlink chain this extension links against.
-BuildRequires:  3dslicer-devel >= 5.11.0~pre.20260517git208adb86-46
+BuildRequires:  3dslicer-devel >= 5.12.1
 BuildRequires:  openigtlink-devel >= 3.1.0
 BuildRequires:  openigtlinkio-devel
 
@@ -112,7 +112,7 @@ sed -i '/include(${Slicer_EXTENSION_CPACK})/d' CMakeLists.txt
 # TEMP test (proper fix = INTERFACE_LINK_LIBRARIES Qt6 on the q* imported targets
 # in foundation -47): some module logic libs (e.g. PlusRemote) use
 # qSlicerCoreApplication, so the Qt headers must be on the path.
-sed -i 's|^include(${Slicer_USE_FILE})|&\ninclude_directories("/usr/include/qt6" "/usr/include/qt6/QtCore" "/usr/include/qt6/QtGui" "/usr/include/qt6/QtWidgets" "/usr/include/qt6/QtCore5Compat")\nlink_directories("/usr/lib/slicer/lib/Slicer-5.11/qt-loadable-modules")|' CMakeLists.txt
+sed -i 's|^include(${Slicer_USE_FILE})|&\ninclude_directories("/usr/include/qt6" "/usr/include/qt6/QtCore" "/usr/include/qt6/QtGui" "/usr/include/qt6/QtWidgets" "/usr/include/qt6/QtCore5Compat")\nlink_directories("/usr/lib/slicer/lib/Slicer-5.12/qt-loadable-modules")|' CMakeLists.txt
 
 # Drop the PlusRemote + UltrasoundRemoteControl modules: they are remote-control
 # front-ends for the PLUS real-time ultrasound acquisition toolkit (not packaged,
@@ -148,6 +148,10 @@ sed -i -e '/add_subdirectory(PlusRemote)/d' \
 %doc README.md
 
 %changelog
+* Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20260603git85e5f764
+- Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
+  3dslicer-devel floor to 5.12.1.
+
 * Sun Jun 14 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20260603git85e5f764
 - Initial real package. SlicerOpenIGTLink (OpenIGTLinkIF + remote-control
   modules) built non-superbuild against system 3dslicer-devel, openigtlink 3.x,
