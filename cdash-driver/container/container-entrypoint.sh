@@ -41,6 +41,13 @@ run_cycle() {
   echo "--- builddep (inside container; host VTK untouched) ---"
   dnf -y builddep --allowerasing "$RPMBUILD/SPECS/$SPEC"
   SLICER_CTEST_SPEC="$SPEC" /opt/farm/run-slicer-ctest.sh "$MODEL"
+  # Per-node extension load-smoke: install the COPR Slicer + extension set and
+  # assert each extension's modules register. Non-fatal — the core build-ctest
+  # above is the primary dashboard result; this is added coverage.
+  if [ -x /opt/farm/slicer-ext-smoke.sh ]; then
+    SLICER_CTEST_SPEC="$SPEC" /opt/farm/slicer-ext-smoke.sh "$MODEL" \
+      || echo "[ext-smoke failed; continuing]"
+  fi
   cd /; rm -rf "$t"
 }
 

@@ -37,7 +37,20 @@ while true; do
   SLICER_CTEST_SPEC="$SPEC" "$DRIVER_DIR/run-slicer-ctest.sh" "$MODEL" >"$log" 2>&1
   rc=$?
   echo "[loop] $ts cycle exit=$rc"
-  # keep only the last 20 cycle logs
+
+  # Per-node extension load-smoke: install the COPR Slicer + extension set and run
+  # the extension-aware CDash smoke, so EVERY farm node validates the packaged
+  # extension modules (not just the core build-tree ctest above). Non-fatal — the
+  # verdict is recorded on CDash and in the local log; a failure here must not stop
+  # the 24/7 build loop.
+  if [[ -x "$DRIVER_DIR/slicer-ext-smoke.sh" ]]; then
+    ext_log="$STATE/extsmoke-$ts.log"
+    SLICER_CTEST_SPEC="$SPEC" "$DRIVER_DIR/slicer-ext-smoke.sh" "$MODEL" >"$ext_log" 2>&1
+    echo "[loop] $ts ext-smoke exit=$?"
+  fi
+
+  # keep only the last 20 cycle + ext-smoke logs
   ls -1t "$STATE"/cycle-*.log 2>/dev/null | tail -n +21 | xargs -r rm -f
+  ls -1t "$STATE"/extsmoke-*.log 2>/dev/null | tail -n +21 | xargs -r rm -f
   sleep "$COOLDOWN"
 done

@@ -18,7 +18,7 @@ RUN dnf -y install dnf-plugins-core \
       python3-vtkAddon python3-dicomweb-client python3-highdicom python3-legacy-cgi \
  && dnf clean all
 
-COPY run-slicer-ctest.sh container-entrypoint.sh /opt/farm/
+COPY run-slicer-ctest.sh container-entrypoint.sh slicer-ext-smoke.sh /opt/farm/
 RUN chmod +x /opt/farm/*.sh
 ENV RPMBUILD=/root/rpmbuild
 ENTRYPOINT ["/opt/farm/container-entrypoint.sh"]
