@@ -25,3 +25,12 @@ IIT_Atlas_*.zip
 # --- large source trees pulled in as plain tarballs ---
 morpheus-*.tar.gz
 OrcaSlicer-*.tar.gz
+
+# --- snapshot / vendored tarballs with no committable upstream release URL ---
+act-r-*.tar.gz
+antimony-*.tar.gz
+elan-*-vendor.tar.xz
+leangz-*-vendor.tar.gz
+libroadrunner-*.tar.gz
+libsbmlnetwork-*.tar.gz
+napari-openflexure-*.tar.gz
