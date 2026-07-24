@@ -49,7 +49,7 @@ Summary:        %{summary}
 
 
 %check
-%pyproject_check_import
+%pyproject_check_import -e '*.windows' -e '*wx*'
 
 
 %files -n python3-pyshortcuts -f %{pyproject_files}

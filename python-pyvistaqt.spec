@@ -31,6 +31,9 @@ Summary:        %{summary}
 
 %prep
 %autosetup -p1 -n pyvistaqt-%{version}
+# vcs_versioning (a redundant scm build tool) is not packaged in Fedora;
+# setuptools_scm (present) handles versioning. Drop it from build-system.requires.
+sed -i 's/, *"vcs_versioning[^"]*"//; s/"vcs_versioning[^"]*", *//' pyproject.toml
 
 
 %generate_buildrequires
