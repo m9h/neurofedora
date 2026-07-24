@@ -8,30 +8,34 @@
 
 Name:           InsightToolkit6
 Version:        6.0.0~b02
-Release:        7%{?dist}
+Release:        9%{?dist}
 Summary:        Insight Segmentation and Registration Toolkit (ITK) v6
 
 License:        Apache-2.0
 URL:            https://itk.org/
 Source0:        https://github.com/InsightSoftwareConsortium/ITK/archive/v%{itk_ver}/ITK-%{itk_ver}.tar.gz
+# Install the generated itk_expat.h wrapper header (upstream CMakeLists
+# misses the install() rule). Without it every downstream that consumes
+# ITK6 gifti_io.h FTBFS — surfaced by ANTs3 build 10529612.
+Patch0:         InsightToolkit6-install-itk-expat-header.patch
 # Remote modules (pre-populated for offline mock/COPR builds)
 # GenericLabelInterpolator: required by ANTs
-%global glinterp_commit cb171b099c476d160c79091b3869d2372b92ec6b
+%global glinterp_commit ebf2436469ccf82c08fab54b7446f699ad0eae01
 Source1:        https://github.com/InsightSoftwareConsortium/ITKGenericLabelInterpolator/archive/%{glinterp_commit}/ITKGenericLabelInterpolator-%{glinterp_commit}.tar.gz
 # AdaptiveDenoising: required by ANTs DenoiseImage and antsJointFusion
-%global adenoise_commit 99db4507f05ea933600c41ccf0d53b4202f4cab2
-Source2:        https://github.com/ntustison/ITKAdaptiveDenoising/archive/%{adenoise_commit}/ITKAdaptiveDenoising-%{adenoise_commit}.tar.gz
+%global adenoise_commit 24825c8d246e941334f47968553f0ae388851f0c
+Source2:        https://github.com/InsightSoftwareConsortium/ITKAdaptiveDenoising/archive/%{adenoise_commit}/ITKAdaptiveDenoising-%{adenoise_commit}.tar.gz
 # MorphologicalContourInterpolation: required by some segmentation workflows
-%global morphinterp_commit afecbfd8cdf27db58643938483f58abce02057ad
-Source3:        https://github.com/KitwareMedical/ITKMorphologicalContourInterpolation/archive/%{morphinterp_commit}/ITKMorphologicalContourInterpolation-%{morphinterp_commit}.tar.gz
+%global morphinterp_commit 821bf9b3ef8eaaab10391ed060dc9ca5e4d37b39
+Source3:        https://github.com/InsightSoftwareConsortium/ITKMorphologicalContourInterpolation/archive/%{morphinterp_commit}/ITKMorphologicalContourInterpolation-%{morphinterp_commit}.tar.gz
 # GrowCut: required by ITK-SNAP
-%global growcut_commit a20ea641b1420f6c4b075e99217d5df2d2cc14eb
+%global growcut_commit cbf93ab65117abfbf5798745117e34f22ff04728
 Source4:        https://github.com/InsightSoftwareConsortium/ITKGrowCut/archive/%{growcut_commit}/ITKGrowCut-%{growcut_commit}.tar.gz
 # SimpleITKFilters: required by SimpleITK
-%global sitk_commit 526d6c1140d76f2e5e198ff467371c2d74dc25eb
+%global sitk_commit bb896868fc6480835495d0da4356d5db009592a6
 Source5:        https://github.com/InsightSoftwareConsortium/ITKSimpleITKFilters/archive/%{sitk_commit}/ITKSimpleITKFilters-%{sitk_commit}.tar.gz
 # LabelErodeDilate: required by many pipelines
-%global lerode_commit 5850a0f75214b72f0fe6e93f2d6101fc888c95c9
+%global lerode_commit 22d8846dbe4368312aa3aa95ecfe3542ab894e15
 Source6:        https://github.com/InsightSoftwareConsortium/ITKLabelErodeDilate/archive/%{lerode_commit}/ITKLabelErodeDilate-%{lerode_commit}.tar.gz
 
 # --- Dependencies ---
@@ -45,15 +49,13 @@ BuildRequires:  libpng-devel
 BuildRequires:  libjpeg-turbo-devel
 BuildRequires:  zlib-ng-compat-devel
 BuildRequires:  expat-devel
+# Transitive: VtkGlue triggers find_package(VTK) → find_package(CLI11).
+# vtk-devel doesn't yet Require cli11-devel ([[vtk-devel-transitive-requires]]).
+BuildRequires:  cli11-devel
 BuildRequires:  hdf5-devel
 BuildRequires:  gdcm-devel
 BuildRequires:  libminc-devel
-# VtkGlue (the only VTK consumer) is disabled on rawhide (f45+) to dodge the
-# hdf5 cmake re-include guard, so vtk-devel is not needed there. Gating it off
-# also decouples ITK6 rawhide from VTK rebuild churn (e.g. gdal SONAME bumps).
-%if 0%{?fedora} < 45
 BuildRequires:  vtk-devel
-%endif
 BuildRequires:  double-conversion-devel
 BuildRequires:  json-devel
 BuildRequires:  utf8cpp-devel
@@ -82,10 +84,7 @@ an extensive suite of software tools for image analysis.
 %package devel
 Summary:        Development files for ITK v6
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-# No VtkGlue on rawhide (f45+) -> no VTK linkage -> no vtk-devel dep there.
-%if 0%{?fedora} < 45
 Requires:       vtk-devel
-%endif
 Requires:       fftw-devel
 Requires:       hdf5-devel
 
@@ -102,7 +101,7 @@ Example source code, CMakeLists.txt, and test data for building
 applications with ITK 6. Use as starting points for new projects.
 
 %prep
-%autosetup -n ITK-%{itk_ver}
+%autosetup -p1 -n ITK-%{itk_ver}
 
 # Fix missing include for GCC 14+ (cstdint)
 sed -i 's/#include "itkMacro.h"/#include "itkMacro.h"\n#include <cstdint>/' \
@@ -179,13 +178,12 @@ export CXXFLAGS="%{optflags} -fpermissive -Wno-error=incompatible-pointer-types 
     -DModule_SimpleITKFilters:BOOL=ON \
     -DModule_LabelErodeDilate:BOOL=ON \
 %if 0%{?fedora} >= 45
-    `# rawhide (f45+) hdf5 cmake added a strict re-include guard` \
-    `# (hdf5-targets.cmake:42) that errors when VtkGlue ->` \
-    `# find_package(VTK) -> VTK's find_package(HDF5) re-includes the` \
-    `# system hdf5 export set ("Some (but not all) targets ... already` \
-    `# defined"). With our HDF5 bundled, VtkGlue is the only path that` \
-    `# pulls in the system HDF5, so disable it on rawhide until the` \
-    `# Fedora hdf5 cmake guard is fixed. F44 keeps VtkGlue (no guard).` \
+    `# Rawhide HDF5's cmake export config splits target definitions across` \
+    `# multiple includes, so when VtkGlue triggers find_package(VTK) -> ` \
+    `# find_package(HDF5), the second include trips hdf5-targets.cmake's` \
+    `# "Some (but not all) targets in this export set were already defined"` \
+    `# guard and configure aborts. Disable VtkGlue on rawhide until HDF5` \
+    `# stabilizes upstream; F44 with older HDF5 still ships it.` \
     -DModule_ITKVtkGlue:BOOL=OFF \
 %else
     -DModule_ITKVtkGlue:BOOL=ON \
@@ -216,6 +214,17 @@ mv %{buildroot}%{_bindir}/itkTestDriver %{buildroot}%{_bindir}/itkTestDriver-6.0
 sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
     %{buildroot}%{_libdir}/cmake/ITK-6.0/ITKTargets-*.cmake
 
+# Libraries install to %{_libdir}/ITK-6.0/ for parallel install with ITK5
+# (which uses /usr/lib64/ directly). That dir isn't in the default ldconfig
+# search path, so transitive deps fail at runtime — e.g. libITKIONIFTI loads
+# libITKniftiio via DT_NEEDED with no RPATH hint. Drop an ld.so.conf.d entry
+# so the dynamic linker finds them. The %%ldconfig_scriptlets macro below
+# triggers ldconfig on install/remove.
+install -d %{buildroot}%{_sysconfdir}/ld.so.conf.d
+echo '%{_libdir}/ITK-6.0' > %{buildroot}%{_sysconfdir}/ld.so.conf.d/InsightToolkit6-%{_arch}.conf
+
+%ldconfig_scriptlets
+
 %files
 %license LICENSE
 %doc README.md
@@ -224,6 +233,7 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 %{_bindir}/itkTestDriver-6.0
 %{_libdir}/ITK-6.0/libhdf5.settings
 %{_libdir}/ITK-6.0/pkgconfig/*.pc
+%config(noreplace) %{_sysconfdir}/ld.so.conf.d/InsightToolkit6-%{_arch}.conf
 %{_datadir}/ITK-6.0/
 %{_datadir}/doc/ITK-6.0/
 
@@ -237,28 +247,40 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 %{_includedir}/itkopenjpeg-2.5/
 
 %changelog
-* Wed Jun 24 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-7
-- Fix rawhide (f45+) FTBFS: disable Module_ITKVtkGlue there. Rawhide hdf5
-  added a strict export-set re-include guard (hdf5-targets.cmake:42) that
-  errors when VtkGlue -> find_package(VTK) -> VTK find_package(HDF5)
-  re-includes the system hdf5 targets. With HDF5 bundled, VtkGlue was the
-  only system-HDF5 entry point.
-- Consequently gate vtk-devel BuildRequires/Requires off on f45+, decoupling
-  ITK6 rawhide from VTK rebuild churn (e.g. the gdal 3.13 SONAME bump that
-  made vtk-9.6.2-12 transiently uninstallable). F44 unchanged (VtkGlue ON).
-- Fix bogus changelog weekday (Apr 23 2026 = Thu).
+* Mon Jun  1 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-9
+- Fix install patch DESTINATION: ${ITKExpat_INSTALL_INCLUDE_DIR} is
+  empty in the parent CMakeLists context; switch to global
+  ${ITK_INSTALL_INCLUDE_DIR} which we set explicitly in %%build.
+  Build 10533120 (-8) failed with `install FILES given no DESTINATION!`.
+- Add cli11-devel BR: ITK6 itself builds VtkGlue → find_package(VTK)
+  → find_package(CLI11), same recurring transitive issue from VTK -7+.
 
-* Wed Jun 17 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-6
-- Give Source0 a real URL (github tag archive v6.0b02 -> ITK-6.0b02.tar.gz,
-  extracts to ITK-6.0b02/) so the GitLab-SCM build can fetch the main ITK
-  tarball instead of requiring it in lookaside.
-- Align all six pre-populated remote modules to the exact commits ITK 6.0b02
-  declares in Modules/Remote/*.remote.cmake (the tested-together set). Fixes the
-  source-stage FTBFS: AdaptiveDenoising and MorphologicalContourInterpolation
-  were pinned to InsightSoftwareConsortium URLs that 404 (the repos moved to
-  ntustison/ and KitwareMedical/ and were archived); the other four (GenericLabel
-  Interpolator, GrowCut, SimpleITKFilters, LabelErodeDilate) were stale b01-era
-  commits. All six now match b02 and resolve.
+* Mon Jun  1 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-8
+- Patch upstream: install Modules/ThirdParty/Expat's generated
+  itk_expat.h wrapper header. ITK6 ships gifti_io.h which does
+  `#include <itk_expat.h>` (ITK5 used direct `<expat.h>`), but
+  upstream's CMakeLists never installs the wrapper. Every downstream
+  consumer FTBFS — ANTs3 build 10529612 surfaced it after 118 min
+  of compile. Switch %%autosetup to -p1 to enable Patch0.
+
+* Sat May 30 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-7
+- Ship /etc/ld.so.conf.d/InsightToolkit6-x86_64.conf so the dynamic
+  linker finds libs under %%{_libdir}/ITK-6.0/. Without it, smoke
+  binaries linked against libITKIONIFTI fail at runtime with
+  "libITKniftiio-6.0.so.1: cannot open shared object file" — the
+  DT_NEEDED transitive dep has no RPATH hint and ldconfig wasn't
+  scanning the versioned subdir. Surfaced by neurofedora CDash on
+  the first ITK6 component run after b02-6 install.
+- Add %%ldconfig_scriptlets so install/remove triggers ldconfig.
+
+* Thu May 28 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-6
+- Disable Module_ITKVtkGlue on rawhide (f45+). Rawhide HDF5's
+  hdf5-targets.cmake split-include pattern conflicts with VTK's
+  find_package(HDF5) chain triggered by VtkGlue's init module,
+  failing configure with "Some (but not all) targets in this
+  export set were already defined". F44 with older HDF5 still
+  builds VtkGlue cleanly (build 10522400 succeeded on f44 chroot).
+
 
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-5
 - Resolve parallel-install file conflicts with InsightToolkit5-devel and
@@ -284,7 +306,7 @@ sed -i 's|/bin/itkTestDriver"|/bin/itkTestDriver-6.0"|g' \
 - Bundle GDCM and MINC to fix ITK 6.0 beta target errors
 - Clean up spec file and use versioned install paths
 
-* Thu Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-1
+* Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 6.0.0~b02-1
 - Update to ITK 6.0 beta 2
 - Fix Source0 and build paths
 

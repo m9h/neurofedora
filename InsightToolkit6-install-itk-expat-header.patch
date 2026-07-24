@@ -1,0 +1,25 @@
+Install the generated itk_expat.h wrapper header so downstream consumers
+that include <itk_expat.h> via gifti_io.h can find it. Upstream's
+Modules/ThirdParty/Expat/CMakeLists.txt calls configure_file() to emit
+the header into the build tree but never adds an install() rule —
+gifti_io.h is installed to ITK-6.0/ and references itk_expat.h, so
+without this patch every downstream FTBFS at:
+
+  /usr/include/ITK-6.0/gifti_io.h:5:10: fatal error: itk_expat.h: No such file or directory
+
+Affects ITK_USE_SYSTEM_EXPAT=ON AND OFF paths identically. Uses the
+global ${ITK_INSTALL_INCLUDE_DIR} which is set by the build system
+(per-module ITKExpat_INSTALL_INCLUDE_DIR isn't populated in this
+CMakeLists context — that's only set inside src/CMakeLists.txt).
+
+--- a/Modules/ThirdParty/Expat/CMakeLists.txt
++++ b/Modules/ThirdParty/Expat/CMakeLists.txt
+@@ -42,4 +42,8 @@ endif()
+
+ configure_file(src/itk_expat.h.in src/itk_expat.h)
+
++install(FILES ${ITKExpat_BINARY_DIR}/src/itk_expat.h
++        DESTINATION ${ITK_INSTALL_INCLUDE_DIR}
++        COMPONENT Development)
++
+ itk_module_impl()
