@@ -26,7 +26,6 @@ Summary:        %{summary}
 
 # For official Fedora packages, review which extras should be actually packaged
 # See: https://docs.fedoraproject.org/en-US/packaging-guidelines/Python/#Extras
-%pyproject_extras_subpkg -n python3-nitransforms all,niftiext,niftiexts,test,tests
 
 
 %prep
@@ -35,7 +34,7 @@ Summary:        %{summary}
 
 %generate_buildrequires
 # Keep only those extras which you actually want to package or use during tests
-%pyproject_buildrequires -x all,niftiext,niftiexts,test,tests
+%pyproject_buildrequires
 
 
 %build
