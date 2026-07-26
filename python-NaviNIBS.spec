@@ -26,12 +26,17 @@ Summary:        %{summary}
 
 %prep
 %autosetup -n navinibs-%{version}
-# The upstream poetry pin caps Python at <3.14 (a conservative convention, no
-# code reason). Relax it so the package builds and runs on Fedora's Python 3.14.
-sed -i 's/">=3.12,<3.14"/">=3.12,<3.15"/' pyproject.toml
-# Fedora ships one version per package; relax poetry's exact/caret dep pins
-# (e.g. pyqtgraph=="0.13.3", jsbeautifier<2) to just the package name.
-sed -i -E '/^\[tool\.poetry\.dependencies\]/,/^\[/{ /^python[[:space:]]*=/!{ s/^([A-Za-z0-9_.-]+)[[:space:]]*=[[:space:]]*".*"$/\1 = "*"/ } }' pyproject.toml
+# Adapt pyproject for Fedora: (1) relax the conservative <3.14 python cap
+# (poetry convention, no code reason) so it runs on Fedora 3.14; (2) relax
+# poetry's exact/caret dep pins to bare names (Fedora ships one version each).
+%{python3} - <<'EOF'
+import re
+p="pyproject.toml"; s=open(p).read()
+s=s.replace('">=3.12,<3.14"', '">=3.12,<3.15"')
+s=re.sub(r"(?s)(\[tool\.poetry\.dependencies\]).*?(?=\n\[)",
+         lambda m: re.sub(r'(?m)^(?!python\s*=)([A-Za-z0-9_.-]+)(\s*=\s*)"[^"]*"', r'\1 = "*"', m.group(0)), s)
+open(p,"w").write(s)
+EOF
 
 %generate_buildrequires
 %pyproject_buildrequires
