@@ -29,6 +29,9 @@ Summary:        %{summary}
 # The upstream poetry pin caps Python at <3.14 (a conservative convention, no
 # code reason). Relax it so the package builds and runs on Fedora's Python 3.14.
 sed -i 's/">=3.12,<3.14"/">=3.12,<3.15"/' pyproject.toml
+# Fedora ships one version per package; relax poetry's exact/caret dep pins
+# (e.g. pyqtgraph=="0.13.3", jsbeautifier<2) to just the package name.
+sed -i -E '/^\[tool\.poetry\.dependencies\]/,/^\[/{ /^python[[:space:]]*=/!{ s/^([A-Za-z0-9_.-]+)[[:space:]]*=[[:space:]]*".*"$/\1 = "*"/ } }' pyproject.toml
 
 %generate_buildrequires
 %pyproject_buildrequires
