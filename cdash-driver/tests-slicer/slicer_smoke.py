@@ -67,8 +67,19 @@ with tempfile.TemporaryDirectory() as td:
     ok = slicer.util.saveScene(scene_path)
     check("mrml-save-scene", ok and os.path.exists(scene_path), scene_path)
     slicer.mrmlScene.Clear(0)
-    loaded = slicer.util.loadScene(scene_path)
-    check("mrml-reload-scene", bool(loaded))
+    # bool(loadScene(...)) is NOT a success test. loadScene delegates to
+    # loadNodeFromFile, which returns the first entry of the loaded-nodes
+    # collection -- and a SceneFile load never populates that collection (nodes
+    # go straight into the scene), so it returns None on SUCCESS too. Failure is
+    # signalled by RuntimeError instead. Assert on the observable effect: no
+    # exception, and the node we saved is back in the scene.
+    try:
+        slicer.util.loadScene(scene_path)
+        recovered = slicer.mrmlScene.GetFirstNodeByName("smokeVolume") is not None
+        detail = f"{slicer.mrmlScene.GetNumberOfNodes()} nodes"
+    except Exception as exc:  # noqa: BLE001
+        recovered, detail = False, repr(exc)
+    check("mrml-reload-scene", recovered, detail)
 
 # 5. Real CLI-module execution via SlicerExecutionModel (offline) -----------
 #    Exercises a packaged CLI plugin end to end on synthetic data — the kind of

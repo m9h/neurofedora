@@ -75,7 +75,7 @@
 
 Name:           3dslicer
 Version:        %{slicer_ver}
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Open-source platform for medical image analysis and visualization
 
 License:        BSD-3-Clause
@@ -697,6 +697,63 @@ for x in %{buildroot}%{slicer_inst}/bin/*.xml; do
         ln -sf ../../../bin/"$b.xml" "$_clidir/$b.xml"
     fi
 done
+
+# 4b. CLI module *loading*: step 4 makes the CLI executables discoverable, but
+#     they still cannot run. Each SEM CLI is a thin main() against a companion
+#     lib<Module>Lib.so, and those land in %{slicer_inst}/%{_lib}/ -- a directory
+#     the launcher's [LibraryPaths] does not list. Combined with
+#     CMAKE_SKIP_INSTALL_RPATH=ON (required for Fedora) the binaries carry no
+#     RPATH either, so every one of them dies at exec with
+#     "libFooLib.so: cannot open shared object file". Symptom seen from Python:
+#     slicer.cli.runSync() returns a node whose output volume is empty.
+#     Append %{_lib} to [LibraryPaths] in each launcher settings file (and bump
+#     the section's size= counter, which Qt's QSettings array format requires --
+#     entries past size= are ignored).
+for _ini in %{buildroot}%{slicer_inst}/bin/Slicer*LauncherSettings.ini; do
+    [ -e "$_ini" ] || continue
+    python3 - "$_ini" "%{_lib}" <<'EOF'
+import re, sys
+
+# NOTE: keep this snippet free of bare "printf-style" percent signs -- rpm
+# expands macros in the heredoc before the shell ever sees it, so a stray
+# "%d" would be eaten. The libdir arrives as argv[2] instead.
+path, libdir = sys.argv[1], sys.argv[2]
+entry = "<APPLAUNCHER_SETTINGS_DIR>/../" + libdir
+with open(path, encoding="utf-8") as fh:
+    lines = fh.read().splitlines()
+
+
+def emit(dest, index):
+    dest.append(str(index) + "\\path=" + entry)
+    dest.append("size=" + str(index))
+
+
+out, in_sec, n, done = [], False, 0, False
+for line in lines:
+    if line.strip().startswith("["):
+        if in_sec and not done:          # section ended without a size= line
+            emit(out, n + 1)
+            done = True
+        in_sec = line.strip() == "[LibraryPaths]"
+        out.append(line)
+        continue
+    m = re.match(r"^(\d+)\\path=(.*)$", line)
+    if in_sec and m:
+        n = max(n, int(m.group(1)))
+        if m.group(2) == entry:          # already listed -- stay idempotent
+            done = True
+    if in_sec and line.startswith("size=") and not done:
+        emit(out, n + 1)
+        done = True
+        continue
+    out.append(line)
+if in_sec and not done:                  # [LibraryPaths] ran to end of file
+    emit(out, n + 1)
+
+with open(path, "w", encoding="utf-8") as fh:
+    fh.write("\n".join(out) + "\n")
+EOF
+done
 # ---------------------------------------------------------------------------
 
 # Slicer source bug #5/#8: several installed wizard/utility scripts (e.g.
@@ -757,6 +814,16 @@ ln -sf %{slicer_inst}/Slicer %{buildroot}%{_bindir}/3dslicer
 %{slicer_inst}/lib/Slicer-%{slicer_xy}/CMake/
 
 %changelog
+* Sun Jul 26 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-6
+- Fix ALL 57 CLI modules being non-functional in the shipped RPM. Each SEM CLI
+  is a thin main() against a companion lib<Module>Lib.so installed into
+  /usr/lib/slicer/lib64/, which the launcher's [LibraryPaths] never
+  listed; with CMAKE_SKIP_INSTALL_RPATH=ON they carry no RPATH either, so every
+  CLI died at exec with "libFooLib.so: cannot open shared object file". Append
+  the libdir to [LibraryPaths] (and bump the QSettings size= counter) in each
+  installed launcher settings file. Caught by the CDash slicer-headless-smoke
+  cli-addscalarvolumes check.
+
 * Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 5.12.1-5
 - Fix extension-facing SlicerConfig.cmake: gen-install-config.py hardcoded
   Slicer-5.11 subdir (now derived from the install dir) so extensions consuming
