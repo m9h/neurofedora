@@ -7,9 +7,7 @@ Summary:        Software for neuronavigated non-invasive brain stimulation
 
 License:        LGPL-3.0-only
 URL:            https://github.com/PrecisionNeuroLab/NaviNIBS
-Source0:        %{pypi_source %{pypi_name} %{version} tar.gz}
-# The PyPI sdist (poetry) does not bundle the license text; take it from the repo.
-Source1:        https://raw.githubusercontent.com/PrecisionNeuroLab/NaviNIBS/v%{version}/LICENSE.txt
+Source0:        %{pypi_source navinibs %{version} tar.gz}
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
@@ -41,13 +39,12 @@ sed -i 's/">=3.12,<3.14"/">=3.12,<3.15"/' pyproject.toml
 %install
 %pyproject_install
 %pyproject_save_files -l %{pypi_name}
-install -Dpm0644 %{SOURCE1} -t %{buildroot}%{_licensedir}/python3-%{pypi_name}
 
 %check
 %pyproject_check_import
 
 %files -n python3-%{pypi_name} -f %{pyproject_files}
-%license %{_licensedir}/python3-%{pypi_name}/LICENSE.txt
+%license COPYING COPYING.LESSER
 %doc README.md
 
 %changelog
