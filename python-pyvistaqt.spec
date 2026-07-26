@@ -12,6 +12,7 @@ Source:         %{pypi_source pyvistaqt}
 
 BuildArch:      noarch
 BuildRequires:  python3-devel
+BuildRequires:  python3-pyside6
 
 
 # Fill in the actual package description to submit package to Fedora
