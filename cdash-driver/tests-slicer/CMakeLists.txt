@@ -19,7 +19,15 @@ foreach(_cand IN ITEMS "${_slicer_cap}" "${_slicer_low}")
     break()
   endif()
   if(_cand AND EXISTS "${_cand}")
-    execute_process(COMMAND "${_cand}" --version
+    # QT_QPA_PLATFORM=offscreen is REQUIRED here, not just on the tests: under
+    # the nightly cron there is no display, no DBUS and no XDG_RUNTIME_DIR, and
+    # a bare "Slicer --version" then exits 1 with "SlicerApp-real exit
+    # abnormally". The probe would reject the real launcher and fail the whole
+    # component at configure time (0 tests reported, which reads as "no data"
+    # rather than "broken"). The tests get this via their ENVIRONMENT property;
+    # execute_process does not inherit that, so set it explicitly.
+    execute_process(COMMAND ${CMAKE_COMMAND} -E env QT_QPA_PLATFORM=offscreen
+                            "${_cand}" --version
                     OUTPUT_VARIABLE _cand_out ERROR_QUIET
                     RESULT_VARIABLE _cand_rc TIMEOUT 120)
     if(_cand_rc EQUAL 0 AND _cand_out MATCHES "^Slicer ")
