@@ -19,7 +19,7 @@
 
 Name:           3dslicer-srep
 Version:        1.0
-Release:        0.7.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.8.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Skeletal representation (s-rep) shape modeling for 3D Slicer (SlicerSALT)
 
 License:        Apache-2.0
@@ -76,6 +76,17 @@ BuildRequires:  jsoncpp-devel
 BuildRequires:  teem-devel
 
 Requires:       3dslicer
+# SRepCreateAndRefine is a PipelineCreator-generated module: it imports
+# PipelineCreator/Widgets at module scope and decorates its entry point with
+# @slicerPipeline, so it cannot load without the Pipelines extension.
+Requires:       3dslicer-pipelines
+# EvolutionarySRep's declared runtime set (see EvolutionarySRepUtil). Upstream
+# pins nlopt==2.7.1, but that is a lockfile-style pin, not a real API bound --
+# Fedora ships 2.10.0 and the module only uses the stable opt/optimize API.
+Requires:       python3-lapy
+Requires:       python3-pyacvd
+Requires:       python3-pyvista
+Requires:       python3-NLopt
 
 %description
 SlicerSkeletalRepresentation brings skeletal representations (s-reps) to 3D
@@ -248,6 +259,41 @@ open(base + ".cxx", "w").write(c)
 print("ported SRep SubjectHierarchy plugin to the 5.12 qSlicerTerminologyMetadata API")
 PYEOF
 
+# EvolutionarySRepUtil bootstraps its own dependencies at IMPORT time: it calls
+# ensure_requirements(), and on ImportError falls through to
+# install_requirements() -> slicer.util.pip_install(). In a distro package that
+# is wrong on every count -- it wants network during a plain module load, it
+# would write into a read-only /usr, and headless it does not even get that far
+# (slicer.util.pip_install raises "PythonSlicer executable not found"). The
+# RuntimeError escapes the `except ImportError`, so EvolutionarySRep failed to
+# instantiate outright and Slicer dropped it.
+# The four requirements are now real Requires (lapy, pyacvd, pyvista, NLopt), so
+# drop the pip fallback and let a genuinely missing dependency surface as the
+# plain ImportError it is.
+python3 - <<'PYEOF'
+p = "EvolutionarySRep/EvolutionarySRepUtil/__init__.py"
+s = open(p, encoding="utf-8").read()
+
+old = (
+    "try:\n"
+    "    ensure_requirements()\n"
+    "except ImportError:\n"
+    "    install_requirements()\n"
+)
+new = (
+    "# Fedora packaging: the requirements above are RPM Requires, so there is\n"
+    "# nothing to install at import time. A missing one is a packaging bug and\n"
+    "# should raise ImportError rather than trigger a network pip install into\n"
+    "# a read-only prefix.\n"
+    "ensure_requirements()\n"
+)
+assert old in s, "EvolutionarySRepUtil pip bootstrap not found (upstream changed?)"
+s = s.replace(old, new, 1)
+assert "install_requirements()" in s, "install_requirements definition unexpectedly gone"
+open(p, "w", encoding="utf-8").write(s)
+print("removed the EvolutionarySRepUtil pip_install bootstrap")
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSkeletalRepresentation_SUPERBUILD:BOOL=OFF \
@@ -270,6 +316,23 @@ PYEOF
 %doc README.md
 
 %changelog
+* Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.8.20260601gitdd362a12
+- Make EvolutionarySRep and SRepCreateAndRefine actually load.
+  EvolutionarySRepUtil bootstrapped its own dependencies at import time
+  (ensure_requirements, falling through to slicer.util.pip_install on
+  ImportError). In a distro package that wants network during a plain module
+  load and would write into a read-only /usr; headless it never gets that far --
+  pip_install raises "PythonSlicer executable not found", and that RuntimeError
+  escapes the 'except ImportError', so the module failed to instantiate and
+  Slicer dropped it. Drop the pip fallback and declare the four requirements as
+  real Requires (python3-lapy, python3-pyacvd, python3-pyvista, python3-NLopt);
+  upstream's nlopt==2.7.1 is a lockfile pin, not an API bound.
+  SRepCreateAndRefine is a PipelineCreator-generated module (module-scope
+  PipelineCreator/Widgets imports plus an @slicerPipeline decorator), so it
+  cannot load without the Pipelines extension -- add Requires: 3dslicer-pipelines,
+  newly packaged for this. Both caught by the new CDash
+  modules-all-instantiated check.
+
 * Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.7.20260601gitdd362a12
 - Drop now-dead qSlicerTerminologyItemDelegate.h include (all *Role uses removed
   by the 5.12 terminology port; header not on the 5.12 install include path).
