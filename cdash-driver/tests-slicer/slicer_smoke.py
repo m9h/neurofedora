@@ -57,6 +57,27 @@ check("loadable-modules-present", len(module_names) > 0, f"{len(module_names)} m
 for expected in ("Volumes", "Models", "Data"):
     check(f"core-module-{expected}", expected in module_names)
 
+# 3b. Modules that were DISCOVERED but failed to instantiate ------------------
+#     A scripted module that raises on import is found by the factory, logged to
+#     stderr as "The following modules failed to be instantiated", and then
+#     silently dropped. The extension-group check in section 6 does not catch it
+#     when a sibling module in the same extension registered fine, so a broken
+#     module can ship unnoticed (this is how three of them did). The factory
+#     manager tracks both sets, so the difference is the exact failure list.
+try:
+    _fm = slicer.app.moduleManager().factoryManager()
+    _registered = set(_fm.registeredModuleNames())
+    _instantiated = set(_fm.instantiatedModuleNames())
+    # modulesToIgnore is a property (a tuple), not a method -- deliberately
+    # skipped modules are not failures.
+    _ignored = set(getattr(_fm, "modulesToIgnore", ()) or ())
+    _failed = sorted(_registered - _instantiated - _ignored)
+    check("modules-all-instantiated", not _failed,
+          ", ".join(_failed) if _failed
+          else f"{len(_instantiated)}/{len(_registered)} instantiated")
+except Exception as exc:  # noqa: BLE001
+    check("modules-all-instantiated", False, repr(exc))
+
 # 4. MRML scene round-trip (offline) ----------------------------------------
 scene = slicer.mrmlScene
 vol = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode", "smokeVolume")

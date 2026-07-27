@@ -20,7 +20,7 @@
 
 Name:           3dslicer-spharm-pdm
 Version:        2.0.0
-Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.3.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Spherical-harmonics point-distribution shape analysis for 3D Slicer (SlicerSALT)
 
 License:        Apache-2.0
@@ -125,6 +125,62 @@ for f in Modules/CLI/MetaMeshTools/MeshMath.cxx \
       && mv "$f.tmp" "$f"
 done
 
+# ShapeAnalysisModule.py hard-imports RigidAlignmentModule at module scope, which
+# makes the WHOLE module fail to instantiate when it is absent -- the packaged
+# Slicer logged "Fail to instantiate module ShapeAnalysisModule" and dropped it.
+# RigidAlignmentModule comes from the GROUPS extension (NIRALUser/GROUPS), which
+# SPHARM-PDM does NOT declare in EXTENSION_DEPENDS and which the Slicer
+# ExtensionsIndex does not carry at all; it only resolves inside a SlicerSALT
+# build where GROUPS is co-installed. So this is an UNDECLARED SOFT dependency,
+# and upstream already treats the feature as optional: RigidAlignmentModuleLogic
+# is referenced at exactly one site (improveCorrespondence), behind
+# `if self.parameters.rigidAlignmentEnabled:`, which defaults to False.
+# Make the import match that intent -- degrade the one optional step instead of
+# losing the entire shape-analysis pipeline -- and raise a message that names the
+# missing extension if a user does enable it. Revisit if GROUPS is ever packaged
+# (it is a superbuild over MeshLib + RigidAlignment + SurfRemesh and depends on
+# ShapePopulationViewer, so it is a chain of its own).
+python3 - <<'PYEOF'
+p = "Modules/Scripted/ShapeAnalysisModule/ShapeAnalysisModule.py"
+s = open(p, encoding="utf-8").read()
+
+old_import = "from RigidAlignmentModule import RigidAlignmentModuleLogic\n"
+new_import = (
+    "try:\n"
+    "  from RigidAlignmentModule import RigidAlignmentModuleLogic\n"
+    "except ImportError:  # GROUPS extension not installed (optional)\n"
+    "  RigidAlignmentModuleLogic = None\n"
+)
+assert old_import in s, "RigidAlignmentModule import not found (upstream changed?)"
+s = s.replace(old_import, new_import, 1)
+
+old_use = "      logic = RigidAlignmentModuleLogic()\n"
+new_use = (
+    "      if RigidAlignmentModuleLogic is None:\n"
+    "        raise RuntimeError(\n"
+    "          'Rigid alignment requires the GROUPS extension, which provides the '\n"
+    "          'RigidAlignmentModule and is not installed. Disable rigid alignment '\n"
+    "          'to run the rest of the pipeline.')\n"
+    "      logic = RigidAlignmentModuleLogic()\n"
+)
+assert old_use in s, "RigidAlignmentModuleLogic() call site not found (upstream changed?)"
+s = s.replace(old_use, new_use, 1)
+
+# Upstream writes the warning-dialog title as ' /!\ WARNING /!\ ' in a non-raw
+# string. "\ " is not a valid escape, so every import emits five SyntaxWarnings
+# and a future Python turns them into a SyntaxError. Escape the backslashes.
+bad, good = "' /!\\ WARNING /!\\ '", "' /!\\\\ WARNING /!\\\\ '"
+n = s.count(bad)
+assert n, "warning-title pattern not found (upstream changed?)"
+s = s.replace(bad, good)
+# (no printf-style formatting here: rpm expands macros in this heredoc first and
+# would eat a bare "%d")
+print("escaped " + str(n) + " invalid backslash-space sequences in the dialog title")
+
+open(p, "w", encoding="utf-8").write(s)
+print("guarded optional RigidAlignmentModule (GROUPS) import in ShapeAnalysisModule")
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSPHARM-PDM_SUPERBUILD:BOOL=OFF \
@@ -147,6 +203,19 @@ done
 %doc README.md
 
 %changelog
+* Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.3.20260601git522de7b5
+- Make ShapeAnalysisModule instantiate without the GROUPS extension. Its bare
+  module-scope 'from RigidAlignmentModule import RigidAlignmentModuleLogic' made
+  the entire module fail to load (Slicer logged "Fail to instantiate module
+  ShapeAnalysisModule" and dropped it), because RigidAlignmentModule ships with
+  GROUPS -- which SPHARM-PDM does not declare in EXTENSION_DEPENDS and which the
+  Slicer ExtensionsIndex does not carry. Upstream already treats the feature as
+  optional (one call site, behind rigidAlignmentEnabled which defaults to False),
+  so guard the import and raise a message naming the missing extension only if a
+  user enables rigid alignment. Also escape the invalid "backslash-space"
+  sequences in the warning-dialog title (5 SyntaxWarnings today, SyntaxError in a
+  future Python). Caught by the new CDash modules-all-instantiated check.
+
 * Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 2.0.0-0.2.20260601git522de7b5
 - Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
   3dslicer-devel floor to 5.12.1.
