@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2026.06
-Release:        6%{?dist}
+Release:        7%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -69,6 +69,10 @@ BuildRequires:  utf8cpp-devel
 BuildRequires:  PEGTL-devel
 BuildRequires:  jsoncpp-devel
 BuildRequires:  python3-devel
+BuildRequires:  pybind11-devel
+BuildRequires:  python3-numpy
+# strip the build-tree RUNPATH off the pybind11 extension in %install
+BuildRequires:  patchelf
 BuildRequires:  json-devel
 BuildRequires:  xz-devel
 BuildRequires:  libogg-devel
@@ -119,8 +123,23 @@ Requires:       dcmtk-devel
 Development files, headers, and CMake config for building applications
 and plugins that use the MITK libraries.
 
+%package -n python3-mitk
+Summary:        Python bindings for MITK (built against system Python 3.14)
+Requires:       mitk%{?_isa} = %{version}-%{release}
+%description -n python3-mitk
+pybind11-based Python bindings for the Medical Imaging Interaction Toolkit,
+built against the system Python and ITK/VTK/DCMTK (no bundled libraries).
+
 %prep
 %autosetup -n MITK-%{version}
+
+# UPSTREAM WORKAROUND: Wrapping/Python/mitk/CMakeLists.txt sets
+#   mitk_PACKAGE_DIR = ${Python3_SITEARCH}/mitk
+# which writes the module into the live interpreter site-packages at build
+# time (outside the buildroot) and desyncs from the install rule. Stage it in
+# the build tree instead, where install(DIRECTORY ${MITK_BINARY_DIR}/python/)
+# picks it up. (Reported upstream.)
+sed -i 's|set(mitk_PACKAGE_DIR "${Python3_SITEARCH}/mitk")|set(mitk_PACKAGE_DIR "${MITK_BINARY_DIR}/python/mitk")|' Wrapping/Python/mitk/CMakeLists.txt
 
 # Install CMake find modules for system libs without CMake configs
 cp %{SOURCE1} CMake/FindANN.cmake
@@ -294,7 +313,10 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
     -DMITK_USE_MatchPoint=OFF \
     -DMITK_USE_ACVD=OFF \
     \
-    -DMITK_USE_Python3=OFF \
+    -DMITK_USE_Python3=ON \
+    -DMITK_USE_pybind11=ON \
+    -DPython3_EXECUTABLE=%{python3} \
+    -DPython3_ROOT_DIR=%{_prefix} \
     -DMITK_USE_SWIG=OFF \
     -DMITK_USE_CppUnit=OFF \
     \
@@ -320,6 +342,33 @@ rm -rf %{buildroot}%{_bindir}/translations
 rm -rf %{buildroot}%{_bindir}/resources
 rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
 
+# --- Python bindings ------------------------------------------------------
+# The pybind11 'mitk' package needs relocating + de-rpath'ing. Two upstream
+# quirks are in play:
+#  * In a non-wheel (Custom) build, Wrapping/Python/mitk/CMakeLists.txt installs
+#    the extension only under -DMITK_BUILD_CONFIGURATION=PythonWheel (the
+#    install(TARGETS mitk_python_bindings)/install(FILES __init__.py) calls are
+#    guarded by `if(MITK_BUILD_CONFIGURATION STREQUAL "PythonWheel")`). What
+#    DOES install it is mitkInstallRules.cmake, which copies the staged
+#    build-tree python/ dir to %{_prefix}/python -- so the package lands at
+#    %{_prefix}/python/mitk (the %prep sed redirected mitk_PACKAGE_DIR into the
+#    build tree so this staging dir exists). Relocate it to the interpreter
+#    sitearch, the canonical location.
+#  * The extension is linked against the not-yet-installed MitkCore/… via
+#    build-tree paths, so it carries a build-dir RUNPATH (+ a trailing empty
+#    entry) that RPM's check-rpaths rejects. Upstream applies a $ORIGIN
+#    INSTALL_RPATH, but only in the PythonWheel config; in a Custom build the
+#    module needs no rpath -- the libMitk*.so install to %{_libdir}, on the
+#    default loader path. Strip it. (Both reported upstream.)
+if [ -d %{buildroot}%{_prefix}/python/mitk ]; then
+  mkdir -p %{buildroot}%{python3_sitearch}
+  cp -a %{buildroot}%{_prefix}/python/mitk %{buildroot}%{python3_sitearch}/
+  rm -rf %{buildroot}%{_prefix}/python
+  patchelf --remove-rpath %{buildroot}%{python3_sitearch}/mitk/mitk.cpython-*.so
+fi
+# reveal the resulting layout for %files tuning on the first NUC build
+echo "=== python3-mitk install tree ==="; find %{buildroot}%{python3_sitearch}/mitk 2>/dev/null | head -40 || echo "NO mitk module"
+
 %files
 %license LICENSE
 %doc README.md
@@ -342,7 +391,20 @@ rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
 %{_includedir}/mitk/
 %{_libdir}/libqtsingleapplication.a
 
+%files -n python3-mitk
+%license LICENSE
+%{python3_sitearch}/mitk/
+
 %changelog
+* Sun Jul 26 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-7
+- Add python3-mitk subpackage (pybind11 bindings against system Python 3.14).
+  MITK_USE_Python3=ON + MITK_USE_pybind11=ON. Upstream only installs the 'mitk'
+  Python package under MITK_BUILD_CONFIGURATION=PythonWheel; in our Custom build
+  cmake_install ships nothing, so %%prep redirects mitk_PACKAGE_DIR into the
+  build tree and %%install copies the staged package (extension + __init__.py +
+  mxn/ DSL) into %%{python3_sitearch}. Strip the build-dir RUNPATH off the
+  extension (check-rpaths rejects it; libMitk*.so are on the default path).
+
 * Thu Jul 17 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-6
 - Complete the %%files fix: MITK 2026.06 installs its shared libs to BOTH %%{_bindir}
   AND %%{_libdir} (dual RUNTIME+LIBRARY destinations). -5 packaged only %%{_bindir},
