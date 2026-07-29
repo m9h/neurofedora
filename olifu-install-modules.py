@@ -1,8 +1,14 @@
 import sys, os, re, shutil
 srcroot, buildroot, slicer_inst = sys.argv[1], sys.argv[2], sys.argv[3]
-SMREL = "lib/Slicer-5.11/qt-scripted-modules"
-destroot = os.path.join(buildroot + slicer_inst, SMREL)
 fileslist = sys.argv[4]
+# The Slicer-X.Y subdir MUST come from the spec (%{slicer_subdir}), not be
+# hardcoded here. It was pinned to "Slicer-5.11" and the 5.12 retarget bumped
+# only the spec's %global, which this script never saw -- so 1.19.0-2 still
+# installed into lib/Slicer-5.11/, a directory the 5.12 launcher does not scan,
+# and every OpenLIFU module silently failed to register.
+slicer_subdir = sys.argv[5]
+SMREL = "lib/%s/qt-scripted-modules" % slicer_subdir
+destroot = os.path.join(buildroot + slicer_inst, SMREL)
 # Directories that already belong to the 3dslicer package (don't %dir-own them):
 SHARED = {"", SMREL, SMREL+"/Resources", SMREL+"/Resources/UI", SMREL+"/Resources/Icons"}
 

@@ -20,7 +20,7 @@
 
 Name:           3dslicer-openlifu
 Version:        1.19.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        OpenLIFU (Low-Intensity Focused Ultrasound) extension for 3D Slicer
 
 # Extension source is AGPL-3.0; see the bundled LICENSE.txt.
@@ -64,13 +64,23 @@ python3 %{SOURCE1} \
     "%{_builddir}/SlicerOpenLIFU-%{version}" \
     "%{buildroot}" \
     "%{slicer_inst}" \
-    "%{_builddir}/openlifu.files"
+    "%{_builddir}/openlifu.files" \
+    "%{slicer_subdir}"
 
 %files -f %{_builddir}/openlifu.files
 %license LICENSE.txt
 %doc README.md
 
 %changelog
+* Wed Jul 29 2026 Morgan Hough <morgan.hough@gmail.com>
+- Actually install into Slicer-5.12. The 1.19.0-2 retarget bumped the spec's
+  %%global slicer_subdir but olifu-install-modules.py hardcoded
+  "lib/Slicer-5.11/qt-scripted-modules" and never saw it, so the modules kept
+  landing in a directory the 5.12 launcher does not scan -- every OpenLIFU module
+  silently failed to register (the package installed clean and looked fine).
+  Pass slicer_subdir into the installer instead of hardcoding it. Caught by the
+  CDash extension-group-OpenLIFUHome check.
+
 * Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.19.0-2
 - Retarget from Slicer-5.11 to Slicer-5.12 core (3dslicer 5.12.1); bump
   3dslicer-devel floor to 5.12.1.
