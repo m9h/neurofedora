@@ -2,7 +2,7 @@
 
 Name:           dtk-qt6
 Version:        1.7.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Inria dtk scientific platform — Qt6 fork
 
 License:        BSD-3-Clause
@@ -93,6 +93,16 @@ done
 sed -i 's/#elif defined(DTK_BUILD_64)/#elif defined(DTK_BUILD_64) \&\& (defined(__x86_64__) || defined(__i386__))/' \
     src/dtkCoreSupport/dtkCpuid.cpp
 
+# Drop the dtkTagCloud widget family from dtkGuiSupport: dtkTagCloud.cpp is EMPTY
+# (the Qt5 implementation of dtkTagCloud/dtkTagScope/dtkTagScopeTag/dtkItemList/
+# dtkItemView/dtkTagController was never ported), but dtkTagCloud.h declares them
+# all with Q_OBJECT + DTKGUISUPPORT_EXPORT, so AUTOMOC emits meta-object code that
+# references their (nonexistent) ctors/vtables -> libdtkGuiSupport.so ships with
+# unresolved internal symbols and NOTHING can link against it (medInria FTBFS at
+# the final link). Nothing in the enabled build (or in medInria) uses dtkTagCloud
+# -- its only consumer is the disabled dtkComposerSupport -- so remove it.
+sed -i '/^  dtkTagCloud\.h$/d; /^  dtkTagCloud\.cpp$/d' src/dtkGuiSupport/CMakeLists.txt
+
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -Wno-error=deprecated-declarations -Wno-deprecated-declarations"
 
@@ -148,6 +158,15 @@ done
 %{_libdir}/cmake/dtk/
 
 %changelog
+* Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.7.1-2
+- Fix unlinkable libdtkGuiSupport: dtkTagCloud.cpp is empty (the dtkTagCloud/
+  dtkTagScope/dtkItemList/dtkItemView/dtkTagController widget family was never
+  ported), yet dtkTagCloud.h declares them Q_OBJECT+EXPORT, so AUTOMOC emitted
+  meta-object code referencing nonexistent implementations and the shared library
+  shipped with ~40 unresolved internal symbols -- making it impossible to link
+  any consumer (medInria failed at the final bin/medInria link). Drop dtkTagCloud
+  from the dtkGuiSupport build (dead, unused by the enabled build and by medInria).
+
 * Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 1.7.1-1
 - Initial dtk-qt6 fork — Qt6 port of upstream dtk 1.7.1, trimmed to
   the subset medInria 5.x consumes. Source at

@@ -1,0 +1,1504 @@
+diff --git a/src/app/medInria/FirstStart/medFirstStartDownloader.cpp b/src/app/medInria/FirstStart/medFirstStartDownloader.cpp
+index c935824..176e295 100644
+--- a/src/app/medInria/FirstStart/medFirstStartDownloader.cpp
++++ b/src/app/medInria/FirstStart/medFirstStartDownloader.cpp
+@@ -70,7 +70,7 @@ bool medFirstStartDownloader::download(QString url, QString path)
+     if (!url.isEmpty() && !path.isEmpty())
+     {
+         QNetworkRequest request(url);
+-        request.setAttribute(QNetworkRequest::FollowRedirectsAttribute, true);
++        request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::NoLessSafeRedirectPolicy);
+         QNetworkReply * reply = d->qnam->get(request);
+ 
+         // Connecting the request manager slots to the signals sent by the reply object
+diff --git a/src/app/medInria/QSingleApplication/qtlocalpeer.cpp b/src/app/medInria/QSingleApplication/qtlocalpeer.cpp
+index 874b1b1..36ea02c 100644
+--- a/src/app/medInria/QSingleApplication/qtlocalpeer.cpp
++++ b/src/app/medInria/QSingleApplication/qtlocalpeer.cpp
+@@ -37,6 +37,7 @@
+ **
+ ****************************************************************************/
+ 
++#include <QRegularExpression>
+ #include "qtlocalpeer.h"
+ 
+ #if !defined(Q_OS_WIN)
+@@ -79,7 +80,7 @@ QtLocalPeer::QtLocalPeer(QObject* parent, const QString &appId)
+ #endif
+         prefix = id.section(QLatin1Char('/'), -1);
+     }
+-    prefix.remove(QRegExp("[^a-zA-Z]"));
++    prefix.remove(QRegularExpression("[^a-zA-Z]"));
+     prefix.truncate(6);
+ 
+     QByteArray idc = id.toUtf8();
+diff --git a/src/app/medInria/areas/homepage/medHomepageArea.cpp b/src/app/medInria/areas/homepage/medHomepageArea.cpp
+index 2f5f72f..90915f8 100644
+--- a/src/app/medInria/areas/homepage/medHomepageArea.cpp
++++ b/src/app/medInria/areas/homepage/medHomepageArea.cpp
+@@ -47,7 +47,6 @@ medHomepageArea::medHomepageArea ( QWidget * parent ) : QWidget ( parent ), d (
+     QFile descriptionFile(":DESCRIPTION.txt");
+     descriptionFile.open(QIODevice::ReadOnly | QIODevice::Text);
+     QTextStream descriptionStream(&descriptionFile);
+-    descriptionStream.setCodec("UTF-8");
+     d->textEdit->setHtml(descriptionStream.readAll());
+     d->textEdit->setReadOnly(true);
+     d->textEdit->setFocusPolicy(Qt::NoFocus);
+diff --git a/src/app/medInria/areas/workspaces/medWorkspaceArea.cpp b/src/app/medInria/areas/workspaces/medWorkspaceArea.cpp
+index bf70e31..95f5523 100644
+--- a/src/app/medInria/areas/workspaces/medWorkspaceArea.cpp
++++ b/src/app/medInria/areas/workspaces/medWorkspaceArea.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QScreen>
+ #include "medWorkspaceArea.h"
+ #include "medWorkspaceArea_p.h"
+ 
+@@ -44,7 +45,6 @@
+ #include <QtGui>
+ #include <QtWidgets>
+ #include <QImage>
+-#include <QtOpenGL/QGLWidget>
+ 
+ medWorkspaceArea::medWorkspaceArea(QWidget *parent) : QWidget(parent), d(new medWorkspaceAreaPrivate)
+ {
+@@ -140,7 +140,7 @@ QPixmap medWorkspaceArea::grabScreenshot()
+         else
+         {
+             // Multiple selected views, we get the screenshot of the whole tab/container
+-            return QPixmap::grabWindow(this->currentWorkspace()->tabbedViewContainers()->currentWidget()->winId());
++            return QApplication::primaryScreen()->grabWindow(this->currentWorkspace()->tabbedViewContainers()->currentWidget()->winId());
+         }
+     }
+     return QPixmap();
+diff --git a/src/app/medInria/main.cpp b/src/app/medInria/main.cpp
+index b5619e7..037bd36 100644
+--- a/src/app/medInria/main.cpp
++++ b/src/app/medInria/main.cpp
+@@ -370,12 +370,11 @@ int main(int argc, char *argv[])
+ 
+     if (parser.isSet("stereo"))
+     {
+-        QGLFormat format;
+-        format.setAlpha(true);
+-        format.setDoubleBuffer(true);
++        QSurfaceFormat format;
++        format.setAlphaBufferSize(8);
++        format.setSwapBehavior(QSurfaceFormat::DoubleBuffer);
+         format.setStereo(true);
+-        format.setDirectRendering(true);
+-        QGLFormat::setDefaultFormat(format);
++        QSurfaceFormat::setDefaultFormat(format);
+     }
+ 
+ #ifdef USE_PYTHON
+diff --git a/src/app/medInria/medApplication.cpp b/src/app/medInria/medApplication.cpp
+index afe9aa9..dc65a75 100644
+--- a/src/app/medInria/medApplication.cpp
++++ b/src/app/medInria/medApplication.cpp
+@@ -217,7 +217,7 @@ QScreen* medApplication::getPreviousScreen()
+         currentScreen = currentScreenQV.toInt();
+ 
+         // If the previous used screen has been removed, initialization
+-        if (currentScreen >= QApplication::desktop()->screenCount())
++        if (currentScreen >= QApplication::screens().count())
+         {
+             currentScreen = 0;
+         }
+diff --git a/src/app/medInria/medMainWindow.cpp b/src/app/medInria/medMainWindow.cpp
+index b04d8d8..59ec8b2 100644
+--- a/src/app/medInria/medMainWindow.cpp
++++ b/src/app/medInria/medMainWindow.cpp
+@@ -422,7 +422,7 @@ void medMainWindow::saveSettings()
+         manager->setValue("medMainWindow", "geometry", this->saveGeometry());
+     }
+     // Keep the current screen for multiple-screens display
+-    manager->setValue("medMainWindow", "currentScreen", QApplication::desktop()->screenNumber(this));
++    manager->setValue("medMainWindow", "currentScreen", QApplication::screens().indexOf(this->screen()));
+ }
+ 
+ void medMainWindow::switchToDefaultWorkSpace()
+@@ -790,7 +790,7 @@ void medMainWindow::filterWSMenu(QString text)
+     }
+     else
+     {
+-        auto textSplited = text.toLower().split(" ", QString::SkipEmptyParts);
++        auto textSplited = text.toLower().split(" ", Qt::SkipEmptyParts);
+         for (auto action : d->wsActions)
+         {
+             bool bActionVisible = false;
+diff --git a/src/app/medInria/medQuickAccessMenu.cpp b/src/app/medInria/medQuickAccessMenu.cpp
+index f9c1777..2ba5fcb 100644
+--- a/src/app/medInria/medQuickAccessMenu.cpp
++++ b/src/app/medInria/medQuickAccessMenu.cpp
+@@ -338,7 +338,7 @@ void medQuickAccessMenu::createHorizontalQuickAccessMenu()
+     backgroundFrame = new QFrame(this);
+     backgroundFrame->setStyleSheet("border-radius: 10px;background-color: rgba(200,200,200,150);");
+     QHBoxLayout *mainWidgetLayout = new QHBoxLayout;
+-    mainWidgetLayout->setMargin(0);
++    mainWidgetLayout->setContentsMargins(0, 0, 0, 0);
+     mainWidgetLayout->setSpacing ( 0 );
+ 
+     QHBoxLayout *shortcutAccessLayout = new QHBoxLayout;
+diff --git a/src/layers/legacy/medUtilities/medUtilities.cpp b/src/layers/legacy/medUtilities/medUtilities.cpp
+index 5a3fe50..db30e4e 100644
+--- a/src/layers/legacy/medUtilities/medUtilities.cpp
++++ b/src/layers/legacy/medUtilities/medUtilities.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <algorithm>
+ #include "medUtilities.h"
+ 
+ #include <medAbstractImageData.h>
+@@ -20,7 +21,6 @@
+ #include <medVtkViewBackend.h>
+ 
+ #include <QApplication>
+-#include <QDesktopWidget>
+ #include <QLineEdit>
+ #include <QInputDialog>
+ #include <QGuiApplication>
+@@ -303,7 +303,7 @@ void medUtilities::computeMedian(QList<double> samples,
+     }
+     else
+     {
+-        qSort(samples.begin(), samples.end());
++        std::sort(samples.begin(), samples.end());
+         if (size % 2 == 0)
+         {
+             *median = (samples[size / 2 - 1] + samples[size / 2]) / 2.0;
+@@ -321,7 +321,7 @@ int medUtilities::getDevicePixelRatio(QMouseEvent* mouseEvent)
+ #if QT_VERSION > QT_VERSION_CHECK(5, 10, 0)
+     devicePixelRatio = QGuiApplication::screenAt(mouseEvent->globalPos())->devicePixelRatio();
+ #else
+-    int screenNumber = QApplication::desktop()->screenNumber(mouseEvent->globalPos());
++    int screenNumber = QApplication::screens().indexOf(QApplication::screenAt(mouseEvent->globalPos()));
+     devicePixelRatio = QGuiApplication::screens().at(screenNumber)->devicePixelRatio();
+ #endif
+     return devicePixelRatio;
+@@ -336,7 +336,7 @@ int medUtilities::getDevicePixelRatio(QMouseEvent* mouseEvent)
+ int medUtilities::getDevicePixelRatio(medAbstractView *view)
+ {
+     auto * widgetView = view->viewWidget();
+-    auto positionView = widgetView->mapToGlobal({widgetView->width()/2,0});
++    auto positionView = widgetView->mapToGlobal(QPoint(widgetView->width()/2,0));
+     int devicePixelRatio = QGuiApplication::screenAt(positionView)->devicePixelRatio();
+ 
+     return devicePixelRatio;
+diff --git a/src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx b/src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx
+index 855e511..d5d6204 100644
+--- a/src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx
++++ b/src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx
+@@ -22,7 +22,9 @@
+ #include <vtkErrorCode.h>
+ #include <vtkExtractEdges.h>
+ #include <vtkIdList.h>
+-#include <vtkLegacyReaderVersion.h>
++// VTK 9.2+ lacks vtkLegacyReaderVersion.h; define constants
++static constexpr int vtkLegacyReaderMajorVersion = 5;
++static constexpr int vtkLegacyReaderMinorVersion = 1;
+ #include <vtkLine.h>
+ #include <vtkLookupTable.h>
+ #include <vtkObjectFactory.h>
+diff --git a/src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx b/src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx
+index 2f1531e..9585a9e 100644
+--- a/src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx
++++ b/src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx
+@@ -17,7 +17,9 @@
+ #include <vtkCommand.h>
+ #include <vtkErrorCode.h>
+ #include <vtkIdList.h>
+-#include <vtkLegacyReaderVersion.h>
++// VTK 9.2+ lacks vtkLegacyReaderVersion.h; define constants
++static constexpr int vtkLegacyReaderMajorVersion = 5;
++static constexpr int vtkLegacyReaderMinorVersion = 1;
+ #include <vtkObjectFactory.h>
+ #include <vtkPointData.h>
+ #include <vtkPoints.h>
+diff --git a/src/layers/legacy/medVtkInria/vtkImageView/vtkImageView3D.cxx b/src/layers/legacy/medVtkInria/vtkImageView/vtkImageView3D.cxx
+index 36e9c73..08a0af3 100644
+--- a/src/layers/legacy/medVtkInria/vtkImageView/vtkImageView3D.cxx
++++ b/src/layers/legacy/medVtkInria/vtkImageView/vtkImageView3D.cxx
+@@ -22,7 +22,7 @@
+ #include <vtkColorTransferFunction.h>
+ #include <vtkDataSetCollection.h>
+ #include <vtkGeometryFilter.h>
+-#include <vtkIdFilter.h>
++#include <vtkGenerateIds.h>
+ #include <vtkImageActor.h>
+ #include <vtkImageAppendComponents.h>
+ #include <vtkImageCast.h>
+@@ -939,7 +939,7 @@ vtkActor* vtkImageView3D::AddDataSet(vtkPointSet* arg, vtkProperty* prop)
+ //----------------------------------------------------------------------------
+ vtkSmartPointer<vtkActor> vtkImageView3D::DataSetToActor(vtkPointSet* arg, vtkProperty* prop)
+ {
+-    auto idFilter = vtkSmartPointer<vtkIdFilter>::New();
++    auto idFilter = vtkSmartPointer<vtkGenerateIds>::New();
+     auto geometryextractor = vtkSmartPointer<vtkGeometryFilter>::New();
+     auto normalextractor = vtkSmartPointer<vtkPolyDataNormals>::New();
+     auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+diff --git a/src/layers/medCore/legacy/data/medDataReaderWriter.cpp b/src/layers/medCore/legacy/data/medDataReaderWriter.cpp
+index 988bcd2..4775450 100644
+--- a/src/layers/medCore/legacy/data/medDataReaderWriter.cpp
++++ b/src/layers/medCore/legacy/data/medDataReaderWriter.cpp
+@@ -25,7 +25,7 @@ medDataReaderWriter::Reader medDataReaderWriter::reader(const QString& path) {
+         return Reader();
+     }
+ 
+-    const QFileInfo& fi(path);
++    const QFileInfo fi(path);
+     const QString&   filename = fi.filePath();
+ 
+     //  Store the last reader.
+diff --git a/src/layers/medCore/legacy/gui/lookUpTables/medLUTToXMLWriter.cpp b/src/layers/medCore/legacy/gui/lookUpTables/medLUTToXMLWriter.cpp
+index aa00794..a5b855b 100644
+--- a/src/layers/medCore/legacy/gui/lookUpTables/medLUTToXMLWriter.cpp
++++ b/src/layers/medCore/legacy/gui/lookUpTables/medLUTToXMLWriter.cpp
+@@ -78,7 +78,7 @@ void medLUTToXMLWriterPrivate::writeNode(const medClutEditorVertex & vertex)
+ {
+     QString node;
+ 
+-    node.sprintf("%.4f;%.4f;%d;%d;%d;%d",
++    node = QString::asprintf("%.4f;%.4f;%d;%d;%d;%d",
+                  vertex.value().x(),
+                  vertex.value().y(),
+                  vertex.color().red(),
+diff --git a/src/layers/medCore/legacy/gui/medAbstractWorkspaceLegacy.cpp b/src/layers/medCore/legacy/gui/medAbstractWorkspaceLegacy.cpp
+index 7175c68..a743fef 100644
+--- a/src/layers/medCore/legacy/gui/medAbstractWorkspaceLegacy.cpp
++++ b/src/layers/medCore/legacy/gui/medAbstractWorkspaceLegacy.cpp
+@@ -805,10 +805,8 @@ QWidget* medAbstractWorkspaceLegacy::buildLayerLinkMenu(QList<QListWidgetItem*>
+         bool selected = true;
+         bool partiallySelected = false;
+ 
+-        QHashIterator<medAbstractLayeredView*, unsigned int> iterLayer(layers);
+-        while(iterLayer.hasNext())
++        for (auto iterLayer = layers.cbegin(); iterLayer != layers.cend(); ++iterLayer)
+         {
+-            iterLayer.next();
+             if(!layerGroup->impactedLayers().contains(iterLayer.key(), iterLayer.key()->layerData(iterLayer.value())))
+                 selected = false;
+             else
+@@ -824,7 +822,7 @@ QWidget* medAbstractWorkspaceLegacy::buildLayerLinkMenu(QList<QListWidgetItem*>
+         }
+     }
+ 
+-    d->layerLinkMenu->setAvailableParameters( paramNames.toSet().toList() );
++    d->layerLinkMenu->setAvailableParameters( QSet<QString>(paramNames.cbegin(), paramNames.cend()).values() );
+     d->layerLinkMenu->setGroups(abstractGroupsList);
+     d->layerLinkMenu->setSelectedGroups(selectedGroups);
+     d->layerLinkMenu->setPartiallySelectedGroups(partiallySelectedGroups);
+diff --git a/src/layers/medCore/legacy/gui/medLinkMenu.cpp b/src/layers/medCore/legacy/gui/medLinkMenu.cpp
+index a1a3fa1..7709a4e 100644
+--- a/src/layers/medCore/legacy/gui/medLinkMenu.cpp
++++ b/src/layers/medCore/legacy/gui/medLinkMenu.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QRandomGenerator>
+ #include <medLinkMenu.h>
+ 
+ #include <medListWidget.h>
+@@ -859,7 +860,7 @@ medGroupWidget::medGroupWidget(QString groupName, QWidget * parent): medListItem
+ 
+     medLeftArrow *arrow = new medLeftArrow(this);
+ 
+-    m_color = QColor::fromHsv(qrand()%360, 255, 210);
++    m_color = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 255, 210);
+ 
+     m_labelColorWidget = new QPushButton();
+     m_labelColorWidget->setToolTip(tr("Current group color"));
+@@ -912,7 +913,7 @@ void medLeftArrow::paintEvent(QPaintEvent *pe)
+     QPainter p(this);
+ 
+     QStyleOptionFrame opt;
+-    opt.init(this);
++    opt.initFrom(this);
+ 
+     style()->drawPrimitive( QStyle::PE_IndicatorArrowLeft, &opt, &p, this);
+ }
+diff --git a/src/layers/medCore/legacy/gui/settingsWidgets/medDatabaseSettingsWidget.cpp b/src/layers/medCore/legacy/gui/settingsWidgets/medDatabaseSettingsWidget.cpp
+index 993274e..0b6e870 100644
+--- a/src/layers/medCore/legacy/gui/settingsWidgets/medDatabaseSettingsWidget.cpp
++++ b/src/layers/medCore/legacy/gui/settingsWidgets/medDatabaseSettingsWidget.cpp
+@@ -48,7 +48,7 @@ medDatabaseSettingsWidget::medDatabaseSettingsWidget(QWidget *parent) :
+ void medDatabaseSettingsWidget::selectDbDirectory()
+ {
+     QFileDialog dialog(this);
+-    dialog.setFileMode(QFileDialog::DirectoryOnly);
++    dialog.setFileMode(QFileDialog::Directory);
+ 
+      QString path;
+      if (dialog.exec())
+diff --git a/src/layers/medCore/legacy/gui/toolboxes/medRegistrationSelectorToolBox.cpp b/src/layers/medCore/legacy/gui/toolboxes/medRegistrationSelectorToolBox.cpp
+index 9d05456..58eaa8f 100644
+--- a/src/layers/medCore/legacy/gui/toolboxes/medRegistrationSelectorToolBox.cpp
++++ b/src/layers/medCore/legacy/gui/toolboxes/medRegistrationSelectorToolBox.cpp
+@@ -224,9 +224,9 @@ void medRegistrationSelectorToolBox::onSaveTrans()
+     QFileInfo file;
+     QString fileName;
+ 
+-    file = QFileDialog::getSaveFileName(this,tr("Save Transformation"),
++    file = QFileInfo(QFileDialog::getSaveFileName(this,tr("Save Transformation"),
+         d->savePath,
+-        fileTypeSuggestion,&filterSelected,QFileDialog::DontUseNativeDialog);
++        fileTypeSuggestion,&filterSelected,QFileDialog::DontUseNativeDialog));
+ 
+     if (!file.filePath().isEmpty())
+     {
+diff --git a/src/layers/medCore/legacy/gui/toolboxes/medToolBoxHeader.cpp b/src/layers/medCore/legacy/gui/toolboxes/medToolBoxHeader.cpp
+index c1ad7c5..f65f1e8 100644
+--- a/src/layers/medCore/legacy/gui/toolboxes/medToolBoxHeader.cpp
++++ b/src/layers/medCore/legacy/gui/toolboxes/medToolBoxHeader.cpp
+@@ -26,7 +26,7 @@ medToolBoxHeader::medToolBoxHeader(QWidget *parent) : QFrame(parent), d(new medT
+     d->titleOffset = QPoint( 0, 0 );
+ 
+     QBoxLayout* layout = new QBoxLayout(QBoxLayout::LeftToRight,this);
+-    layout->setMargin(0);
++    layout->setContentsMargins(0, 0, 0, 0);
+ }
+ 
+ medToolBoxHeader::~medToolBoxHeader(void)
+diff --git a/src/layers/medCore/legacy/medStyleSheetParser.cpp b/src/layers/medCore/legacy/medStyleSheetParser.cpp
+index b9b6b44..a90ae98 100644
+--- a/src/layers/medCore/legacy/medStyleSheetParser.cpp
++++ b/src/layers/medCore/legacy/medStyleSheetParser.cpp
+@@ -20,30 +20,30 @@
+  */
+ 
+ #include <QHash>
+-#include <QRegExp>
++#include <QRegularExpression>
+ #include <QTextStream>
+ 
+ #include <dtkLog>
+ 
+-inline void deref(int index, QString & s, const QRegExp & regex, const QHash<QString, QString> & vars, int lineCount) {
+-    QString varName = regex.cap(1).isEmpty() ? regex.cap(2) : regex.cap(1);
++inline void deref(int index, QString & s, const QRegularExpressionMatch & match, const QHash<QString, QString> & vars, int lineCount) {
++    QString varName = match.captured(1).isEmpty() ? match.captured(2) : match.captured(1);
+     if (vars.contains(varName))
+     {
+-        s.replace(index, regex.matchedLength(), vars[varName]);
++        s.replace(index, match.capturedLength(), vars[varName]);
+     }
+     else
+     {
+-        s.replace(index, regex.matchedLength(), "");
++        s.replace(index, match.capturedLength(), "");
+         qWarning() << "Unknown variable name line " << lineCount << " :" << varName;
+     }
+ }
+ 
+ medStyleSheetParser::medStyleSheetParser(QString qss) {
+     QTextStream stream(&qss);
+-    QRegExp regexAssign("(^|;)\\s*\\$([a-zA-Z0-9_]+)\\s*=\\s*([^;]+)\\s*;");
+-    QRegExp regexDeref("\\$([a-zA-Z0-9_]+)|\\$\\{([a-zA-Z0-9_]+)\\}");
+-    QRegExp regexInlineComment("(?:/\\*(?:[^*]/|[^/])*\\*/)|(?://.*$)");
+-    regexInlineComment.setMinimal(true);
++    QRegularExpression regexAssign("(^|;)\\s*\\$([a-zA-Z0-9_]+)\\s*=\\s*([^;]+)\\s*;");
++    QRegularExpression regexDeref("\\$([a-zA-Z0-9_]+)|\\$\\{([a-zA-Z0-9_]+)\\}");
++    QRegularExpression regexInlineComment("(?:/\\*(?:[^*]/|[^/])*\\*/)|(?://.*$)",
++                                          QRegularExpression::InvertedGreedinessOption);
+ 
+     QHash<QString, QString> vars;
+     int lineCount = 0;
+@@ -75,8 +75,10 @@ medStyleSheetParser::medStyleSheetParser(QString qss) {
+ 
+         // do all possible assignments and dereferences on this line
+         do {
+-            int assignIndex = line.indexOf(regexAssign);
+-            int derefIndex = line.indexOf(regexDeref);
++            QRegularExpressionMatch assignMatch;
++            QRegularExpressionMatch derefMatch;
++            int assignIndex = line.indexOf(regexAssign, 0, &assignMatch);
++            int derefIndex = line.indexOf(regexDeref, 0, &derefMatch);
+ 
+             // If we get no match from either, bail
+             if (assignIndex == -1 && derefIndex == -1)
+@@ -86,21 +88,22 @@ medStyleSheetParser::medStyleSheetParser(QString qss) {
+             // if the same, assignment is prioritary, otherwise the "$var ="
+             // would be seen as a dereference.
+             if (derefIndex == -1 || (assignIndex != -1 && derefIndex >= assignIndex)) {
+-                int matchedLength = regexAssign.matchedLength();
++                int matchedLength = assignMatch.capturedLength();
+                 // if we started on a previous ";", keep it in the result
+-                if (regexAssign.cap(1) == ";") {
++                if (assignMatch.captured(1) == ";") {
+                     assignIndex++;
+                     matchedLength--;
+                 }
+-                QString varName = regexAssign.cap(2);
+-                QString value = regexAssign.cap(3).trimmed();
++                QString varName = assignMatch.captured(2);
++                QString value = assignMatch.captured(3).trimmed();
+                 int derefIndex2 = -1;
+-                while((derefIndex2 = value.indexOf(regexDeref, derefIndex2+1)) != -1)
+-                    deref(derefIndex2, value, regexDeref, vars, lineCount);
++                QRegularExpressionMatch valueDerefMatch;
++                while((derefIndex2 = value.indexOf(regexDeref, derefIndex2+1, &valueDerefMatch)) != -1)
++                    deref(derefIndex2, value, valueDerefMatch, vars, lineCount);
+                 vars[varName] = value;
+                 line.remove(assignIndex, matchedLength);
+             } else {
+-                deref(derefIndex, line, regexDeref, vars, lineCount);
++                deref(derefIndex, line, derefMatch, vars, lineCount);
+             }
+         } while(true);
+         if ( ! line.trimmed().isEmpty() )
+diff --git a/src/layers/medCore/legacy/medStyleSheetParser.h b/src/layers/medCore/legacy/medStyleSheetParser.h
+index ea1d899..e6fa30c 100644
+--- a/src/layers/medCore/legacy/medStyleSheetParser.h
++++ b/src/layers/medCore/legacy/medStyleSheetParser.h
+@@ -12,7 +12,7 @@
+ 
+ =========================================================================*/
+ 
+-#include <QRegExp>
++#include <QRegularExpression>
+ #include <QVariant>
+ 
+ #include <medCoreExport.h>
+diff --git a/src/layers/medCore/legacy/parameters/medAbstractParameterGroupL.cpp b/src/layers/medCore/legacy/parameters/medAbstractParameterGroupL.cpp
+index b1c2a12..04f3f4d 100644
+--- a/src/layers/medCore/legacy/parameters/medAbstractParameterGroupL.cpp
++++ b/src/layers/medCore/legacy/parameters/medAbstractParameterGroupL.cpp
+@@ -12,6 +12,7 @@
+ =========================================================================*/
+ 
+ 
++#include <QRandomGenerator>
+ #include <medAbstractParameterGroupL.h>
+ 
+ #include <QtCore>
+@@ -37,7 +38,7 @@ medAbstractParameterGroupL::medAbstractParameterGroupL(QString name, QObject *pa
+     setParent(parent);
+     d->name = name;
+     d->linkAll = false;
+-    d->color = QColor::fromHsv(qrand()%360, 255, 210);
++    d->color = QColor::fromHsv(QRandomGenerator::global()->bounded(360), 255, 210);
+     d->workspace = workspace;
+ }
+ 
+diff --git a/src/layers/medCore/legacy/parameters/medDataListParameterL.h b/src/layers/medCore/legacy/parameters/medDataListParameterL.h
+index a25c2c7..ebf7f16 100644
+--- a/src/layers/medCore/legacy/parameters/medDataListParameterL.h
++++ b/src/layers/medCore/legacy/parameters/medDataListParameterL.h
+@@ -18,7 +18,7 @@
+ 
+ class QComboBox;
+ class QWidget;
+-class QStringList;
++#include <QStringList>
+ 
+ class medDataIndex;
+ 
+diff --git a/src/layers/medCore/legacy/parameters/medLayerParameterGroupL.cpp b/src/layers/medCore/legacy/parameters/medLayerParameterGroupL.cpp
+index 279228e..c90b51d 100644
+--- a/src/layers/medCore/legacy/parameters/medLayerParameterGroupL.cpp
++++ b/src/layers/medCore/legacy/parameters/medLayerParameterGroupL.cpp
+@@ -41,10 +41,9 @@ medLayerParameterGroupL::~medLayerParameterGroupL()
+ {
+     medParameterGroupManagerL::instance()->unregisterGroup(this);
+ 
+-    QHashIterator<medAbstractLayeredView*, medAbstractData*> iter(d->impactedLayers);
+-    while(iter.hasNext())
++    const auto impactedLayersCopy = d->impactedLayers;
++    for (auto iter = impactedLayersCopy.cbegin(); iter != impactedLayersCopy.cend(); ++iter)
+     {
+-        iter.next();
+         removeImpactedlayer(iter.key(), iter.value());
+     }
+ 
+@@ -81,11 +80,8 @@ void medLayerParameterGroupL::setLinkAllParameters(bool linkAll)
+ 
+     if( linkAll )
+     {
+-        QHashIterator<medAbstractLayeredView*, medAbstractData*> iter(d->impactedLayers);
+-        while(iter.hasNext())
++        for (auto iter = d->impactedLayers.cbegin(); iter != d->impactedLayers.cend(); ++iter)
+         {
+-            iter.next();
+-
+             medAbstractLayeredView* view = iter.key();
+             medAbstractData* layerData = iter.value();
+ 
+@@ -103,10 +99,8 @@ void medLayerParameterGroupL::updatePool()
+ {
+     d->pool->clear();
+ 
+-    QHashIterator<medAbstractLayeredView*, medAbstractData*> iter(d->impactedLayers);
+-    while(iter.hasNext())
++    for (auto iter = d->impactedLayers.cbegin(); iter != d->impactedLayers.cend(); ++iter)
+     {
+-        iter.next();
+         QList<medAbstractParameterL*>  params;
+ 
+         medAbstractLayeredView* view = iter.key();
+diff --git a/src/layers/medCore/legacy/parameters/medParameterGroupManagerL.cpp b/src/layers/medCore/legacy/parameters/medParameterGroupManagerL.cpp
+index fc727b1..5c99957 100644
+--- a/src/layers/medCore/legacy/parameters/medParameterGroupManagerL.cpp
++++ b/src/layers/medCore/legacy/parameters/medParameterGroupManagerL.cpp
+@@ -135,12 +135,10 @@ medLayerParameterGroupL* medParameterGroupManagerL::layerGroup(QString groupName
+ 
+ QList<medViewParameterGroupL*> medParameterGroupManagerL::viewGroups(medAbstractView *view)
+ {
+-    QHashIterator<QString, medViewParameterGroupL*> iter(d->viewGroups);
+     QList<medViewParameterGroupL*> results;
+ 
+-    while (iter.hasNext())
++    for (auto iter = d->viewGroups.cbegin(); iter != d->viewGroups.cend(); ++iter)
+     {
+-        iter.next();
+         medViewParameterGroupL *viewGroup = iter.value();
+         if(viewGroup && viewGroup->impactedViews().contains(view))
+             results.append(viewGroup);
+@@ -151,12 +149,10 @@ QList<medViewParameterGroupL*> medParameterGroupManagerL::viewGroups(medAbstract
+ 
+ QList<medLayerParameterGroupL*> medParameterGroupManagerL::layerGroups(medAbstractLayeredView *view, medAbstractData* layerData)
+ {
+-    QHashIterator<QString, medLayerParameterGroupL*> iter(d->layerGroups);
+     QList<medLayerParameterGroupL*> results;
+ 
+-    while (iter.hasNext())
++    for (auto iter = d->layerGroups.cbegin(); iter != d->layerGroups.cend(); ++iter)
+     {
+-        iter.next();
+         medLayerParameterGroupL *layerGroup = iter.value();
+         if(layerGroup && layerGroup->impactedLayers().contains(view, layerData))
+             results.append(layerGroup);
+diff --git a/src/layers/medCore/legacy/parameters/medParameterPoolL.cpp b/src/layers/medCore/legacy/parameters/medParameterPoolL.cpp
+index cf0e218..97ab2d0 100644
+--- a/src/layers/medCore/legacy/parameters/medParameterPoolL.cpp
++++ b/src/layers/medCore/legacy/parameters/medParameterPoolL.cpp
+@@ -106,13 +106,15 @@ void medParameterPoolL::remove(medAbstractParameterL* parameter)
+ 
+     disconnectParam(parameter);
+ 
+-    QMutableHashIterator<QString, medAbstractParameterL*> it(d->pool);
+-    while(it.hasNext())
++    for (auto it = d->pool.begin(); it != d->pool.end(); )
+     {
+-        it.next();
+         if(it.value() && it.value() == parameter)
+         {
+-            it.remove();
++            it = d->pool.erase(it);
++        }
++        else
++        {
++            ++it;
+         }
+     }
+ }
+diff --git a/src/layers/medCore/legacy/parameters/medStringListParameterL.cpp b/src/layers/medCore/legacy/parameters/medStringListParameterL.cpp
+index 2bd671a..f2aafa6 100644
+--- a/src/layers/medCore/legacy/parameters/medStringListParameterL.cpp
++++ b/src/layers/medCore/legacy/parameters/medStringListParameterL.cpp
+@@ -66,7 +66,7 @@ void medStringListParameterL::removeItem(QString item)
+     if(!d->items.contains(item))
+         return;
+ 
+-    int index = d->items.indexOf(QRegExp(item));
++    int index = d->items.indexOf(item);
+     d->items.removeOne(item);
+ 
+     if(d->comboBox)
+@@ -117,7 +117,7 @@ void medStringListParameterL::updateInternWigets()
+ 
+     if (d->comboBox)
+     {
+-        int index = d->items.indexOf(QRegExp(m_value));
++        int index = d->items.indexOf(m_value);
+         d->comboBox->setCurrentIndex(index);
+     }
+ }
+diff --git a/src/layers/medCore/legacy/parameters/medStringListParameterL.h b/src/layers/medCore/legacy/parameters/medStringListParameterL.h
+index 8faf409..2ce4d2f 100644
+--- a/src/layers/medCore/legacy/parameters/medStringListParameterL.h
++++ b/src/layers/medCore/legacy/parameters/medStringListParameterL.h
+@@ -20,7 +20,7 @@
+ 
+ class QComboBox;
+ class QWidget;
+-class QStringList;
++#include <QStringList>
+ 
+ class medStringListParameterLPrivate;
+ class MEDCORE_EXPORT medStringListParameterL: public medAbstractStringParameterL
+diff --git a/src/layers/medCore/legacy/parameters/medTimeLineParameterL.cpp b/src/layers/medCore/legacy/parameters/medTimeLineParameterL.cpp
+index 12571e0..61bc4b8 100644
+--- a/src/layers/medCore/legacy/parameters/medTimeLineParameterL.cpp
++++ b/src/layers/medCore/legacy/parameters/medTimeLineParameterL.cpp
+@@ -98,7 +98,7 @@ medTimeLineParameterL::medTimeLineParameterL(QString name, QObject *parent):
+     d->previousFrameParameter->setToolTip("Go back to the previous frame");
+ 
+     d->timeLine = new QTimeLine(7000, this);
+-    d->timeLine->setCurveShape (QTimeLine::LinearCurve);
++    d->timeLine->setEasingCurve(QEasingCurve::Linear);
+ 
+     // Choose if the time display is going to loop 
+     d->loopParameter = new medBoolParameterL("Loop", this);
+diff --git a/src/layers/medCore/legacy/parameters/medViewParameterGroupL.cpp b/src/layers/medCore/legacy/parameters/medViewParameterGroupL.cpp
+index 2f3871d..7c6bb9c 100644
+--- a/src/layers/medCore/legacy/parameters/medViewParameterGroupL.cpp
++++ b/src/layers/medCore/legacy/parameters/medViewParameterGroupL.cpp
+@@ -86,7 +86,7 @@ void medViewParameterGroupL::removeImpactedView()
+ 
+ QList<medAbstractView*> medViewParameterGroupL::impactedViews()
+ {
+-    return d->impactedViews.toList();
++    return d->impactedViews.values();
+ }
+ 
+ void medViewParameterGroupL::setLinkAllParameters(bool linkAll)
+diff --git a/src/layers/medCore/log/medNewLogger.cpp b/src/layers/medCore/log/medNewLogger.cpp
+index e8ebbf2..b298d55 100644
+--- a/src/layers/medCore/log/medNewLogger.cpp
++++ b/src/layers/medCore/log/medNewLogger.cpp
+@@ -79,7 +79,7 @@ protected:
+     {
+         if (v == '\n' || v == '\r')
+         {
+-            m_logger.writeMsgfromStdStream(&m_stream, QString(v));
++            m_logger.writeMsgfromStdStream(&m_stream, QString(QChar(v)));
+         }
+ 
+         return v;
+diff --git a/src/layers/medCore/parameter/medDataListParameter.h b/src/layers/medCore/parameter/medDataListParameter.h
+index ffe48c2..8e09f9b 100644
+--- a/src/layers/medCore/parameter/medDataListParameter.h
++++ b/src/layers/medCore/parameter/medDataListParameter.h
+@@ -20,7 +20,7 @@
+ 
+ class QComboBox;
+ class QWidget;
+-class QStringList;
++#include <QStringList>
+ 
+ 
+ class medDataListParameterPrivate;
+diff --git a/src/layers/medCore/parameter/medStringListParameter.h b/src/layers/medCore/parameter/medStringListParameter.h
+index f1bfba8..919d0e9 100644
+--- a/src/layers/medCore/parameter/medStringListParameter.h
++++ b/src/layers/medCore/parameter/medStringListParameter.h
+@@ -18,7 +18,7 @@
+ #include <QValidator>
+ 
+ class QWidget;
+-class QStringList;
++#include <QStringList>
+ 
+ class medStringListParameterPrivate;
+ class MEDCORE_EXPORT medStringListParameter: public medStringParameter
+diff --git a/src/layers/medCore/parameter/tools/medParameterPool.cpp b/src/layers/medCore/parameter/tools/medParameterPool.cpp
+index ff1155b..7a1d279 100644
+--- a/src/layers/medCore/parameter/tools/medParameterPool.cpp
++++ b/src/layers/medCore/parameter/tools/medParameterPool.cpp
+@@ -83,14 +83,15 @@ void medParameterPool::remove(medAbstractParameter* parameter)
+ {
+     disconnectParam(parameter);
+ 
+-    QHashIterator<QString, medAbstractParameter*> it(d->pool);
+-
+-    while(it.hasNext())
++    for (auto it = d->pool.begin(); it != d->pool.end(); )
+     {
+-        it.next();
+         if (it.value() == parameter)
+         {
+-            d->pool.remove(it.key(), it.value());
++            it = d->pool.erase(it);
++        }
++        else
++        {
++            ++it;
+         }
+     }
+ }
+diff --git a/src/layers/medCore/source/medDefaultWritingPolicy.cpp b/src/layers/medCore/source/medDefaultWritingPolicy.cpp
+index ac0d38a..2617fee 100644
+--- a/src/layers/medCore/source/medDefaultWritingPolicy.cpp
++++ b/src/layers/medCore/source/medDefaultWritingPolicy.cpp
+@@ -14,6 +14,7 @@
+ 
+ #include "medDefaultWritingPolicy.h"
+ #include <medAbstractSource.h>
++#include <QRegularExpression>
+ 
+ medDefaultWritingPolicy::medDefaultWritingPolicy()
+ {
+@@ -38,7 +39,7 @@ QString medDefaultWritingPolicy::computeName(QString const & pi_baseName, QStrin
+ 
+ QString medDefaultWritingPolicy::computePath(QString pi_sourceId, QString pi_suggestedPath, QMap<QString, QString> pi_metaData, bool pi_bTrim)
+ {
+-    QStringList pathRes = pi_suggestedPath.split("\r\n", QString::SkipEmptyParts);
++    QStringList pathRes = pi_suggestedPath.split("\r\n", Qt::SkipEmptyParts);
+ 
+     int iLevelToWrite = medAbstractWritingPolicy::levelToWrite(pi_sourceId);
+     
+@@ -87,23 +88,24 @@ bool medDefaultWritingPolicy::incrementName(QString & pio_name, QStringList pi_a
+     QString leftPart = pio_name;
+ 
+     QString regExpStr = "(.*)_([0-9]+)";
+-    QRegExp regExp(regExpStr);
++    QRegularExpression regExp(QRegularExpression::anchoredPattern(regExpStr));
+ 
+-
+-    if (regExp.exactMatch(pio_name))
++    QRegularExpressionMatch regExpMatch = regExp.match(pio_name);
++    if (regExpMatch.hasMatch())
+     {
+-        leftPart = regExp.cap(1);
+-        iCounter = regExp.cap(2).toInt();
++        leftPart = regExpMatch.captured(1);
++        iCounter = regExpMatch.captured(2).toInt();
+     }
+ 
+-    regExpStr = "(" + QRegExp::escape(leftPart) + ")_([0-9]+)";
+-    regExp.setPattern(regExpStr);
++    regExpStr = "(" + QRegularExpression::escape(leftPart) + ")_([0-9]+)";
++    regExp.setPattern(QRegularExpression::anchoredPattern(regExpStr));
+ 
+     for (auto aName : pi_alreadyExistName)
+     {
+-        if (regExp.exactMatch(aName))
++        QRegularExpressionMatch aMatch = regExp.match(aName);
++        if (aMatch.hasMatch())
+         {
+-            int iTmp = regExp.cap(2).toInt();
++            int iTmp = aMatch.captured(2).toInt();
+             iCounter = iTmp >= iCounter ? iTmp+1 : iCounter;
+         }
+     }
+diff --git a/src/layers/medCore/source/medUtilitiesFiles.cpp b/src/layers/medCore/source/medUtilitiesFiles.cpp
+index 097489c..4c7334a 100644
+--- a/src/layers/medCore/source/medUtilitiesFiles.cpp
++++ b/src/layers/medCore/source/medUtilitiesFiles.cpp
+@@ -99,7 +99,7 @@ QStringList indexToFileSysPath(const QString &index)
+ 
+         QStringList uriAsList = uri.right(uri.size() - sourceDelimterIndex - 1).split(QString("\r\n"));
+         QString lastElement = uriAsList.takeLast();
+-        QStringList files = lastElement.split('|',QString::SkipEmptyParts);
++        QStringList files = lastElement.split('|',Qt::SkipEmptyParts);
+         basePath = uriAsList.join('/');
+         for (QString fileName : files)
+         {
+diff --git a/src/layers/medCore/source/operating/medSourceModelItem.cpp b/src/layers/medCore/source/operating/medSourceModelItem.cpp
+index ae7da32..4a45ad0 100644
+--- a/src/layers/medCore/source/operating/medSourceModelItem.cpp
++++ b/src/layers/medCore/source/operating/medSourceModelItem.cpp
+@@ -126,7 +126,7 @@ QModelIndex medSourceModelItem::index() //TODO finish or remove
+     }
+     else
+     {
+-        indexRes = parentItem->index().child(parentItem->childItems.indexOf(this), 0);
++        { QModelIndex _p = parentItem->index(); indexRes = _p.model() ? _p.model()->index(parentItem->childItems.indexOf(this), 0, _p) : QModelIndex(); }
+     }
+     return indexRes;
+ }
+diff --git a/src/layers/medCore/source/settings/medSourcesLoader.cpp b/src/layers/medCore/source/settings/medSourcesLoader.cpp
+index 1ccba73..7714bdb 100644
+--- a/src/layers/medCore/source/settings/medSourcesLoader.cpp
++++ b/src/layers/medCore/source/settings/medSourcesLoader.cpp
+@@ -694,7 +694,7 @@ void medSourcesLoader::convertCipherParamToJson(QJsonObject & po_oJson, medAbstr
+ 	po_oJson = QJsonObject::fromVariantMap(pi_pParam->toVariantMap());
+ 	QString cipherValue = po_oJson.value("value").toString();
+ 
+-	int keyLength = ENCRYPTION_ITERATIONS * ceil(std::max(cipherValue.length(), 512 / 8) / QCryptographicHash::hashLength(ENCRYPTION_ALGORITHM)); 
++	int keyLength = ENCRYPTION_ITERATIONS * ceil(std::max<qsizetype>(cipherValue.length(), 512 / 8) / QCryptographicHash::hashLength(ENCRYPTION_ALGORITHM)); 
+ 	auto derivedKey = QPasswordDigestor::deriveKeyPbkdf2(ENCRYPTION_ALGORITHM, PW, SALT, ENCRYPTION_ITERATIONS,keyLength );
+ 	auto data = cipherValue.toUtf8();
+ 	for (int i=0; i<data.size(); ++i)
+@@ -709,7 +709,7 @@ void medSourcesLoader::decipherJson(QJsonObject & po_oJson)
+ {
+ 	QString cipheredValue = po_oJson.value("value").toString();
+ 	
+-	int keyLength = ENCRYPTION_ITERATIONS * ceil(std::max(cipheredValue.length(), 512 / 8) / QCryptographicHash::hashLength(ENCRYPTION_ALGORITHM));
++	int keyLength = ENCRYPTION_ITERATIONS * ceil(std::max<qsizetype>(cipheredValue.length(), 512 / 8) / QCryptographicHash::hashLength(ENCRYPTION_ALGORITHM));
+ 
+ 	auto derivedKey = QPasswordDigestor::deriveKeyPbkdf2(ENCRYPTION_ALGORITHM, PW, SALT, ENCRYPTION_ITERATIONS, keyLength);
+ 	QByteArray data = QByteArray::fromBase64(cipheredValue.toUtf8());
+diff --git a/src/layers/medCore/source/virtualRepresentation/medVirtualRepresentation.cpp b/src/layers/medCore/source/virtualRepresentation/medVirtualRepresentation.cpp
+index d2bd841..3fa449f 100644
+--- a/src/layers/medCore/source/virtualRepresentation/medVirtualRepresentation.cpp
++++ b/src/layers/medCore/source/virtualRepresentation/medVirtualRepresentation.cpp
+@@ -238,7 +238,7 @@ QMimeData * medVirtualRepresentation::mimeData(const QModelIndexList & indexes)
+                 {
+                     encodedData.append('\0');
+                 }
+-                encodedData.append(dataUri);
++                encodedData.append(dataUri.toUtf8());
+             }
+             else if (origin == DATAORIGIN_ROLE_FILESYSTEM)
+             {
+@@ -246,7 +246,7 @@ QMimeData * medVirtualRepresentation::mimeData(const QModelIndexList & indexes)
+                 {
+                     encodedData.append('\0');
+                 }
+-                encodedData.append(dataUri);
++                encodedData.append(dataUri.toUtf8());
+             }
+             else if (origin == DATAORIGIN_ROLE_CACHE)
+             {
+@@ -443,7 +443,7 @@ void medVirtualRepresentation::addData(medDataIndex medDataIndex, QString volume
+             }
+             else if (paths.size() > 1)
+             {
+-                QStringList pathAsList = paths[0].split('/', QString::SkipEmptyParts);
++                QStringList pathAsList = paths[0].split('/', Qt::SkipEmptyParts);
+                 dataName = pathAsList[pathAsList.size() - 2]; //the name is the name of last folder
+             }
+         }
+diff --git a/src/layers/medCoreGui/notification/widgets/medNotifStatusbarSubPart.cpp b/src/layers/medCoreGui/notification/widgets/medNotifStatusbarSubPart.cpp
+index cecc91f..bd19333 100644
+--- a/src/layers/medCoreGui/notification/widgets/medNotifStatusbarSubPart.cpp
++++ b/src/layers/medCoreGui/notification/widgets/medNotifStatusbarSubPart.cpp
+@@ -15,7 +15,7 @@
+ medNotifStatusbarSubpart::medNotifStatusbarSubpart(QWidget * parent) : QWidget(parent), m_layout(new QHBoxLayout(this)), m_progressBar(new QProgressBar(this)), m_titleWidget(new QLabel("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", this))
+ {
+     setLayout(m_layout);
+-    m_layout->setMargin(0);
++    m_layout->setContentsMargins(0, 0, 0, 0);
+     m_layout->setSpacing(5);
+     m_titleWidget->setMinimumSize(100, 22);
+     m_progressBar->setMinimumSize(50, 22);
+diff --git a/src/layers/medCoreGui/notification/widgets/medNotifStatusbarWidget.cpp b/src/layers/medCoreGui/notification/widgets/medNotifStatusbarWidget.cpp
+index 7c323f3..8374a39 100644
+--- a/src/layers/medCoreGui/notification/widgets/medNotifStatusbarWidget.cpp
++++ b/src/layers/medCoreGui/notification/widgets/medNotifStatusbarWidget.cpp
+@@ -57,10 +57,10 @@ medNotifStatusbarWidget::medNotifStatusbarWidget(medNotifSys * notificationSyste
+     d->notificationSystem = notificationSystem;
+     //d->layout = new QGridLayout(this);
+     d->mainLayout = new QHBoxLayout(this);
+-    d->mainLayout->setMargin(0);
++    d->mainLayout->setContentsMargins(0, 0, 0, 0);
+     d->notifsWidget = new QWidget(this);
+     d->notifslayout = new QHBoxLayout();
+-    d->notifslayout->setMargin(0);
++    d->notifslayout->setContentsMargins(0, 0, 0, 0);
+     d->notifsWidget->setLayout(d->notifslayout);
+     d->notifsWidget->setContentsMargins(0, 0, 0, 0); 
+     d->showExtra = new QPushButton("...", this);
+diff --git a/src/layers/medCoreGui/source/widgets/medSourcesWidget.cpp b/src/layers/medCoreGui/source/widgets/medSourcesWidget.cpp
+index 60d3952..ac53976 100644
+--- a/src/layers/medCoreGui/source/widgets/medSourcesWidget.cpp
++++ b/src/layers/medCoreGui/source/widgets/medSourcesWidget.cpp
+@@ -1,3 +1,4 @@
++#include <QRegularExpression>
+ #include "medSourcesWidget.h"
+ 
+ #include <medDataHub.h>
+@@ -26,7 +27,7 @@ class medSortFilterProxyModel : public QSortFilterProxyModel
+         for (int col = 0; col < sourceModel()->columnCount(source_parent); col++)
+         {
+             QModelIndex index1 = sourceModel()->index(source_row, col, source_parent);
+-            if (sourceModel()->data(index1).toString().contains(filterRegExp()))
++            if (sourceModel()->data(index1).toString().contains(filterRegularExpression()))
+             {
+                 bRes = true;
+             }
+@@ -308,8 +309,8 @@ void medSourcesWidget::filter(const QString &text)
+     {
+         auto tree = dynamic_cast<QTreeView*>(sourceTreeView);
+         auto proxy = dynamic_cast<medSortFilterProxyModel *>(tree->model());
+-        QRegExp regExp(text, Qt::CaseInsensitive, QRegExp::Wildcard);
+-        proxy->setFilterRegExp(regExp);
++        QRegularExpression regExp(QRegularExpression::wildcardToRegularExpression(text), QRegularExpression::CaseInsensitiveOption);
++        proxy->setFilterRegularExpression(regExp);
+         proxy->setRecursiveFilteringEnabled(true);
+     }
+ }
+diff --git a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp b/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp
+index e5aeed7..e4b723c 100644
+--- a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp
++++ b/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp
+@@ -280,7 +280,7 @@ void iterativeClosestPointProcess::exportTransformMatrix()
+     if (d->exportMatrixState == 2)
+     {
+         QByteArray matrixStr;
+-        matrixStr += "# Transformation matrix from " + d->sourceName + " to " + d->targetName + "\n";
++        matrixStr += QString("# Transformation matrix from " + d->sourceName + " to " + d->targetName + "\n").toUtf8();
+         matrixStr += "# Scale Factor = " + QByteArray::number(d->scaleFactor) + "\n";
+         if (d->startByMatchingCentroids)
+         {
+diff --git a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointToolBox.cpp b/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointToolBox.cpp
+index 0db12e0..14a6b31 100644
+--- a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointToolBox.cpp
++++ b/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointToolBox.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QFileSystemModel>
+ #include <iterativeClosestPointProcess.h>
+ #include <iterativeClosestPointToolBox.h>
+ 
+@@ -143,7 +144,7 @@ iterativeClosestPointToolBox::iterativeClosestPointToolBox(QWidget *parent)
+ 
+     QDir dir;
+     QCompleter *fileCompleter = new QCompleter(this);
+-    fileCompleter->setModel(new QDirModel(fileCompleter));
++    fileCompleter->setModel(new QFileSystemModel(fileCompleter));
+     fileCompleter->setCompletionMode(QCompleter::PopupCompletion);
+ 
+     d->pathExportMatrixLineEdit = new QLineEdit(dir.absolutePath());
+diff --git a/src/plugins/legacy/itkDataImage/interactors/medVtkViewItkVectorFieldInteractor.cpp b/src/plugins/legacy/itkDataImage/interactors/medVtkViewItkVectorFieldInteractor.cpp
+index 7680a5d..47d8345 100644
+--- a/src/plugins/legacy/itkDataImage/interactors/medVtkViewItkVectorFieldInteractor.cpp
++++ b/src/plugins/legacy/itkDataImage/interactors/medVtkViewItkVectorFieldInteractor.cpp
+@@ -326,7 +326,7 @@ void medVtkViewItkVectorFieldInteractor::setColorMode(QString mode)
+     else
+     {
+         QColor color(mode.toLower());
+-        double colorF[3]; color.getRgbF(&(colorF[0]), &(colorF[1]), &(colorF[2]));
++        double colorF[3] = { color.redF(), color.greenF(), color.blueF() };
+         d->manager->SetUserColor(colorF);
+         d->manager->SetColorMode(vtkVectorVisuManager::ColorByUserColor);
+     }
+diff --git a/src/plugins/legacy/itkDataImage/manager/vtkVectorVisuManager.cxx b/src/plugins/legacy/itkDataImage/manager/vtkVectorVisuManager.cxx
+index fe06e9b..e2e6de3 100644
+--- a/src/plugins/legacy/itkDataImage/manager/vtkVectorVisuManager.cxx
++++ b/src/plugins/legacy/itkDataImage/manager/vtkVectorVisuManager.cxx
+@@ -11,6 +11,8 @@
+ 
+ =========================================================================*/
+ 
++#include <iostream>
++using namespace std;
+ #include <vtkVectorVisuManager.h>
+ 
+ #include <limits>
+diff --git a/src/plugins/legacy/itkDataImage/readers/itkDCMTKDataImageReader.cpp b/src/plugins/legacy/itkDataImage/readers/itkDCMTKDataImageReader.cpp
+index b9d9ba8..477f6b4 100644
+--- a/src/plugins/legacy/itkDataImage/readers/itkDCMTKDataImageReader.cpp
++++ b/src/plugins/legacy/itkDataImage/readers/itkDCMTKDataImageReader.cpp
+@@ -143,7 +143,7 @@ itk::DCMTKImageIO::Pointer itkDCMTKDataImageReaderPrivate::getNewIO()
+ {
+     initialiseStatic();
+ 
+-    QMutexLocker lock(mutex);
++    QMutexLocker lock(mutex.loadRelaxed());
+ 
+     itk::DCMTKImageIO::Pointer io = itk::DCMTKImageIO::New();
+ 
+@@ -155,7 +155,7 @@ itk::DCMTKImageIO::Pointer itkDCMTKDataImageReaderPrivate::getNewIO()
+ 
+ void itkDCMTKDataImageReaderPrivate::threadDone(itk::DCMTKImageIO::Pointer io)
+ {
+-    QMutexLocker lock(mutex);
++    QMutexLocker lock(mutex.loadRelaxed());
+ 
+     QThread * thread = QThread::currentThread();
+     ioThreads->removeOne(thread);
+@@ -178,7 +178,7 @@ void itkDCMTKDataImageReaderPrivate::initialiseStatic()
+             delete m;
+     }
+ 
+-    QMutexLocker lock(mutex);
++    QMutexLocker lock(mutex.loadRelaxed());
+ 
+     if (!ioThreads)
+         ioThreads = new QList<QThread*>();
+diff --git a/src/plugins/legacy/itkDataSHImage/itkSphericalHarmonicITKToVTKFilter.txx b/src/plugins/legacy/itkDataSHImage/itkSphericalHarmonicITKToVTKFilter.txx
+index 7270a26..b9c38c9 100644
+--- a/src/plugins/legacy/itkDataSHImage/itkSphericalHarmonicITKToVTKFilter.txx
++++ b/src/plugins/legacy/itkDataSHImage/itkSphericalHarmonicITKToVTKFilter.txx
+@@ -12,6 +12,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QElapsedTimer>
+ #include <vtkPointData.h>
+ #include <vtkImageData.h>
+ #include <vtkMatrix4x4.h>
+@@ -81,7 +82,7 @@ namespace itk
+     void
+     SphericalHarmonicITKToVTKFilter<TSHImage>::GenerateData()
+     {
+-        QTime time;
++        QElapsedTimer time;
+         time.start();
+ 
+         SHImageConstPointer inputSH = this->GetInput(0);
+diff --git a/src/plugins/legacy/itkDataTensorImage/manager/vtkTensorVisuManager.cxx b/src/plugins/legacy/itkDataTensorImage/manager/vtkTensorVisuManager.cxx
+index 0558c69..d1e17ec 100644
+--- a/src/plugins/legacy/itkDataTensorImage/manager/vtkTensorVisuManager.cxx
++++ b/src/plugins/legacy/itkDataTensorImage/manager/vtkTensorVisuManager.cxx
+@@ -11,6 +11,8 @@
+ 
+ =========================================================================*/
+ 
++#include <iostream>
++using namespace std;
+ #include "vtkTensorVisuManager.h"
+ 
+ #include <vtkObjectFactory.h>
+diff --git a/src/plugins/legacy/manualRegistration/manualRegistrationLandmarkController.cpp b/src/plugins/legacy/manualRegistration/manualRegistrationLandmarkController.cpp
+index 7011e78..d44966a 100644
+--- a/src/plugins/legacy/manualRegistration/manualRegistrationLandmarkController.cpp
++++ b/src/plugins/legacy/manualRegistration/manualRegistrationLandmarkController.cpp
+@@ -199,7 +199,7 @@ void manualRegistrationLandmarkController::AddPoint(manualRegistrationLandmark*
+     qreal r,g,b,a;
+     colorPoint = Colors.takeFirst();
+     Colors.push_back(colorPoint);
+-    colorPoint.getRgbF(&r,&g,&b,&a);
++    { float fr,fg,fb,fa; colorPoint.getRgbF(&fr,&fg,&fb,&fa); r=fr; g=fg; b=fb; a=fa; }
+     if (i) 
+     {
+         if (Points_Moving->size()<Points_Fixed->size())
+diff --git a/src/plugins/legacy/medAPHPDataSource/medAPHP.cpp b/src/plugins/legacy/medAPHPDataSource/medAPHP.cpp
+index 96f5192..a2a5de0 100644
+--- a/src/plugins/legacy/medAPHPDataSource/medAPHP.cpp
++++ b/src/plugins/legacy/medAPHPDataSource/medAPHP.cpp
+@@ -159,7 +159,7 @@ medAPHP::medAPHP(QtDcmInterface *dicomLib, medAbstractAnnotation *annotationAPI)
+     gender->setCaption("Gender");
+     QObject::connect(gender, &medStringListParameter::valueChanged, [&, gender](int const &value)
+                      {
+-        if (value == 0) 
++        if (value.isEmpty()) 
+         {
+             d->patientLevelAttributes[DCM_PatientSex] = "";
+         } else 
+@@ -173,7 +173,7 @@ medAPHP::medAPHP(QtDcmInterface *dicomLib, medAbstractAnnotation *annotationAPI)
+     studyDescription->setCaption("Study Description");
+     QObject::connect(studyDescription, &medStringParameter::valueEdited, [&](QString const &value)
+                      {
+-        if (value == 0) 
++        if (value.isEmpty()) 
+         {
+             d->studyLevelAttributes[DCM_StudyDescription] = "";
+         } else 
+@@ -215,7 +215,7 @@ medAPHP::medAPHP(QtDcmInterface *dicomLib, medAbstractAnnotation *annotationAPI)
+     modality->setCaption("Modality");
+     QObject::connect(modality, &medStringListParameter::valueChanged, [&, modality](int const &value)
+                      {
+-        if (value == 0) 
++        if (value.isEmpty()) 
+         {
+             d->seriesLevelAttributes[DCM_Modality] = "";
+         } else 
+diff --git a/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.cpp b/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.cpp
+index 30a301f..c999d47 100644
+--- a/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.cpp
++++ b/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QElapsedTimer>
+ #include <dtkCoreSupport/dtkAbstractProcessFactory.h>
+ 
+ #include <itkConnectedThresholdImageFilter.h>
+@@ -234,9 +235,9 @@ public:
+ 
+         if ((m_cb->paintState() == PaintState::Stroke || m_cb->paintState() == PaintState::DeleteStroke) && (event->modifiers()==Qt::ControlModifier))
+         {
+-            int numDegrees = event->delta() / 8;
++            int numDegrees = (event->angleDelta().x() != 0 ? event->angleDelta().x() : event->angleDelta().y()) / 8;
+             int numSteps = numDegrees / 15;
+-            if (event->orientation() == Qt::Horizontal)
++            if (event->angleDelta().x() != 0)
+             {
+                 m_cb->addBrushSize(-numSteps);
+             }
+@@ -256,7 +257,7 @@ private :
+     std::vector<QVector3D> m_points;
+     PaintState::E m_paintState;
+     PaintState::E m_lastPaintState;
+-    QTime timer; // timer used to improve the visualization of the cursor
++    QElapsedTimer timer; // timer used to improve the visualization of the cursor
+ };
+ 
+ AlgorithmPaintToolBox::AlgorithmPaintToolBox(QWidget *parent ) :
+@@ -340,7 +341,7 @@ AlgorithmPaintToolBox::AlgorithmPaintToolBox(QWidget *parent ) :
+     connect(m_wandUpperThresholdSlider->getSpinBox(),SIGNAL(valueChanged(double)),this,SLOT(updateMagicWandComputation()),Qt::UniqueConnection);
+     connect(m_wandLowerThresholdSlider->getSpinBox(),SIGNAL(valueChanged(double)),this,SLOT(updateMagicWandComputation()),Qt::UniqueConnection);
+ 
+-    wandTimer = QTime();
++    wandTimer.invalidate();
+ 
+     QLabel* nbIterationsText = new QLabel(tr("Number of iterations:"), this);
+     nbIterations = new QSpinBox();
+diff --git a/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.h b/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.h
+index 83b5415..9be633a 100644
+--- a/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.h
++++ b/src/plugins/legacy/medAlgorithmPaint/medAlgorithmPaintToolBox.h
+@@ -12,6 +12,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QElapsedTimer>
+ #include <medAlgorithmPaintPluginExport.h>
+ #include <medPaintBrush.h>
+ 
+@@ -217,7 +218,7 @@ private:
+     QShortcut *removeSeed_shortcut;
+     QCheckBox *m_wand3DCheckbox, *m_wandStatCheckbox, *m_wand3DRealTime;
+     QLabel *m_wandInfo;
+-    QTime wandTimer;
++    QElapsedTimer wandTimer;
+ 
+     QSpinBox *nbIterations, *sizeNeighborhood;
+     QDoubleSpinBox *multiplier;
+diff --git a/src/plugins/legacy/medN4BiasCorrection/medN4BiasCorrection.cpp b/src/plugins/legacy/medN4BiasCorrection/medN4BiasCorrection.cpp
+index e5a854d..4c4bc6c 100644
+--- a/src/plugins/legacy/medN4BiasCorrection/medN4BiasCorrection.cpp
++++ b/src/plugins/legacy/medN4BiasCorrection/medN4BiasCorrection.cpp
+@@ -205,7 +205,7 @@ int medN4BiasCorrection::update(medAbstractData *inputData)
+     }
+     else
+     {
+-        qDebug() << "N4 Bias Correction: mask not read, creating Otsu mask." << endl;
++        qDebug() << "N4 Bias Correction: mask not read, creating Otsu mask.";
+         typedef itk::OtsuThresholdImageFilter<OutputImageType, MaskImageType>
+             ThresholderType;
+         ThresholderType::Pointer otsu = ThresholderType::New();
+@@ -398,7 +398,7 @@ int medN4BiasCorrection::update(medAbstractData *inputData)
+     }
+     catch( ... )
+     {
+-        qDebug() << "Unknown exception caught." << endl;
++        qDebug() << "Unknown exception caught.";
+         return medAbstractProcessLegacy::FAILURE;
+     }
+     
+diff --git a/src/plugins/legacy/medPACS/DICOMwebOperations/httpResponse.cpp b/src/plugins/legacy/medPACS/DICOMwebOperations/httpResponse.cpp
+index 4aa3afb..1d30eb4 100644
+--- a/src/plugins/legacy/medPACS/DICOMwebOperations/httpResponse.cpp
++++ b/src/plugins/legacy/medPACS/DICOMwebOperations/httpResponse.cpp
+@@ -13,7 +13,7 @@
+ 
+ #include "httpResponse.h"
+ 
+-#include <QRegExp>
++#include <QRegularExpression>
+ 
+ 
+ #define HTTP_SEP "\r\n" // http separation sequence
+@@ -162,7 +162,7 @@ void httpResponse::separateHeaderAndPayload(QByteArray & data, QByteArray & main
+     QString headers = headerAndData.first;
+ 
+     // go through the values in a header to identify fields and values
+-    QStringList headerList = headers.split(QRegExp("[" HTTP_SEP "]"), QString::SkipEmptyParts);
++    QStringList headerList = headers.split(QRegularExpression("[" HTTP_SEP "]"), Qt::SkipEmptyParts);
+     for(auto headerEntry : headerList)
+     {
+         auto entrySplited = splitByteArray(headerEntry.toLatin1(), ":");
+@@ -194,7 +194,7 @@ QStringList httpResponse::splitHeaderValues(QByteArray & headerValues)
+     QStringList listRes;
+ 
+     // identifies all key-value pairs from a main header field
+-    listRes = QString(headerValues).split(";", QString::SplitBehavior::SkipEmptyParts);
++    listRes = QString(headerValues).split(";", Qt::SkipEmptyParts);
+ 
+     for(auto & str : listRes)
+     {
+diff --git a/src/plugins/legacy/medPACS/medPACS.cpp b/src/plugins/legacy/medPACS/medPACS.cpp
+index c33e98d..521a5a9 100644
+--- a/src/plugins/legacy/medPACS/medPACS.cpp
++++ b/src/plugins/legacy/medPACS/medPACS.cpp
+@@ -241,7 +241,7 @@ medPACS::medPACS(dcmPACS *dicomLib) : d(new medPACSParametersPrivate)
+     studyDescription->setCaption("StudyDescription");
+     QObject::connect(studyDescription, &medStringParameter::valueEdited, [&](QString const &value)
+     {
+-        if(value == 0) 
++        if(value.isEmpty()) 
+         {
+             d->studyLevelAttributes[DCM_StudyDescription] = "";
+         }
+diff --git a/src/plugins/legacy/medSQLite/writingPolicy/medSQLiteWritingPolicy.cpp b/src/plugins/legacy/medSQLite/writingPolicy/medSQLiteWritingPolicy.cpp
+index c197065..a0a0187 100644
+--- a/src/plugins/legacy/medSQLite/writingPolicy/medSQLiteWritingPolicy.cpp
++++ b/src/plugins/legacy/medSQLite/writingPolicy/medSQLiteWritingPolicy.cpp
+@@ -12,6 +12,7 @@
+ =========================================================================*/
+ 
+ 
++#include <QRegularExpression>
+ #include "medSQLiteWritingPolicy.h"
+ 
+ medSQLiteWritingPolicy::medSQLiteWritingPolicy()
+@@ -37,7 +38,7 @@ QString medSQLiteWritingPolicy::computeName(QString const & pi_baseName, QString
+ 
+ QString medSQLiteWritingPolicy::computePath(QString pi_sourceId, QString pi_suggestedPath, QMap<QString, QString> pi_metaData, bool pi_bTrim)
+ {
+-    QStringList pathRes = pi_suggestedPath.split("\r\n", QString::SkipEmptyParts);
++    QStringList pathRes = pi_suggestedPath.split("\r\n", Qt::SkipEmptyParts);
+ 
+     int iLevelToWriteData = 2; // In case of SQLite source, the desired level to write data is 2
+     QStringList levelNames;
+@@ -75,23 +76,24 @@ bool medSQLiteWritingPolicy::incrementName(QString & pio_name, QStringList pi_al
+     QString leftPart = pio_name;
+ 
+     QString regExpStr = "(.*)_([0-9]+)";
+-    QRegExp regExp(regExpStr);
++    QRegularExpression regExp(QRegularExpression::anchoredPattern(regExpStr));
+ 
+-
+-    if (regExp.exactMatch(pio_name))
++    QRegularExpressionMatch regExpMatch = regExp.match(pio_name);
++    if (regExpMatch.hasMatch())
+     {
+-        leftPart = regExp.cap(1);
+-        iCounter = regExp.cap(2).toInt();
++        leftPart = regExpMatch.captured(1);
++        iCounter = regExpMatch.captured(2).toInt();
+     }
+ 
+-    regExpStr = "(" + QRegExp::escape(leftPart) + ")_([0-9]+)";
+-    regExp.setPattern(regExpStr);
++    regExpStr = "(" + QRegularExpression::escape(leftPart) + ")_([0-9]+)";
++    regExp.setPattern(QRegularExpression::anchoredPattern(regExpStr));
+ 
+     for (auto aName : pi_alreadyExistName)
+     {
+-        if (regExp.exactMatch(aName))
++        QRegularExpressionMatch aMatch = regExp.match(aName);
++        if (aMatch.hasMatch())
+         {
+-            int iTmp = regExp.cap(2).toInt();
++            int iTmp = aMatch.captured(2).toInt();
+             iCounter = iTmp >= iCounter ? iTmp+1 : iCounter;
+         }
+     }
+diff --git a/src/plugins/legacy/medShanoir/internal/Levels.h b/src/plugins/legacy/medShanoir/internal/Levels.h
+index 5b0495d..0291f43 100644
+--- a/src/plugins/legacy/medShanoir/internal/Levels.h
++++ b/src/plugins/legacy/medShanoir/internal/Levels.h
+@@ -118,10 +118,6 @@ static inline auto findLevelElement(const QList<T> &levels, int id)
+     {
+         return level.id == id;
+     });
+-	if (it == levels.end())
+-	{
+-		it = nullptr;
+-	}
+     return it;
+ }
+ 
+diff --git a/src/plugins/legacy/medVtkFibersData/interactors/medVtkFibersDataInteractor.cpp b/src/plugins/legacy/medVtkFibersData/interactors/medVtkFibersDataInteractor.cpp
+index 79fc5ef..be8bd69 100644
+--- a/src/plugins/legacy/medVtkFibersData/interactors/medVtkFibersDataInteractor.cpp
++++ b/src/plugins/legacy/medVtkFibersData/interactors/medVtkFibersDataInteractor.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QRandomGenerator>
+ #include <medVtkFibersDataInteractor.h>
+ 
+ #include <vtkActor.h>
+@@ -1149,7 +1150,7 @@ void medVtkFibersDataInteractor::validateBundling()
+         text = tr("Fiber bundle #") + QString::number(bundleNumber);
+     }
+     
+-    QColor color = QColor::fromHsv(qrand()%360, 255, 210);
++    QColor color = QColor::fromHsv(QRandomGenerator::global()->generate()%360, 255, 210);
+     this->validateSelection(text, color);
+     this->addBundle(text, color);
+ }
+@@ -1161,7 +1162,7 @@ void medVtkFibersDataInteractor::addBundle (const QString &name, const QColor &c
+ 
+     QStandardItem *item = new QStandardItem (name);
+     item->setCheckable(true);
+-    item->setTristate(false);
++    item->setAutoTristate(false);
+     item->setEditable(true);
+     item->setCheckState(Qt::Checked);
+ 
+diff --git a/src/plugins/legacy/medVtkView/medVtkView.cpp b/src/plugins/legacy/medVtkView/medVtkView.cpp
+index 478b11a..54baf72 100644
+--- a/src/plugins/legacy/medVtkView/medVtkView.cpp
++++ b/src/plugins/legacy/medVtkView/medVtkView.cpp
+@@ -16,7 +16,6 @@
+ #include <QHash>
+ #include <QTest>
+ #include <QWidget>
+-#include <QGLFramebufferObject>
+ #include <QVTKInteractorAdapter.h>
+ #include <QVTKInteractor.h>
+ #include <vtkEventQtSlotConnect.h>
+diff --git a/src/plugins/legacy/polygonRoi/readers/medContoursReader.cpp b/src/plugins/legacy/polygonRoi/readers/medContoursReader.cpp
+index 5599724..74f2e46 100644
+--- a/src/plugins/legacy/polygonRoi/readers/medContoursReader.cpp
++++ b/src/plugins/legacy/polygonRoi/readers/medContoursReader.cpp
+@@ -317,7 +317,7 @@ bool medContoursReader::extractMetaDataFromFieldData(vtkMetaDataSet* dataSet)
+ 
+             for (int j = 0; j < array->GetSize(); j++)
+             {
+-                data()->addMetaData(metaDataKey, QString(array->GetValue(j)));
++                data()->addMetaData(metaDataKey, QString::fromStdString(array->GetValue(j)));
+             }
+         }
+         else
+diff --git a/src/plugins/legacy/polygonRoi/toolboxes/defaultLabelToolBox.cpp b/src/plugins/legacy/polygonRoi/toolboxes/defaultLabelToolBox.cpp
+index a6a4f43..c7c7074 100644
+--- a/src/plugins/legacy/polygonRoi/toolboxes/defaultLabelToolBox.cpp
++++ b/src/plugins/legacy/polygonRoi/toolboxes/defaultLabelToolBox.cpp
+@@ -321,7 +321,7 @@ void defaultLabelToolBox::updatePolygonLabelPosition(int startPosition)
+         {
+             QListWidgetItem *item1 = labels->item(row);
+             QString name = item1->text();
+-            name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++            name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+             currentViewEvent->updatePosition(name, row);
+         }
+     }
+diff --git a/src/plugins/legacy/polygonRoi/toolboxes/urologyLabelToolBox.cpp b/src/plugins/legacy/polygonRoi/toolboxes/urologyLabelToolBox.cpp
+index fb782d2..8b0f164 100644
+--- a/src/plugins/legacy/polygonRoi/toolboxes/urologyLabelToolBox.cpp
++++ b/src/plugins/legacy/polygonRoi/toolboxes/urologyLabelToolBox.cpp
+@@ -26,10 +26,10 @@ void urologyLabelToolBox::initialize(QString &seriesName)
+         QColor color = item->icon().pixmap(QSize(20,20)).toImage().pixelColor(0,0);
+         QString name = item->text();
+         QString scoreName;
+-        if (name.contains(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]")))
++        if (name.contains(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]")))
+         {
+             scoreName = name.section(' ', -1);
+-            name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++            name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+         }
+         bool hasScore = item->flags().testFlag(Qt::ItemIsUserCheckable);
+         bool checkState = (item->checkState() == Qt::Checked);
+@@ -43,7 +43,7 @@ void urologyLabelToolBox::initialize(QString &seriesName)
+ 
+     connect(labels, &QListWidget::itemChanged, labels, [this](QListWidgetItem *item){
+         QString name = item->text();
+-        name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++        name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+         int position = labels->row(item);
+ 
+         if (currentViewEvent)
+@@ -269,7 +269,7 @@ void urologyLabelToolBox::onMinusClicked()
+         QListWidgetItem *item = items.at(0);
+         int row = labels->row(item);
+         QString name = item->text();
+-        name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++        name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+         item->setText(name);
+         if (item->flags().testFlag(Qt::ItemIsUserCheckable))
+         {
+@@ -304,7 +304,7 @@ void urologyLabelToolBox::rename(int row, QString &newName)
+     if (item)
+     {
+         QString name = item->text();
+-        if (name.contains(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]")))
++        if (name.contains(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]")))
+         {
+             name = name.section(' ', -2);
+             name.prepend(newName + QString(' '));
+@@ -328,7 +328,7 @@ void urologyLabelToolBox::clean()
+     {
+         QListWidgetItem *item = labels->item(row);
+         QString name = item->text();
+-        name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++        name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+         item->setText(name);
+         if (item->flags().testFlag(Qt::ItemIsUserCheckable))
+         {
+@@ -354,7 +354,7 @@ void urologyLabelToolBox::updateItem(medLabelProperty &info)
+     if (info.scoreState && !info.secondName.isEmpty())
+     {
+         QString name = item->text();
+-        name = name.remove(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]"));
++        name = name.remove(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]"));
+         name.append(QString(" - %1").arg(info.secondName));
+         item->setText(name);
+     }
+@@ -425,7 +425,7 @@ bool urologyLabelToolBox::hasScoreOnPosition(int row, QString &score, QColor &co
+     if (item)
+     {
+         QString name = item->text();
+-        if (name.contains(QRegExp(" - Z[T|P]{1}_PIRADS[0-9]")))
++        if (name.contains(QRegularExpression(" - Z[T|P]{1}_PIRADS[0-9]")))
+         {
+             score = name.section(' ', -2);
+             color = item->icon().pixmap(QSize(20,20)).toImage().pixelColor(0,0);
+diff --git a/src/plugins/legacy/polygonRoi/viewevent/urologyViewEvent.cpp b/src/plugins/legacy/polygonRoi/viewevent/urologyViewEvent.cpp
+index 8d771c3..a21638e 100644
+--- a/src/plugins/legacy/polygonRoi/viewevent/urologyViewEvent.cpp
++++ b/src/plugins/legacy/polygonRoi/viewevent/urologyViewEvent.cpp
+@@ -2,6 +2,7 @@
+ // Created by Julien Castelneau on 06/04/2021.
+ //
+ 
++#include <QRegularExpression>
+ #include <medMetaDataKeys.h>
+ #include "urologyViewEvent.h"
+ 
+@@ -207,7 +208,7 @@ void urologyViewEvent::loadContours(QVector<medTagContours> &tagContoursSet)
+                     label->getState().scoreState = isTarget;
+                     for (const QPair<QString, QColor>& pirad : pirads)
+                     {
+-                        if (QRegExp("Z[T|P]{1}_" + pirad.first).exactMatch(tagContour.getScore()))
++                        if (QRegularExpression(QRegularExpression::anchoredPattern("Z[T|P]{1}_" + pirad.first)).match(tagContour.getScore()).hasMatch())
+                         {
+                             label->setOptionalNameWithColor(tagContour.getScore(), pirad.second);
+                             break;
+diff --git a/src/plugins/legacy/vtkDataMesh/interactors/vtkDataMeshInteractor.cpp b/src/plugins/legacy/vtkDataMesh/interactors/vtkDataMeshInteractor.cpp
+index 7dd27a3..b45760c 100644
+--- a/src/plugins/legacy/vtkDataMesh/interactors/vtkDataMeshInteractor.cpp
++++ b/src/plugins/legacy/vtkDataMesh/interactors/vtkDataMeshInteractor.cpp
+@@ -344,7 +344,7 @@ void vtkDataMeshInteractor::setColor(QColor color)
+         color.setRgb(0,0,0);
+ 
+     double r,g,b;
+-    color.getRgbF(&r, &g, &b);
++    { float fr,fg,fb; color.getRgbF(&fr,&fg,&fb); r=fr; g=fg; b=fb; }
+     d->actorProperty2D->SetColor(r, g, b);
+     d->actorProperty3D->SetColor(r, g, b);
+ 
+diff --git a/src/plugins/legacy/vtkDataMesh/navigators/vtkDataMeshNavigator.cpp b/src/plugins/legacy/vtkDataMesh/navigators/vtkDataMeshNavigator.cpp
+index cfa725b..92b513a 100644
+--- a/src/plugins/legacy/vtkDataMesh/navigators/vtkDataMeshNavigator.cpp
++++ b/src/plugins/legacy/vtkDataMesh/navigators/vtkDataMeshNavigator.cpp
+@@ -202,7 +202,7 @@ void vtkDataMeshNavigator::setBackgroundColor(QColor color)
+     }
+ 
+     double r,g,b;
+-    color.getRgbF(&r, &g, &b);
++    { float fr,fg,fb; color.getRgbF(&fr,&fg,&fb); r=fr; g=fg; b=fb; }
+ 
+     d->view3d->SetBackground(r, g, b);
+ 
+diff --git a/src/plugins/legacy/vtkDataMesh/readers/vtkDataMeshReaderBase.cpp b/src/plugins/legacy/vtkDataMesh/readers/vtkDataMeshReaderBase.cpp
+index d16d0bd..4006dbc 100644
+--- a/src/plugins/legacy/vtkDataMesh/readers/vtkDataMeshReaderBase.cpp
++++ b/src/plugins/legacy/vtkDataMesh/readers/vtkDataMeshReaderBase.cpp
+@@ -79,7 +79,7 @@ bool vtkDataMeshReaderBase::extractMetaDataFromFieldData(vtkMetaDataSet* dataSet
+ 
+             for (int j = 0; j < array->GetSize(); j++)
+             {
+-                data()->addMetaData(metaDataKey, QString(array->GetValue(j)));
++                data()->addMetaData(metaDataKey, QString::fromStdString(array->GetValue(j)));
+             }
+         }
+         else
+diff --git a/src/plugins/process/bias_correction/medItkBiasCorrectionProcess.cpp b/src/plugins/process/bias_correction/medItkBiasCorrectionProcess.cpp
+index 0a91df6..af322fb 100644
+--- a/src/plugins/process/bias_correction/medItkBiasCorrectionProcess.cpp
++++ b/src/plugins/process/bias_correction/medItkBiasCorrectionProcess.cpp
+@@ -11,6 +11,7 @@
+ 
+ =========================================================================*/
+ 
++#include <QRegularExpressionValidator>
+ #include <medItkBiasCorrectionProcess.h>
+ 
+ #include <dtkLog>
+@@ -61,7 +62,7 @@ medItkBiasCorrectionProcess::medItkBiasCorrectionProcess(QObject *parent): medAb
+     m_poSMaxIterations = new medStringParameter("Iterations", this);
+     m_poSMaxIterations->setCaption("Rounds of iterations");
+     m_poSMaxIterations->setDescription("Number of round and number of iteration per round\nlike 50x40x30");
+-    m_poSMaxIterations->setValidator(new QRegExpValidator(QRegExp("^[1-9][0-9]{0,2}(x[1-9][0-9]{0,2})*")));
++    m_poSMaxIterations->setValidator(new QRegularExpressionValidator(QRegularExpression("^[1-9][0-9]{0,2}(x[1-9][0-9]{0,2})*")));
+     m_poSMaxIterations->setValue("50x40x30");
+ 
+     m_poFWienerFilterNoise = new medDoubleParameter("WienerFilterNoise", this);

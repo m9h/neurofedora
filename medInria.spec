@@ -2,12 +2,26 @@
 
 Name:           medInria
 Version:        5.0.1~beta
-Release:        0.5%{?dist}
+Release:        0.6%{?dist}
 Summary:        Medical image navigation and research tool
 
 License:        BSD-3-Clause
 URL:            https://github.com/medInria/medInria-public
 Source0:        https://github.com/medInria/medInria-public/archive/refs/tags/V5.0.1beta/medInria-public-V5.0.1beta.tar.gz
+
+# Complete upstream's unfinished Qt6 port: medInria 5.0.1beta is a Qt5 codebase
+# (master/dev still pin QT_VERSION_MAJOR 5), but F44 dropped Qt5 VTK so we must
+# build against Qt6. This patch ports all the Qt5->Qt6 (and a few VTK 9.6) source
+# incompatibilities so medInria's own source compiles 100%: QStringList fwd-decls,
+# QRegExp->QRegularExpression, QHashIterator(QMultiHash)->STL, QString::SplitBehavior
+# ->Qt::, QApplication::desktop()/QDesktopWidget->QScreen, QGLFormat/QGLWidget->
+# QSurfaceFormat, QTime timer->QElapsedTimer, qSort->std::sort, QColor::getRgbF float*,
+# QWheelEvent delta/orientation->angleDelta, QDirModel->QFileSystemModel, vtkIdFilter->
+# vtkGenerateIds, and more (68 files). Also folds in the VTK 9.2 vtkLegacyReaderVersion
+# shim. NOTE: needs dtk-qt6 >= 1.7.1-2 -- 1.7.1-1's libdtkGuiSupport shipped with
+# unresolved internal symbols (dtkItemView/dtkItemList/dtkTagCloud/dtkTagScope) so
+# nothing could link against it; fixed there, hence the versioned dependency below.
+Patch0:         medInria-qt6-port.patch
 
 BuildRequires:  cmake >= 3.19
 BuildRequires:  ninja-build
@@ -22,7 +36,7 @@ BuildRequires:  qt6-qttools-devel
 
 # Core dependencies — dtk-qt6 replaces dtk (mutually exclusive; same cmake
 # config path %%{_libdir}/cmake/dtk/), VTK 9.5.2 from the COPR
-BuildRequires:  dtk-qt6-devel >= 1.7.1
+BuildRequires:  dtk-qt6-devel >= 1.7.1-2
 BuildRequires:  InsightToolkit5-devel >= 5.4.5-12
 BuildRequires:  InsightToolkit5-vtk-devel >= 5.4.5-12
 BuildRequires:  vtk-devel
@@ -43,7 +57,7 @@ BuildRequires:  sqlite-devel
 Requires:       qt6-qtbase
 Requires:       qt6-qtsvg
 Requires:       qt6-qtdeclarative
-Requires:       dtk-qt6 >= 1.7.1
+Requires:       dtk-qt6 >= 1.7.1-2
 
 %description
 medInria is a free medical image viewer and processing tool developed at
@@ -60,6 +74,9 @@ Headers and cmake config files for medInria development.
 
 %prep
 %setup -q -n medInria-public-5.0.1beta
+
+# Qt5 -> Qt6 (+ VTK 9.6) source port so medInria's own source compiles on F44.
+%patch -P 0 -p1
 
 # ---------------------------------------------------------------------------
 # All patches apply to src/ (the standalone cmake project, not the superbuild)
@@ -113,10 +130,7 @@ sed -i 's|DESTINATION          cmake/)|DESTINATION          share/cmake/medInria
 # Remove -Wformat=0 which conflicts with Fedora's -Werror=format-security (GCC 15)
 sed -i '/Wformat=0/d' src/CMakeLists.txt
 
-# Shim vtkLegacyReaderVersion.h (VTK 9.3+ only): define version constants for VTK 9.2
-sed -i 's|#include <vtkLegacyReaderVersion.h>|// VTK 9.2 lacks vtkLegacyReaderVersion.h; define constants\nstatic constexpr int vtkLegacyReaderMajorVersion = 5;\nstatic constexpr int vtkLegacyReaderMinorVersion = 1;|' \
-  src/layers/legacy/medVtkDataMeshBase/vtkMetaSurfaceMesh.cxx \
-  src/layers/legacy/medVtkDataMeshBase/vtkMetaVolumeMesh.cxx
+# (vtkLegacyReaderVersion.h shim for VTK 9.3+ is now part of Patch0.)
 
 # Fix plugin search paths: upstream uses paths relative to the binary (bin/plugins,
 # bin/plugins_legacy) which don't work with FHS lib64 install layout.
@@ -203,6 +217,24 @@ fi
 %{_libdir}/cmake/med*/
 
 %changelog
+* Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.6
+- Add Patch0 (medInria-qt6-port.patch, 68 files) completing upstream's unfinished
+  Qt5->Qt6 port: medInria 5.0.1beta is still a Qt5 codebase (master/dev pin
+  QT_VERSION_MAJOR 5) but F44 has no Qt5 VTK, so -0.5 only flipped the CMake
+  variable and every build FTBFS'd at the first medCore object. The patch ports
+  all source-level Qt5->Qt6 and VTK-9.5->9.6 incompatibilities (QRegExp->
+  QRegularExpression incl. the stateful medStyleSheetParser, QHashIterator over
+  QMultiHash->STL, QApplication::desktop()/QDesktopWidget/QGLWidget/QGLFormat->
+  QScreen/QSurfaceFormat, QTime timer->QElapsedTimer, qSort->std::sort, QColor::
+  getRgbF float*, QWheelEvent delta/orientation->angleDelta, QDirModel->
+  QFileSystemModel, vtkIdFilter->vtkGenerateIds, QString::SplitBehavior->Qt::, etc).
+  Verified: 100%% of medInria's own source now compiles against system Qt6 + VTK 9.6.
+- Fold the VTK vtkLegacyReaderVersion.h shim into Patch0 (drop the inline sed).
+- Requires dtk-qt6 >= 1.7.1-2: 1.7.1-1 shipped a broken libdtkGuiSupport.so with
+  unresolved internal symbols (dtkItemView/dtkItemList/dtkTagCloud/dtkTagScope) so
+  nothing could link against it, which is what blocked the final bin/medInria link.
+  Fixed in dtk-qt6-1.7.1-2; BuildRequires/Requires now pin that version.
+
 * Sat May 23 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.5
 - Port to Qt6 / VTK 9.5.2 / dtk-qt6 stack. F44 has no Qt5 VTK 9.2.6, so the
   prior pin (vtk-devel<9.3, vtk-qt<9.3) is unsatisfiable; F43 chroots were
