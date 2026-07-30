@@ -8,7 +8,7 @@
 
 Name:           3dslicer-dcmqi
 Version:        1.5.6
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        DICOM Quantitative Imaging converters
 
 License:        BSD-3-Clause
@@ -20,11 +20,18 @@ BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
 BuildRequires:  InsightToolkit5-devel >= 5.4.6
 BuildRequires:  dcmtk-devel
+# apps/*/CMakeLists.txt do find_package(SlicerExecutionModel) to build the CLIs
+# (DCMQI_BUILD_APPS=ON). It was never declared -- masked until now because the
+# bogus itkjsonkit-devel aborted the buildroot before configure ever ran.
+BuildRequires:  SlicerExecutionModel-devel
 BuildRequires:  zlib-devel
 BuildRequires:  jsoncpp-devel
 Requires:       jsoncpp
 BuildRequires:  rapidjson-devel
-BuildRequires:  itkjsonkit-devel
+# (BuildRequires: itkjsonkit-devel removed -- no such package exists in Fedora or
+# this COPR, and dcmqi references no ITKJsonKit/itkjson target anywhere in its
+# CMake. It made every build of this package unsatisfiable: 3dslicer-dcmqi has
+# never had a successful build, including at 1.3.1.)
 # Optional dependency for the Slicer-side wrapping; the standalone dcmqi
 # library and CLIs build without it.
 
@@ -78,6 +85,13 @@ libdcmqi.
     -DDCMQI_INSTALL_INCLUDE_DIR:STRING=include/dcmqi \
     -DJsonCpp_INCLUDE_DIR:PATH=%{_includedir} \
     -DJsonCpp_LIBRARY:FILEPATH=%{_libdir}/libjsoncpp.so \
+    `# Fedora ships these configs directly under %{_libdir}/<pkg>/ rather than` \
+    `# the canonical %{_libdir}/cmake/<pkg>/, so find_package cannot discover` \
+    `# them unaided -- same hint set 3dslicer.spec needs.` \
+    -DSlicerExecutionModel_DIR:PATH=%{_libdir}/SlicerExecutionModel \
+    -DGenerateCLP_DIR:PATH=%{_libdir}/GenerateCLP \
+    -DModuleDescriptionParser_DIR:PATH=%{_libdir}/ModuleDescriptionParser \
+    -DTCLAP_DIR:PATH=%{_libdir}/tclap \
     -DITK_DIR:PATH=%{_prefix}/lib/cmake/ITK-5.4 \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON
 %cmake_build
@@ -108,6 +122,21 @@ libdcmqi.
 
 
 %changelog
+* Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.6-3
+- Fix the configure failure exposed once the buildroot was satisfiable: apps/*
+  find_package(SlicerExecutionModel) for the CLIs (DCMQI_BUILD_APPS=ON), but it was
+  never in BuildRequires and Fedora ships its config under %%{_libdir}/<pkg>/ rather
+  than the canonical %%{_libdir}/cmake/<pkg>/, so find_package cannot discover it
+  unaided. Add the BuildRequires and the same _DIR hint set 3dslicer.spec already
+  carries (SlicerExecutionModel, GenerateCLP, ModuleDescriptionParser, TCLAP).
+
+* Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.6-2
+- Remove BuildRequires: itkjsonkit-devel -- no such package exists in Fedora or
+  this COPR, and dcmqi references no ITKJsonKit/itkjson target anywhere in its CMake.
+  It made the buildroot unsatisfiable, which is why 3dslicer-dcmqi has NEVER had a
+  successful build, 1.3.1 included. (zlib-devel is fine: provided by
+  zlib-ng-compat-devel.)
+
 * Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.6-1
 - Update to 1.5.6 (was a 1.3.1-labelled commit snapshot; upstream is on 1.5.x).
   Switch Source0 from the pinned commit to the v1.5.6 release tag and drop the

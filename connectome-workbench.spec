@@ -5,7 +5,7 @@
 
 Name:           connectome-workbench
 Version:        2.2.1
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        HCP Visualization and Discovery Tool
 
 License:        GPL-2.0-only
@@ -15,9 +15,16 @@ Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.
 BuildRequires:  cmake
 BuildRequires:  ninja-build
 BuildRequires:  gcc-c++
-BuildRequires:  qt5-qtbase-devel
-BuildRequires:  qt5-qtsvg-devel
-BuildRequires:  qt5-qtxmlpatterns-devel
+# Qt6. Core5Compat supplies what Qt6 dropped from Qt5 (upstream's Qt6
+# find_package lists it explicitly). qtsvg is not in either find_package
+# COMPONENTS list, but bundled Qwt compiles QSvgRenderer/QSvgGenerator paths
+# unless QWT_NO_SVG is defined -- the Qt5 build relied on qt5-qtsvg-devel being
+# present for exactly the same reason.
+# qtxmlpatterns is deliberately dropped: Qt6 removed the module outright, and
+# nothing in the tree uses QXmlQuery / QAbstractXmlReceiver (verified).
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qt5compat-devel
+BuildRequires:  qt6-qtsvg-devel
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  mesa-libGLU-devel
 BuildRequires:  glm-devel
@@ -29,9 +36,9 @@ BuildRequires:  desktop-file-utils
 # Xvfb is required to run GUI tests in a headless build environment
 BuildRequires:  xorg-x11-server-Xvfb
 
-Requires:       qt5-qtbase
-Requires:       qt5-qtsvg
-Requires:       qt5-qtxmlpatterns
+Requires:       qt6-qtbase
+Requires:       qt6-qt5compat
+Requires:       qt6-qtsvg
 
 %description
 Connectome Workbench is an open source visualization and discovery tool used
@@ -60,6 +67,25 @@ grep -q '#include <cstdint>' src/Common/CaretRgb.h || exit 1
 sed -i '/CaretFileDialogExtendable/d' src/GuiQt/CMakeLists.txt
 ! grep -q 'CaretFileDialogExtendable' src/GuiQt/CMakeLists.txt || exit 1
 
+# FIX 4 (Qt6): the top-level CMakeLists sets CARET_QT5_LINK "Qt5::Core" in the
+# Qt5 branch -- described upstream as a "small hack to get the qt5 compile flag
+# requirements into libraries" -- but leaves it at "" in the Qt6 branch. Several
+# libraries, notably bundled Qwt, do TARGET_LINK_LIBRARIES(... ${CARET_QT5_LINK}),
+# so under Qt6 they would get no Qt include dirs or compile flags at all. Mirror
+# the Qt5 line with the Qt6 target.
+python3 - <<'PYEOF'
+p = "src/CMakeLists.txt"
+s = open(p, encoding="utf-8").read()
+anchor = '    SET(QT_RESULT "${Qt6_VERSION}")\n'
+assert anchor in s, "Qt6 QT_RESULT anchor not found (upstream changed?)"
+add = ('    # Fedora: mirror the Qt5 branch so libraries linking ${CARET_QT5_LINK}\n'
+       '    # (e.g. bundled Qwt) inherit Qt include dirs and compile flags.\n'
+       '    SET(CARET_QT5_LINK "Qt6::Core")\n')
+assert 'SET(CARET_QT5_LINK "Qt6::Core")' not in s, "already patched"
+open(p, "w", encoding="utf-8").write(s.replace(anchor, anchor + add, 1))
+print("set CARET_QT5_LINK=Qt6::Core in the Qt6 branch")
+PYEOF
+
 # MOC handled by CMAKE_AUTOMOC=ON
 
 %build
@@ -70,7 +96,8 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive -Wno-error
 
 %cmake -GNinja \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
-    -DWORKBENCH_USE_QT5=TRUE \
+    -DWORKBENCH_USE_QT6=TRUE \
+    -DWORKBENCH_USE_QT5=FALSE \
     -DWORKBENCH_USE_OPENMP=TRUE \
     -DWORKBENCH_CHECK_FOR_UPDATES=FALSE \
     -DWORKBENCH_USE_SYSTEM_FTGL=FALSE \
@@ -126,6 +153,26 @@ xvfb-run -a ctest --output-on-failure || :
 %{_datadir}/icons/hicolor/32x32/apps/wb_view.png
 
 %changelog
+* Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.2.1-2
+- Switch to Qt6 (upstream 2.2.1 added WORKBENCH_USE_QT6). Qt5 is deprecated in
+  Fedora, and 2.2.1-1 established a working Qt5 baseline to compare against.
+  - -DWORKBENCH_USE_QT6=TRUE -DWORKBENCH_USE_QT5=FALSE; the two are mutually
+    exclusive upstream (SEND_ERROR if both).
+  - BuildRequires qt6-qtbase-devel + qt6-qt5compat-devel (Qt6Core5Compat is in
+    upstream's Qt6 COMPONENTS list) + qt6-qtsvg-devel. qtsvg appears in NEITHER
+    find_package COMPONENTS list, but bundled Qwt compiles the
+    QSvgRenderer/QSvgGenerator paths unless QWT_NO_SVG is defined -- the Qt5 build
+    depended on qt5-qtsvg-devel being installed for the same reason.
+  - Drop qtxmlpatterns: Qt6 removed the module and nothing in the tree uses
+    QXmlQuery / QAbstractXmlReceiver (verified by grep).
+  - FIX 4: upstream sets CARET_QT5_LINK to "Qt5::Core" in the Qt5 branch -- its own
+    comment calls it a "small hack to get the qt5 compile flag requirements into
+    libraries" -- but leaves it empty in the Qt6 branch, so libraries doing
+    TARGET_LINK_LIBRARIES(... ${CARET_QT5_LINK}) (bundled Qwt among them) would get
+    no Qt include dirs or compile flags. Mirror the Qt5 line with Qt6::Core.
+  The per-directory Qt5::/Qt6:: references elsewhere are already properly guarded by
+  if(Qt5_FOUND)/if(Qt6_FOUND), so no further porting was needed.
+
 * Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 2.2.1-1
 - Update to the v2.2.1 release tag (was a 2.1.0-labelled Feb-2026 commit snapshot;
   upstream 2.1.0 dates from Jun 2025 and 2.2.1 from Jul 2026). Re-verified every
