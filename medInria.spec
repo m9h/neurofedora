@@ -2,7 +2,7 @@
 
 Name:           medInria
 Version:        5.0.1~beta
-Release:        0.6%{?dist}
+Release:        0.7%{?dist}
 Summary:        Medical image navigation and research tool
 
 License:        BSD-3-Clause
@@ -217,6 +217,17 @@ fi
 %{_libdir}/cmake/med*/
 
 %changelog
+* Wed Jul 29 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.7
+- Patch0: define medVirtualRepresentationItemDelegate's default constructor.
+  Upstream declares `explicit medVirtualRepresentationItemDelegate();` in the
+  header -- which suppresses the implicit default ctor, since the adjacent
+  `using QStyledItemDelegate::QStyledItemDelegate;` does NOT inherit default
+  constructors -- but never defines it. libmedCoreGui.so therefore carries an
+  undefined reference to the ctor and the final bin/medInria link fails under
+  Fedora's -flto=auto. This is an upstream bug independent of the Qt6 port;
+  the -0.6 build compiled all 743 objects and died only at that last link.
+- Patch0 is now 69 files (+184/-165).
+
 * Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 5.0.1~beta-0.6
 - Add Patch0 (medInria-qt6-port.patch, 68 files) completing upstream's unfinished
   Qt5->Qt6 port: medInria 5.0.1beta is still a Qt5 codebase (master/dev pin

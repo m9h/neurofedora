@@ -914,6 +914,26 @@ index 60d3952..ac53976 100644
          proxy->setRecursiveFilteringEnabled(true);
      }
  }
+diff --git a/src/layers/medCoreGui/source/widgets/medVirtualRepresentationItemDelegate.cpp b/src/layers/medCoreGui/source/widgets/medVirtualRepresentationItemDelegate.cpp
+index 3f8313d..4579cfd 100644
+--- a/src/layers/medCoreGui/source/widgets/medVirtualRepresentationItemDelegate.cpp
++++ b/src/layers/medCoreGui/source/widgets/medVirtualRepresentationItemDelegate.cpp
+@@ -2,6 +2,15 @@
+ 
+ #include <QPainter>
+ 
++// The header declares an explicit default constructor, which suppresses the
++// implicit one (`using QStyledItemDelegate::QStyledItemDelegate` does not
++// inherit default constructors), but no definition was ever provided. That
++// leaves libmedCoreGui.so with an undefined reference to the constructor and
++// breaks the final link of bin/medInria. Provide the missing definition.
++medVirtualRepresentationItemDelegate::medVirtualRepresentationItemDelegate()
++    : QStyledItemDelegate()
++{
++}
+ 
+ void medVirtualRepresentationItemDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+ {
 diff --git a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp b/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp
 index e5aeed7..e4b723c 100644
 --- a/src/plugins/legacy/iterativeClosestPoint/iterativeClosestPointProcess.cpp
