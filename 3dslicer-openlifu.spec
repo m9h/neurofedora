@@ -19,8 +19,8 @@
 %global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-openlifu
-Version:        1.19.0
-Release:        3%{?dist}
+Version:        1.21.1
+Release:        1%{?dist}
 Summary:        OpenLIFU (Low-Intensity Focused Ultrasound) extension for 3D Slicer
 
 # Extension source is AGPL-3.0; see the bundled LICENSE.txt.
@@ -72,6 +72,17 @@ python3 %{SOURCE1} \
 %doc README.md
 
 %changelog
+* Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 1.21.1-1
+- Update to 1.21.1. IMPORTANT: 1.19.0 shipped a critical upstream bug in the
+  time-averaged-intensity calculation that produced incorrect ISPTA -- a dose-safety
+  figure in focused-ultrasound planning. Upstream fixed it in both v1.21.1 (mainline)
+  and a v1.19.1 backport; take the mainline. 1.21.0 also re-introduced simulated
+  hardware mode for testing the sonication control module without connected hardware,
+  1.20.0 added sample-database initialization, and 1.21.1 fixes Meshroom handling of
+  whitespace in paths. Same 11-module layout, no packaging change needed beyond the
+  version -- the slicer_subdir fix from -3 carries forward (verified: installer emits
+  65 files, all under Slicer-5.12).
+
 * Wed Jul 29 2026 Morgan Hough <morgan.hough@gmail.com>
 - Actually install into Slicer-5.12. The 1.19.0-2 retarget bumped the spec's
   %%global slicer_subdir but olifu-install-modules.py hardcoded
