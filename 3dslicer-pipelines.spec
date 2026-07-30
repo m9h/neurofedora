@@ -14,12 +14,16 @@
 %global shortcommit %(c=%{commit}; echo ${c:0:8})
 %global snapdate    20240423
 
+# Scripted-only extension: nothing is compiled, so the debuginfo machinery finds
+# no sources and dies on an empty debugsourcefiles.list.
+%global debug_package %{nil}
+
 %global slicer_inst   %{_prefix}/lib/slicer
 %global slicer_subdir Slicer-5.12
 
 Name:           3dslicer-pipelines
 Version:        1.0
-Release:        0.1.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.2.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        GUI-built processing pipelines for 3D Slicer (PipelineCreator)
 
 License:        Apache-2.0
@@ -123,6 +127,49 @@ open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
 print("replaced the networkx pip_install bootstrap with a plain import")
 PYEOF
 
+# PipelineModules imports four wrapping modules at module scope, one of which
+# does `from SurfaceToolbox import SurfaceToolboxLogic`. SurfaceToolbox was a
+# CORE Slicer scripted module when this commit was made (2024-04-23), but it left
+# core in Slicer 5.12 -- the 5.12.1 tarball keeps only its documentation page,
+# and the code now lives in the separate SlicerSurfaceToolbox extension. The
+# module-scope import therefore takes the whole of PipelineModules down with it.
+# The four wrappings are independent (each merely registers @slicerPipeline
+# steps), so make this one optional: Segmentations, SegmentEditor and vtk
+# wrappings keep working, and only the SurfaceToolbox pipeline steps go missing.
+# Packaging SlicerSurfaceToolbox would bring them back.
+python3 - <<'PYEOF'
+p = "PipelineModules/PipelineModules.py"
+s = open(p, encoding="utf-8").read()
+old = (
+    "from _PipelineModules import (\n"
+    "    SegmentationsWrapping,\n"
+    "    SegmentEditorWrapping,\n"
+    "    SurfaceToolboxWrapping,\n"
+    "    vtkWrapping,\n"
+    ")\n"
+)
+new = (
+    "from _PipelineModules import (\n"
+    "    SegmentationsWrapping,\n"
+    "    SegmentEditorWrapping,\n"
+    "    vtkWrapping,\n"
+    ")\n"
+    "\n"
+    "# SurfaceToolbox left Slicer core in 5.12 and is now its own extension; its\n"
+    "# wrapping is optional so the other three still register.\n"
+    "try:\n"
+    "    from _PipelineModules import SurfaceToolboxWrapping  # noqa: F401\n"
+    "except ImportError:\n"
+    "    import logging\n"
+    "    logging.info(\n"
+    "        'PipelineModules: SurfaceToolbox not available, skipping its pipeline'\n"
+    "        ' steps (install the SurfaceToolbox extension to enable them).')\n"
+)
+assert old in s, "PipelineModules wrapping import block not found (upstream changed?)"
+open(p, "w", encoding="utf-8").write(s.replace(old, new, 1))
+print("made the SurfaceToolbox wrapping import optional")
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSlicer_DIR:PATH=%{slicer_inst}/lib/%{slicer_subdir} \
@@ -144,6 +191,19 @@ PYEOF
 %doc README.md
 
 %changelog
+* Thu Jul 30 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.2.20240423git5fbd4a26
+- Make PipelineModules load on Slicer 5.12. It imports four wrapping modules at
+  module scope, one of which does 'from SurfaceToolbox import SurfaceToolboxLogic'.
+  SurfaceToolbox was a CORE scripted module when this commit was cut (2024-04-23)
+  but left core in Slicer 5.12 -- the 5.12.1 tarball retains only its
+  documentation page and the code now lives in the separate SlicerSurfaceToolbox
+  extension. The module-scope import took all of PipelineModules down with it.
+  The four wrappings are independent, so make this one optional: Segmentations,
+  SegmentEditor and vtk wrappings still register and only the SurfaceToolbox
+  pipeline steps go missing. Packaging SlicerSurfaceToolbox would restore them.
+  Caught by the CDash modules-all-instantiated check immediately after -0.1 was
+  installed.
+
 * Mon Jul 27 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.1.20240423git5fbd4a26
 - Initial package, pinned to commit 5fbd4a26 (upstream has no tags).
 - Packaged to fix SlicerSkeletalRepresentation's SRepCreateAndRefine, a

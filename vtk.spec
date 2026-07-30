@@ -9,7 +9,7 @@
 
 Name:           vtk
 Version:        9.6.2
-Release:        13%{?dist}
+Release:        14%{?dist}
 Summary:        Visualization Toolkit - a high level 3D visualization library
 
 License:        BSD-3-Clause
@@ -172,6 +172,16 @@ C++ programs that use VTK 9.6.
 %package -n python3-%{name}
 Summary:        Python 3 bindings for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+# VTK's build installs vtkmodules/ with no .dist-info, so nothing generates the
+# PyPI-style virtual provides that Fedora's own python3-vtk carries. Without
+# them, ANY package with a pyproject-style dependency on vtk -- pyvista, and
+# through it pyacvd, trame-vtk, ... -- cannot be satisfied by this build, so dnf
+# reaches for Fedora's python3-vtk instead and that drags in vtk 9.5.2, which
+# conflicts with 9.6.2 on every SONAME. The symptom is a wall of
+# "cannot install both vtk-9.5.2 and vtk-9.6.2" with no mention of Python.
+# Declare them explicitly.
+Provides:       python3dist(vtk) = %{version}
+Provides:       python%{python3_version}dist(vtk) = %{version}
 
 %description -n python3-%{name}
 Python 3 bindings for VTK 9.6.
@@ -353,6 +363,17 @@ ls %{buildroot}%{_libdir}/libvtkGUISupportQt*.so.* \
 %{_libdir}/libvtkViewsQt*.so.*
 
 %changelog
+* Wed Jul 29 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-14
+- python3-vtk: declare the PyPI-style virtual provides.
+  VTK installs vtkmodules/ with no .dist-info, so nothing generated
+  python3dist(vtk) / python3.14dist(vtk) -- which Fedora's own python3-vtk does
+  carry. Any package with a pyproject-style dependency on vtk (pyvista, and
+  through it pyacvd and the trame-vtk stack) therefore could not be satisfied by
+  this build, so dnf reached for Fedora's python3-vtk and dragged in vtk 9.5.2,
+  colliding with 9.6.2 on every SONAME. The user-visible symptom was a wall of
+  'cannot install both vtk-9.5.2 and vtk-9.6.2' that never mentioned Python.
+  Declare both provides explicitly.
+
 * Thu Jun 26 2026 Morgan Hough <morgan.hough@gmail.com> - 9.6.2-13
 - Fix rawhide FTBFS against GDAL 3.13: add -fpermissive on f45+ so
   IO/GDAL/vtkGDALRasterReader.cxx tolerates GDAL's new CSLConstList
