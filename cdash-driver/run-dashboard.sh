@@ -100,6 +100,14 @@ declare -A _SLICER_EXT_MODULES=(
     [3dslicer-igt]="FiducialRegistrationWizard|Watchdog|PivotCalibration|VolumeResliceDriver|BreachWarning"
     [3dslicer-rt]="DicomRtImportExport|DoseVolumeHistogram"
     [3dslicer-jupyter]="JupyterKernel"
+    # SequenceIO + VideoUtil are the two loadable modules SlicerIGSIO registers
+    # (there is no module literally named "IGSIO").
+    [3dslicer-igsio]="SequenceIO|VideoUtil"
+    # PipelineModules is deliberately NOT an alternative here: it is the one that
+    # regressed on the SurfaceToolbox-left-core issue, so listing PipelineCreator
+    # alone would let that failure hide behind a passing sibling. The separate
+    # modules-all-instantiated check is what catches PipelineModules.
+    [3dslicer-pipelines]="PipelineCreator|PipelineCaseIterator"
 )
 _slicer_expect=""
 for _rn in "${!_SLICER_EXT_MODULES[@]}"; do
