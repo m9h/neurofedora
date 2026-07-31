@@ -2,7 +2,7 @@
 
 Name:           RPI
 Version:        4.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Registration Programming Interface (INRIA)
 
 License:        BSD-3-Clause
@@ -53,6 +53,18 @@ sed -i 's|DESTINATION  lib/cmake/|DESTINATION  ${CMAKE_INSTALL_LIBDIR}/cmake/|' 
 sed -i 's/itkTypeMacro( StationaryVelocityField,/itkTypeMacro( StationaryVelocityFieldTransform,/' \
   src/RegistrationAddOn/itkStationaryVelocityFieldTransform.h
 
+# ITK 6 no longer bakes a trailing ';' into its declaration macros, so any
+# invocation that omitted one stops parsing ("expected ';' before ..."). RPI has
+# 3 such sites; without this, nothing that includes these headers builds against
+# ITK 6 (found while probing medInria on ITK 6.0.0b02). Harmless on ITK 5.4,
+# where the extra ';' is just an empty member declaration -- verified 0 compile
+# errors on BOTH 5.4 and 6.0 after the change.
+# The [^;<] class deliberately excludes stream-style macros (itkExceptionMacro,
+# itkWarningMacro), whose multi-line invocations a greedy pattern would corrupt.
+sed -i -E 's/^([[:space:]]*itk[A-Za-z]+Macro[[:space:]]*\([^;<]*\))[[:space:]]*$/\1;/' \
+  src/RegistrationAddOn/itkStationaryVelocityFieldTransform.h \
+  src/RegistrationAddOn/itkRegistrationFactory.h
+
 %build
 export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 
@@ -91,6 +103,16 @@ export CXXFLAGS="%{optflags} -std=c++17 -include cstdint -fpermissive"
 %{_libdir}/cmake/common/
 
 %changelog
+* Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0-4
+- Add trailing semicolons to itkNewMacro/itkTypeMacro invocations in
+  itkRegistrationFactory.h and itkStationaryVelocityFieldTransform.h (3 sites).
+  ITK 6 stopped baking the ';' into its declaration macros, so the bare
+  invocations fail to parse ("expected ';' before 'void'/'typedef'") and any
+  consumer including these headers -- medInria among them -- cannot build
+  against ITK 6. Verified: 0 compile errors against BOTH InsightToolkit5 5.4.6
+  and InsightToolkit6 6.0.0~b02, so this is a no-op for the current ITK 5.4
+  build and unblocks ITK 6. Worth sending upstream to medInria/RPI.
+
 * Tue May 19 2026 Morgan Hough <morgan.hough@gmail.com> - 4.0-3
 - Drop vtk-devel < 9.3 BR (was defensive for the medInria chain's Qt5
   pin; RPI itself has zero VTK API usage — grep confirmed). F44 system
