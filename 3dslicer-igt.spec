@@ -18,7 +18,7 @@
 
 Name:           3dslicer-igt
 Version:        1.0
-Release:        0.5.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.6.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        Image-guided therapy / navigation toolkit for 3D Slicer (SlicerIGT)
 
 License:        BSD-3-Clause
@@ -143,6 +143,43 @@ open(f, 'w').write(s)
 print("ported QSound -> QSoundEffect in", f)
 PYEOF
 
+# Slicer 5.12 is Qt6, and SlicerIGT still guards its plugin declaration behind a
+# Qt5-era macro:
+#
+#     #ifdef Slicer_HAVE_QT5
+#       Q_PLUGIN_METADATA(IID "org.slicer.modules.loadable.qSlicerLoadableModule/1.0");
+#     #endif
+#
+# Slicer_HAVE_QT5 is explicitly undefined under Qt6 (vtkSlicerConfigure.h ships
+# "/* #undef Slicer_HAVE_QT5 */"), so the macro is preprocessed away. moc still runs --
+# the classes keep their staticMetaObject, so the build is perfectly green -- but no
+# qt_plugin_instance/qt_pluginMetaData is emitted, and at runtime Slicer rejects every
+# one of the 11 loadable modules with
+#   "libqSlicer<X>Module.so is not a Qt plugin (metadata not found)".
+# The whole extension then silently registers nothing. Q_PLUGIN_METADATA is valid and
+# REQUIRED under Qt6, so drop the guard (keep the macro) in all 11 module headers.
+# Verified against the packaged tree: exactly these 11 .so files lacked plugin symbols
+# while all 34 other loadable modules had them.
+python3 - <<'PYEOF'
+import glob, re, sys
+
+hdrs = sorted(glob.glob("*/qSlicer*Module.h"))
+pat = re.compile(
+    r'#ifdef[ \t]+Slicer_HAVE_QT5[ \t]*\n(?P<body>[^\n]*Q_PLUGIN_METADATA[^\n]*\n)#endif[ \t]*\n')
+n = 0
+for h in hdrs:
+    src = open(h, encoding="utf-8").read()
+    new, k = pat.subn(lambda m: m.group("body"), src)
+    if k:
+        open(h, "w", encoding="utf-8").write(new)
+        n += k
+        print("  unguarded Q_PLUGIN_METADATA in", h)
+if n != 11:
+    sys.exit("expected 11 guarded Q_PLUGIN_METADATA declarations, patched %d "
+             "(upstream changed -- re-check before shipping)" % n)
+print("unguarded Q_PLUGIN_METADATA in %d module headers" % n)
+PYEOF
+
 %build
 %cmake -G Ninja \
     -DSlicer_DIR:PATH=%{slicer_inst}/lib/%{slicer_subdir} \
@@ -165,6 +202,25 @@ PYEOF
 %doc README.md
 
 %changelog
+* Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.6.20260408git47c8b3a5
+- Fix ALL 11 loadable modules silently failing to register. SlicerIGT still guards
+  its plugin declaration behind a Qt5-era macro:
+      #ifdef Slicer_HAVE_QT5
+        Q_PLUGIN_METADATA(IID "org.slicer.modules.loadable.qSlicerLoadableModule/1.0");
+      #endif
+  Slicer 5.12 is Qt6 and explicitly undefines it -- the shipped vtkSlicerConfigure.h
+  literally contains "/* #undef Slicer_HAVE_QT5 */" -- so the macro is preprocessed
+  away. moc still runs and the classes keep their staticMetaObject, so the build is
+  perfectly green, but no qt_plugin_instance/qt_pluginMetaData is emitted and at
+  runtime Slicer rejects every module with "is not a Qt plugin (metadata not found)".
+  The entire extension registered nothing while looking fine. Q_PLUGIN_METADATA is
+  valid and required under Qt6, so drop the guard and keep the macro in all 11 headers
+  (the patch asserts the count is exactly 11).
+  Evidence: of the 45 installed loadable modules, exactly these 11 lacked plugin
+  symbols; the other 34 had them. Reproduced identically on NVIDIA, Intel and AMD
+  nodes, which ruled out a driver interaction. Caught by the CDash
+  extension-group-FiducialRegistrationWizard check.
+
 * Wed Jul 22 2026 Morgan Hough <morgan.hough@gmail.com> - 1.0-0.5.20260408git47c8b3a5
 - Fix %license: the SlicerIGT license file is LICENSE.txt, not LICENSE.
 
