@@ -15,7 +15,7 @@
 
 Name:           vmtk
 Version:        1.5.0
-Release:        0.11.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.12.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Vascular Modeling Toolkit
 
 # vmtk core: BSD-3-Clause
@@ -116,6 +116,11 @@ Summary:        Python 3 bindings for %{name}
 Requires:       %{name}%{?_isa} = %{version}-%{release}
 Requires:       python3-vtk
 Requires:       python3-numpy
+# vmtk/vmtkcenterlinesnetwork.py does a module-scope `from joblib import Parallel,
+# delayed`, and vmtkscripts imports it -- so plain `import vmtk.vmtkscripts` raises
+# ModuleNotFoundError without joblib. Undeclared until now, and invisible on any box
+# where something else (scikit-learn, nilearn) had already pulled joblib in.
+Requires:       python3-joblib
 
 %description -n python3-%{name}
 Python 3 bindings, scripts, and PypeS framework for the Vascular
@@ -280,6 +285,16 @@ find %{buildroot}%{python3_sitearch} -name '*.so' -exec chrpath --delete {} \; 2
 %{_bindir}/*
 
 %changelog
+* Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.12.20250820git311f4792
+- python3-vmtk: add the missing Requires: python3-joblib.
+  vmtk/vmtkcenterlinesnetwork.py imports joblib at module scope and vmtkscripts pulls
+  it in, so `import vmtk; from vmtk import vmtkscripts` -- exactly what the CDash
+  vmtk-python-import test does -- fails with ModuleNotFoundError on any host that does
+  not already have joblib from something else. It went unnoticed because every box
+  that had ever run the test also had scikit-learn/nilearn (or a stray pip --user
+  copy) providing joblib incidentally. Caught by the new Intel farm node, which is
+  the first clean environment to run it.
+
 * Fri May 29 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.0-0.11.20250820git311f4792
 - Rebuild against VTK 9.6.2-5. -0.10 built against 9.5.x and the
   resulting vtkvmtk C extension is ABI-incompatible with the current
