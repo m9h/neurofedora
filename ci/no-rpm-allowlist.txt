@@ -1,0 +1,43 @@
+# no-rpm-allowlist.txt — specs that legitimately have no RPM in either COPR.
+#
+# Read by ci/check-repo-contents.sh. One bare spec filename per line.
+# Every entry needs a reason and, where it applies, what would clear it.
+#
+# This list is meant to shrink. An entry is an admission that a spec in this repo
+# does not correspond to an installable package; do not add one to silence a
+# build failure.
+
+# --- Never submitted to COPR ------------------------------------------------
+# Both were added in ca7c8be (six Slicer extensions in one pass) and never
+# submitted. Both also carry zero-padded FABRICATED git hashes in their
+# %global longcommit (d89a282d000...0 / cba32f1100...0), so the pinned commit
+# does not exist and they cannot build until that is corrected first.
+3dslicer-jupyter.spec
+3dslicer-rt.spec
+
+# --- Work in progress, no successful build yet ------------------------------
+# Blocked on python3-itk (ITK Python wrappings are unpackaged); the rest of the
+# trame chain is ready. See the trame-slicer-itk-blocker note.
+python-trame-slicer.spec
+
+# --- Staged dependencies, not yet built -------------------------------------
+# Leaf Python deps staged for chains that have not been built out yet.
+python-dataclasses-json.spec
+python-fury.spec
+python-pygltflib.spec
+python-stanio.spec
+
+# --- Long-dormant -----------------------------------------------------------
+bicpl.spec
+civility.spec
+dtk-imaging.spec
+neuromore-studio.spec
+
+# --- NOT allow-listed, deliberately -----------------------------------------
+# 3dslicer-dcmqi.spec is the package this check was written for. It stays a hard
+# failure until it produces an RPM. As of 2026-08-01 the fix chain is: remove the
+# fabricated itkjsonkit-devel BuildRequires, add SlicerExecutionModel + git-core,
+# synthesize a git repo for its version target, and pick a dcmqi release whose
+# DCMTK requirements a released DCMTK can satisfy (1.5.4; 1.5.5+ needs an
+# unreleased DCMTK commit). Blocked on dcmtk-3.7.0-3, which backports the
+# OverlapUtil export that libdcmseg is missing.

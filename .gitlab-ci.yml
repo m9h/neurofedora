@@ -56,3 +56,33 @@ rpmlint:
     - changes:
         - "*.spec"
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# Repo-contents gate: does each spec actually produce an installable RPM?
+#
+# audit-sources.sh proves the sources are committed; check-source-urls.sh proves
+# the remote ones resolve; this proves something came out the far end. COPR's own
+# status cannot answer that -- its red badge fires when ANY chroot fails (so
+# healthy F44 packages look broken because rawhide is), and latest_succeeded_build
+# is null for those same healthy packages, because a *build* only counts as
+# succeeded when EVERY chroot does.
+#
+# 3dslicer-dcmqi is why this exists: it sat in the package list for months looking
+# real, having never built once, quietly stacking up six independent defects that
+# were each invisible until the previous one was fixed.
+#
+# Network- and repo-state-dependent, so like source-urls it is not a per-push
+# blocker; the scheduled run is the authoritative one. Promote to blocking once
+# ci/no-rpm-allowlist.txt is empty.
+repo-contents:
+  stage: validate
+  image: registry.fedoraproject.org/fedora:latest
+  allow_failure: true
+  before_script:
+    - dnf -y --setopt=install_weak_deps=False install rpm-build forge-srpm-macros redhat-rpm-config dnf-plugins-core >/dev/null
+    - dnf -y copr enable mhough/neurofedora >/dev/null
+    - dnf -y copr enable mhough/neurofedora-nonfree >/dev/null
+  script:
+    - bash ci/check-repo-contents.sh
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
