@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.18.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.19.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -37,10 +37,14 @@ ExcludeArch:    %{ix86}
 # It Conflicts with the Fedora stock ctk package (which is Qt5-only,
 # has no VTK/ITK, and is at version 2023.07.13).
 Conflicts:      ctk < 2026
-# We build with CTK_ENABLE_PluginFramework=OFF (Slicer doesn't need it), so we
-# ship no ctk-plugin-framework. Obsolete Fedora's so it doesn't linger requiring
-# ctk = 2023 and block the upgrade to this ctk (the dnf-update conflict users hit).
-Obsoletes:      ctk-plugin-framework < %{version}-%{release}
+# PluginFramework is now ENABLED (see %%build): MITK's plugin system is built on
+# ctkPluginContext/ctkPluginActivator (160 files under MITK's Plugins/ use it), so
+# MITK_USE_BLUEBERRY=ON is impossible without it. Slicer does not use it, and the
+# change is purely additive -- it adds libCTKPluginFramework.so without altering
+# CTKCore/Widgets/DICOM/VTK/ITK/Python -- so Slicer is unaffected.
+# We now ship it as the ctk-plugin-framework subpackage below, which supersedes
+# Fedora's 2023.07.13 one by version, so the old Obsoletes is no longer needed
+# (and would be wrong now that we provide a package of that very name).
 
 BuildRequires:  gcc-c++
 BuildRequires:  cmake >= 3.16
@@ -116,6 +120,15 @@ for use by 3D Slicer and other Qt6-based medical imaging applications.}
 %description %{_description}
 This package contains the CTK Core library.
 
+%package        plugin-framework
+Summary:        CTK dynamic plugin framework (OSGi-like)
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+
+%description    plugin-framework %{_description}
+The CTK Plugin Framework is a dynamic component system modelled on OSGi.
+It is the foundation MITK's BlueBerry plugin system and all org.mitk.*
+Workbench plugins are built on.
+
 %package        widgets
 Summary:        Qt6 widgets for biomedical imaging applications
 Requires:       %{name}%{?_isa} = %{version}-%{release}
@@ -161,6 +174,7 @@ PythonQt-based Python bindings for CTK Core and Widgets, used by
 %package        devel
 Summary:        Development files for CTK
 Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       %{name}-plugin-framework%{?_isa} = %{version}-%{release}
 Requires:       %{name}-widgets%{?_isa} = %{version}-%{release}
 Requires:       %{name}-dicom%{?_isa} = %{version}-%{release}
 Requires:       %{name}-vtk%{?_isa} = %{version}-%{release}
@@ -217,7 +231,10 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
     -DDOCUMENTATION_TARGET_IN_ALL=OFF \
     -DCTK_ENABLE_DICOM=ON \
     -DCTK_ENABLE_Widgets=ON \
-    -DCTK_ENABLE_PluginFramework=OFF \
+    `# Required by MITK: its plugin system (BlueBerry + all org.mitk.* plugins)` \
+    `# is built on ctkPluginContext/ctkPluginActivator. Additive for Slicer,` \
+    `# which links none of the PluginFramework symbols.` \
+    -DCTK_ENABLE_PluginFramework=ON \
     -DCTK_LIB_Visualization/VTK/Widgets=ON \
     `# ctkVTKChartView + transfer-function/volume-property/scalars-to-colors` \
     `# widgets are gated behind this (default OFF). 3D Slicer's qMRMLPlotView` \
@@ -320,6 +337,9 @@ done
 %license NOTICE LICENSE
 %{_libdir}/libCTKCore.so.%{soname_version}{,.*}
 
+%files plugin-framework
+%{_libdir}/libCTKPluginFramework.so.%{soname_version}{,.*}
+
 %files widgets
 %{_libdir}/libCTKWidgets.so.%{soname_version}{,.*}
 %{_libdir}/libCTKQtTesting.so.%{soname_version}{,.*}
@@ -360,6 +380,7 @@ done
 %files devel
 %{_includedir}/ctk-%{soname_version}/
 %{_libdir}/libCTKCore.so
+%{_libdir}/libCTKPluginFramework.so
 %{_libdir}/libCTKWidgets.so
 %{_libdir}/libCTKQtTesting.so
 %{_libdir}/libCTKDICOMCore.so
@@ -371,6 +392,18 @@ done
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.19.20260126gitfd37b874
+- Enable CTK_ENABLE_PluginFramework and ship it as a new ctk-plugin-framework
+  subpackage. MITK's plugin system (BlueBerry and every org.mitk.* Workbench
+  plugin) is built on ctkPluginContext/ctkPluginActivator -- 160 files under
+  MITK's Plugins/ use it -- so MITK_USE_BLUEBERRY=ON, and therefore any MITK
+  Workbench package, is impossible without it.
+- Additive for 3D Slicer, which links 9 CTK libraries, none of them
+  PluginFramework, and whose spec has zero references to it.
+- Drop the "Obsoletes: ctk-plugin-framework" from the main package: we now
+  provide a package of that name, which supersedes Fedora's 2023.07.13 by
+  version on its own.
+
 * Fri Jul 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.18.20260126gitfd37b874
 - Fix -0.17 turning out to be a no-op on the actual failure: ctk.ctkSettingsPanel
   etc. were still AttributeError after upgrading, verified live in 3D Slicer.
