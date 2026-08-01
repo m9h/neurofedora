@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.19.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.20.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -272,8 +272,50 @@ export CFLAGS="$(echo "%{optflags}" | sed 's/-flto=auto//') -std=gnu17"
 
 %cmake_build
 
+# --- DGraph -----------------------------------------------------------------
+# CTK's plugin machinery needs a DGraph binary: ctkMacroSetupPlugins ->
+# ctkMacroValidateBuildOptions FATAL_ERRORs with "Executable doesn't exist!"
+# unless DGraph_EXECUTABLE points at a real file. Upstream only ever builds it
+# with try_compile() into its OWN build tree (CMakeLists.txt ~885) and
+# Utilities/DGraph/CMakeLists.txt carries no install() rule, so nothing reaches
+# the installed tree and every external consumer of installed CTK fails. That is
+# exactly how MITK 2026.06-7/-8 break: MITK generates DGraphInput-alldep-withext.txt
+# and then dies with nothing to run on it.
+# It is a self-contained ~1.2k-line utility (DGraph.cpp + ctkDependencyGraph.cpp,
+# no Qt), so build it standalone rather than trying to graft an install rule onto
+# a try_compile.
+cmake -S Utilities/DGraph -B %{_vpath_builddir}/DGraph -GNinja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_CXX_STANDARD=17
+%cmake_build --target DGraph --build-dir %{_vpath_builddir}/DGraph 2>/dev/null \
+  || cmake --build %{_vpath_builddir}/DGraph --parallel
+test -x %{_vpath_builddir}/DGraph/DGraph
+
 %install
 %cmake_install
+
+# DGraph goes to %%{_libexecdir}/ctk/, not %%{_bindir}: it is a build-time helper
+# for CTK consumers, never run by a user, and "DGraph" is far too generic a name
+# to claim in the global bin namespace (an unrelated dgraph-io/dgraph exists).
+install -D -p -m 0755 %{_vpath_builddir}/DGraph/DGraph \
+    %{buildroot}%{_libexecdir}/ctk/DGraph
+
+# Shipping the binary alone is not enough. CTKConfig.cmake.in does not export
+# DGraph_EXECUTABLE (verified upstream and in Fedora's installed copy), and
+# consumers do not set it themselves -- MITK's CMakeLists.txt contains zero
+# DGraph references and relies entirely on CTK providing the path. Point the
+# installed config at our libexec copy, without clobbering a value a superbuild
+# consumer may already have set.
+cat >> %{buildroot}%{_libdir}/cmake/ctk/CTKConfig.cmake <<'DGRAPHEOF'
+
+# --- Fedora: DGraph_EXECUTABLE for consumers of the INSTALLED CTK ------------
+# Upstream only defines this inside CTK's own build tree, so ctkMacroSetupPlugins
+# fails for anyone building against installed CTK. Provided by ctk-devel.
+if(NOT DGraph_EXECUTABLE)
+  find_program(DGraph_EXECUTABLE DGraph
+    PATHS "%{_libexecdir}/ctk" NO_DEFAULT_PATH)
+endif()
+DGRAPHEOF
 
 # CTK's own install rules don't pick up the CMake helper templates
 # (*.cpp.in / *.py / *.cmake.in inside CMake/). They live in source-tree
@@ -378,6 +420,11 @@ done
 %{python3_sitelib}/ctk
 
 %files devel
+# Build-time helper for CTK plugin consumers (ctkMacroSetupPlugins ->
+# ctkMacroValidateBuildOptions). In -devel, not the main package: nothing at
+# runtime uses it, only things BUILDING against CTK do.
+%dir %{_libexecdir}/ctk
+%{_libexecdir}/ctk/DGraph
 %{_includedir}/ctk-%{soname_version}/
 %{_libdir}/libCTKCore.so
 %{_libdir}/libCTKPluginFramework.so
@@ -392,6 +439,30 @@ done
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.20.20260126gitfd37b874
+- Package the DGraph utility (fixes every consumer of CTK's plugin machinery).
+  ctkMacroSetupPlugins -> ctkMacroValidateBuildOptions FATAL_ERRORs with
+  "Executable doesn't exist!" unless DGraph_EXECUTABLE points at a real file.
+  Upstream only ever builds DGraph with try_compile() into CTK's OWN build tree
+  (CMakeLists.txt ~885), and Utilities/DGraph/CMakeLists.txt has no install()
+  rule, so nothing ever reached the installed tree -- every external consumer of
+  installed CTK hits the same wall. MITK 2026.06-7/-8 are the live casualty:
+  MITK generates DGraphInput-alldep-withext.txt and then dies with nothing to run
+  on it. Broken since 2026-07-27.
+  Two halves are required and shipping the binary alone would fix nothing:
+   * build Utilities/DGraph standalone (self-contained ~1.2k lines, DGraph.cpp +
+     ctkDependencyGraph.cpp, links only libstdc++/libc -- no Qt) and install to
+     %%{_libexecdir}/ctk/DGraph. Not %%{_bindir}: it is a build-time helper no user
+     invokes, and "DGraph" is far too generic a name for the global bin namespace
+     (an unrelated dgraph-io/dgraph exists).
+   * append a find_program to the installed CTKConfig.cmake. Neither
+     CTKConfig.cmake.in upstream nor Fedora's installed copy exports
+     DGraph_EXECUTABLE, and consumers do not set it themselves -- MITK's
+     CMakeLists.txt contains zero DGraph references. Guarded by if(NOT
+     DGraph_EXECUTABLE) so a superbuild's own value still wins.
+  Verified standalone: builds in 3 steps, and a 1->2->3 DAG topologically sorts to
+  "3 2 1".
+
 * Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.19.20260126gitfd37b874
 - Enable CTK_ENABLE_PluginFramework and ship it as a new ctk-plugin-framework
   subpackage. MITK's plugin system (BlueBerry and every org.mitk.* Workbench
