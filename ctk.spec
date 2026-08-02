@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.21.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.23.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -340,6 +340,38 @@ install -p -m 0644 CMake/ctkWrapPythonQt.py \
     %{buildroot}%{_libdir}/cmake/ctk/
 install -p -m 0644 CMake/ctk_compile_python_scripts.cmake.in \
     %{buildroot}%{_libdir}/cmake/ctk/
+# ...and the three the PLUGIN machinery references, needed by anyone building
+# CTK plugins against installed CTK (MITK's BlueBerry plugins, every org.mitk.*):
+#   MANIFEST.MF.in                 <- ctkFunctionGeneratePluginManifest.cmake:101
+#   plugin_manifest.qrc.in         <- ctkMacroGeneratePluginResourceFile.cmake
+#   plugin_resources_cached.qrc.in <- ctkMacroGeneratePluginResourceFile.cmake
+# Without them configure_file() fails per plugin with "File .../MANIFEST.MF.in
+# does not exist", the plugin target is never created, and the consumer's
+# following target_compile_definitions() fails on the nonexistent target.
+# (Found by grepping every ${CTK_CMAKE_DIR}/<file> reference in the installed
+# cmake and diffing against what is actually shipped.)
+install -p -m 0644 CMake/MANIFEST.MF.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+install -p -m 0644 CMake/plugin_manifest.qrc.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+install -p -m 0644 CMake/plugin_resources_cached.qrc.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+# CTKPluginUseFile.cmake.in needs BOTH the file and a path fix.
+# ctkFunctionGeneratePluginUseFile.cmake:56 hardcodes a source-tree layout:
+#     configure_file("${CTK_CMAKE_DIR}/../CMake/CTKPluginUseFile.cmake.in" ...)
+# In an installed tree CTK_CMAKE_DIR is %{_libdir}/cmake/ctk, so that resolves to
+# %{_libdir}/cmake/CMake/ -- a directory that does not and should not exist. The
+# assumption only holds inside CTK's own build tree. Install the template next to
+# its siblings and drop the "/../CMake" component. It is the sole occurrence of
+# that pattern in the installed cmake (verified by grep), so this is not masking
+# a wider problem.
+install -p -m 0644 CMake/CTKPluginUseFile.cmake.in \
+    %{buildroot}%{_libdir}/cmake/ctk/
+sed -i 's|${CTK_CMAKE_DIR}/\.\./CMake/CTKPluginUseFile\.cmake\.in|${CTK_CMAKE_DIR}/CTKPluginUseFile.cmake.in|' \
+    %{buildroot}%{_libdir}/cmake/ctk/ctkFunctionGeneratePluginUseFile.cmake
+grep -q '${CTK_CMAKE_DIR}/CTKPluginUseFile.cmake.in' \
+    %{buildroot}%{_libdir}/cmake/ctk/ctkFunctionGeneratePluginUseFile.cmake \
+    || { echo "ERROR: CTKPluginUseFile path rewrite did not apply"; exit 1; }
 
 # CTK's Config doesn't find_dependency() its link-time deps. When a
 # downstream consumer (e.g. 3D Slicer) calls find_package(CTK) without
@@ -451,6 +483,31 @@ done
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.23.20260126gitfd37b874
+- Install CTKPluginUseFile.cmake.in and fix the path that reads it.
+  ctkFunctionGeneratePluginUseFile.cmake:56 hardcodes
+  "${CTK_CMAKE_DIR}/../CMake/CTKPluginUseFile.cmake.in", which only makes sense
+  in CTK's own build tree; installed, CTK_CMAKE_DIR is %%{_libdir}/cmake/ctk so it
+  resolved to %%{_libdir}/cmake/CMake/. Ship the template beside its siblings and
+  rewrite the path, with a grep guard so a silent sed miss fails the build.
+  MITK 2026.06-8 reached this after successfully creating 29 CTK plugins
+  (COPR 10803955) -- the last configure-time CTK gap.
+
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.22.20260126gitfd37b874
+- Install the three CMake templates CTK's PLUGIN machinery references but never
+  shipped: MANIFEST.MF.in (ctkFunctionGeneratePluginManifest.cmake:101),
+  plugin_manifest.qrc.in and plugin_resources_cached.qrc.in
+  (ctkMacroGeneratePluginResourceFile.cmake). Building any CTK plugin against
+  installed CTK failed per-plugin with "File .../MANIFEST.MF.in does not exist",
+  the plugin target was never created, and the consumer's next
+  target_compile_definitions() then failed on the nonexistent target -- MITK
+  2026.06-8 hit this on org.blueberry.core.runtime (COPR 10803937), the first
+  error past the DGraph fixes.
+- Found by grepping every ${CTK_CMAKE_DIR}/<file> reference in the installed
+  cmake and diffing against what is shipped; the remaining gaps
+  (WindowsApplicationUseUtf8.manifest, ctkCheckoutRepo.cmake.in) are Windows-
+  and dashboard-only and are deliberately left out.
+
 * Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.21.20260126gitfd37b874
 - Export CTK_DGRAPH_EXECUTABLE, not just DGraph_EXECUTABLE. 0.20 shipped the
   DGraph binary and appended a find_program for DGraph_EXECUTABLE, but

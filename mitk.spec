@@ -107,7 +107,7 @@ BuildRequires:  libminc-devel
 # built on; 0.19 is the first release that ships libCTKPluginFramework.so.
 # (qwt-qt6-devel and qt6-qtwebengine-devel are already required above, for the
 # plotting widgets and the welcome plugin's start page respectively.)
-BuildRequires:  ctk-devel >= 2026.01.26-0.21
+BuildRequires:  ctk-devel >= 2026.01.26-0.22
 # CTKConfig.cmake does an unconditional find_dependency(QtTesting) (CTK is built
 # with CTK_USE_QTTESTING=ON for Slicer's GUI tests), so every consumer of
 # ctk-devel must have this present or find_package(CTK) fails outright.
@@ -140,7 +140,7 @@ and plugins that use the MITK libraries.
 %package        workbench
 Summary:        MITK Workbench application
 Requires:       %{name}%{?_isa} = %{version}-%{release}
-Requires:       ctk-plugin-framework%{?_isa} >= 2026.01.26-0.21
+Requires:       ctk-plugin-framework%{?_isa} >= 2026.01.26-0.22
 Requires:       hicolor-icon-theme
 
 %description    workbench
