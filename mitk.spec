@@ -6,7 +6,7 @@
 
 Name:           mitk
 Version:        2026.06
-Release:        7%{?dist}
+Release:        8%{?dist}
 Summary:        Medical Imaging Interaction Toolkit
 
 License:        BSD-3-Clause
@@ -102,14 +102,28 @@ BuildRequires:  double-conversion-devel
 BuildRequires:  openjpeg2-devel
 BuildRequires:  libminc-devel
 
+# --- MITK Workbench (BlueBerry) ------------------------------------------
+# CTK provides the plugin framework BlueBerry and every org.mitk.* plugin is
+# built on; 0.19 is the first release that ships libCTKPluginFramework.so.
+# (qwt-qt6-devel and qt6-qtwebengine-devel are already required above, for the
+# plotting widgets and the welcome plugin's start page respectively.)
+BuildRequires:  ctk-devel >= 2026.01.26-0.20
+# CTKConfig.cmake does an unconditional find_dependency(QtTesting) (CTK is built
+# with CTK_USE_QTTESTING=ON for Slicer's GUI tests), so every consumer of
+# ctk-devel must have this present or find_package(CTK) fails outright.
+# 3dslicer.spec carries the same BuildRequires for the same reason.
+BuildRequires:  qttesting-devel
+# ACVD backs the remeshing plugin in the Default configuration.
+BuildRequires:  acvd-devel
+
 %description
 The Medical Imaging Interaction Toolkit (MITK) is a free open-source software
 system for development of interactive medical image processing software.
 MITK combines the Insight Toolkit (ITK) and the Visualization Toolkit (VTK)
 with an application framework for medical imaging.
 
-This package provides the core MITK libraries without the Workbench application
-(BlueBerry/CTK require Qt6 CTK which is not yet available in Fedora).
+This package provides the core MITK libraries. The end-user application is in
+the mitk-workbench subpackage, and the Python bindings in python3-mitk.
 
 %package devel
 Summary:        Development files for MITK
@@ -122,6 +136,18 @@ Requires:       dcmtk-devel
 %description devel
 Development files, headers, and CMake config for building applications
 and plugins that use the MITK libraries.
+
+%package        workbench
+Summary:        MITK Workbench application
+Requires:       %{name}%{?_isa} = %{version}-%{release}
+Requires:       ctk-plugin-framework%{?_isa} >= 2026.01.26-0.20
+Requires:       hicolor-icon-theme
+
+%description    workbench
+The MITK Workbench is the end-user application built on MITK's BlueBerry
+plugin framework. It provides the data manager, multi-widget image viewer,
+DICOM browser, segmentation, measurement, volume visualization, movie maker
+and remeshing tools.
 
 %package -n python3-mitk
 Summary:        Python bindings for MITK (built against system Python 3.14)
@@ -300,18 +326,28 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
     \
     -DCMAKE_MODULE_PATH=%{_builddir}/MITK-%{version}/CMake \
     -DMITK_USE_SUPERBUILD=OFF \
-    -DMITK_BUILD_CONFIGURATION=Custom \
+    `# Default = the plain MITK Workbench: BlueBerry + ACVD + Qt6 and the 17` \
+    `# core GUI plugins (datamanager, segmentation, dicombrowser, imagenavigator,` \
+    `# measurementtoolbox, volumevisualization, moviemaker, remeshing, ...).` \
+    `# NOT WorkbenchRelease, which additionally needs MatchPoint (unpackaged)` \
+    `# and DCMQI (packaged as 3dslicer-dcmqi but not yet building).` \
+    -DMITK_BUILD_CONFIGURATION=Default \
     \
     -DMITK_USE_Qt6=ON \
     \
     -DMITK_USE_SYSTEM_Boost=ON \
     \
-    -DMITK_USE_BLUEBERRY=OFF \
-    -DMITK_USE_CTK=OFF \
+    `# BlueBerry is MITK's plugin framework and the basis of the Workbench` \
+    `# application; it forces MITK_USE_CTK=ON and needs CTK built with` \
+    `# CTK_ENABLE_PluginFramework (ctk >= 2026.01.26-0.19 ships it as the` \
+    `# ctk-plugin-framework subpackage).` \
+    -DMITK_USE_BLUEBERRY=ON \
+    -DMITK_USE_CTK=ON \
     \
     -DMITK_USE_DCMQI=OFF \
     -DMITK_USE_MatchPoint=OFF \
-    -DMITK_USE_ACVD=OFF \
+    `# ACVD provides the remeshing plugin required by the Default config` \
+    -DMITK_USE_ACVD=ON \
     \
     -DMITK_USE_Python3=ON \
     -DMITK_USE_pybind11=ON \
@@ -333,14 +369,62 @@ unset CC CXX LDFLAGS CONDA_PREFIX CONDA_DEFAULT_ENV CMAKE_PREFIX_PATH PYTHONPATH
 %install
 %cmake_install
 
-# mitkInstallRules.cmake (loaded unconditionally) drops a Qt6 WebEngine
-# runtime bundle into %{_bindir}: plugins/, translations/, resources/,
-# and QtWebEngineProcess. These collide with system qt6-qtwebengine
-# packages and aren't needed for a library-only build. Remove them.
-rm -rf %{buildroot}%{_bindir}/plugins
+# mitkInstallRules.cmake (loaded unconditionally) drops a Qt6 runtime bundle
+# into %{_bindir}: plugins/, translations/, resources/, QtWebEngineProcess.
+# These duplicate the system qt6-* packages, which the Workbench finds on the
+# normal Qt plugin path anyway.
+#
+# CAREFUL: with MITK_USE_BLUEBERRY=ON, %{_bindir}/plugins is ALSO where MITK's
+# own BlueBerry plugins land (mitkFunctionCreatePlugin.cmake: install_directories
+# = bin/plugins) as flat liborg_{mitk,blueberry}_*.so files. Qt's bundle instead
+# uses per-category SUBdirectories (platforms/, imageformats/, sqldrivers/, ...).
+# So delete only the subdirectories and keep the flat .so files -- a blanket
+# `rm -rf %%{_bindir}/plugins` would silently remove every MITK plugin and leave
+# an unusable Workbench.
+if [ -d %{buildroot}%{_bindir}/plugins ]; then
+  find %{buildroot}%{_bindir}/plugins -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+fi
 rm -rf %{buildroot}%{_bindir}/translations
 rm -rf %{buildroot}%{_bindir}/resources
 rm -f  %{buildroot}%{_bindir}/QtWebEngineProcess
+
+# mitkFunctionCreateBlueBerryApplication installs a relocatable-bundle launcher
+# (CMake/RunInstalledApp.sh) to the install prefix ROOT, i.e. %{_prefix}/*.sh.
+# It only exists to set LD_LIBRARY_PATH for a self-contained tarball; in an FHS
+# install the loader already finds everything. Drop it -- %{_prefix}/*.sh is not
+# a legal location for a shipped file.
+rm -f %{buildroot}%{_prefix}/*.sh
+
+# Desktop integration for the Workbench
+if [ -f %{buildroot}%{_bindir}/MitkWorkbench ]; then
+mkdir -p %{buildroot}%{_datadir}/applications
+cat > %{buildroot}%{_datadir}/applications/org.mitk.MitkWorkbench.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=MITK Workbench
+GenericName=Medical Image Viewer
+Comment=Interactive medical image processing and visualization
+Exec=MitkWorkbench %F
+Icon=org.mitk.MitkWorkbench
+Terminal=false
+Categories=Science;MedicalSoftware;Graphics;Viewer;
+MimeType=application/dicom;image/x-nifti;
+EOF
+  for sz in 48 64 128; do
+    icon=$(find %{_builddir}/MITK-%{version} -name "icon.png" -path "*Workbench*" | head -1)
+    if [ -n "$icon" ]; then
+      mkdir -p %{buildroot}%{_datadir}/icons/hicolor/${sz}x${sz}/apps
+      cp "$icon" %{buildroot}%{_datadir}/icons/hicolor/${sz}x${sz}/apps/org.mitk.MitkWorkbench.png
+    fi
+  done
+fi
+
+# Reveal the Workbench layout so %files can be tuned from the build log rather
+# than another 3-hour round trip.
+echo "=== bindir top level ==="; ls %{buildroot}%{_bindir}/ 2>/dev/null | head -30
+echo "=== bin/plugins (MITK BlueBerry plugins) ==="; ls %{buildroot}%{_bindir}/plugins/ 2>/dev/null | head -40
+echo "=== provisioning / config files ==="; find %{buildroot} -name "*.provisioning" -o -name "*.ini" 2>/dev/null | head
+echo "=== anything left directly under %{_prefix} ==="; find %{buildroot}%{_prefix} -maxdepth 1 -type f 2>/dev/null | head
 
 # --- Python bindings ------------------------------------------------------
 # The pybind11 'mitk' package needs relocating + de-rpath'ing. Two upstream
@@ -387,6 +471,18 @@ echo "=== python3-mitk install tree ==="; find %{buildroot}%{python3_sitearch}/m
 # LIBRARY destinations); package those too or ~98 stay unpackaged.
 %{_libdir}/libMitk*.so
 
+%files workbench
+# The BlueBerry application and its plugin set. MITK installs plugins as flat
+# liborg_{mitk,blueberry}_*.so under %{_bindir}/plugins (bin/plugins upstream);
+# Qt's bundled per-category subdirectories are stripped in %install.
+%{_bindir}/MitkWorkbench
+%dir %{_bindir}/plugins
+%{_bindir}/plugins/liborg_*.so
+# BlueBerry reads this at startup to decide which plugins to provision.
+%{_bindir}/*.provisioning
+%{_datadir}/applications/org.mitk.MitkWorkbench.desktop
+%{_datadir}/icons/hicolor/*/apps/org.mitk.MitkWorkbench.png
+
 %files devel
 %{_includedir}/mitk/
 %{_libdir}/libqtsingleapplication.a
@@ -396,6 +492,32 @@ echo "=== python3-mitk install tree ==="; find %{buildroot}%{python3_sitearch}/m
 %{python3_sitearch}/mitk/
 
 %changelog
+* Fri Jul 31 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-8
+- Build the MITK Workbench: MITK_USE_BLUEBERRY=ON, MITK_USE_CTK=ON,
+  MITK_USE_ACVD=ON and MITK_BUILD_CONFIGURATION=Default. Until now this was a
+  library-only package -- 108 libraries but zero of upstream's 65 plugins and
+  neither application -- so nearly everything in the 2026.06 release notes
+  (segmentation tools, PET SUV, screenshot maker) was unreachable.
+- New mitk-workbench subpackage: the MitkWorkbench binary, the BlueBerry
+  plugins, the provisioning file, plus a desktop entry and icons.
+- Requires ctk >= 2026.01.26-0.19, the first build shipping
+  libCTKPluginFramework.so; MITK's plugin system uses ctkPluginContext /
+  ctkPluginActivator across 160 files and cannot build without it.
+- %%install: strip ONLY the per-category subdirectories of %%{_bindir}/plugins
+  (Qt's bundled runtime) instead of the whole directory. With BlueBerry enabled
+  that directory is also where MITK's own liborg_*.so plugins install, so the
+  previous blanket rm would have removed every plugin.
+- %%install: drop the RunInstalledApp.sh launcher that upstream installs to the
+  prefix root (%%{_prefix}/*.sh); it only sets LD_LIBRARY_PATH for relocatable
+  tarballs and is not a legal location for a shipped file.
+- Chose Default over WorkbenchRelease: the latter additionally needs MatchPoint
+  (not packaged) and DCMQI (packaged as 3dslicer-dcmqi, not yet building).
+- BuildRequires qttesting-devel: CTKConfig.cmake does an unconditional
+  find_dependency(QtTesting), so find_package(CTK) fails without it.
+- Requires ctk >= 2026.01.26-0.20, which packages the DGraph utility and exports
+  CTK_DGRAPH_EXECUTABLE; ctkMacroSetupPlugins aborts with "Executable doesn't
+  exist!" without it, so no MITK plugin can configure against an installed CTK.
+
 * Sun Jul 26 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.06-7
 - Add python3-mitk subpackage (pybind11 bindings against system Python 3.14).
   MITK_USE_Python3=ON + MITK_USE_pybind11=ON. Upstream only installs the 'mitk'
