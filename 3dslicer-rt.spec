@@ -6,7 +6,7 @@
 # extensions in oncology research labs.
 
 %global commit       cba32f11
-%global longcommit   cba32f1100000000000000000000000000000000
+%global longcommit   cba32f112d08b254552f3802656d8ec8cd38936a
 %global slicer_inst   %{_prefix}/lib/slicer
 %global slicer_subdir Slicer-5.12
 
@@ -14,7 +14,7 @@
 
 Name:           3dslicer-rt
 Version:        0
-Release:        0.2.%{snapdate}git%{commit}%{?dist}
+Release:        0.3.%{snapdate}git%{commit}%{?dist}
 Summary:        Radiation Therapy extension for 3D Slicer
 
 License:        BSD-3-Clause
@@ -28,6 +28,43 @@ BuildRequires:  3dslicer-devel >= 5.10.0
 BuildRequires:  InsightToolkit5-devel >= 5.4.6
 BuildRequires:  vtk-devel >= 9.6
 BuildRequires:  dcmtk-devel
+
+# Canonical Slicer-extension buildroot, grafted from 3dslicer-dmri.spec.
+# This spec predates the 5.12 retarget and was never built, so it carried
+# only a handful of BuildRequires -- find_package(Slicer) then failed inside
+# SlicerConfig.cmake:672 on find_package(RapidJSON), the first of ~38 missing.
+# Full Qt6 set find_package(Slicer)'s Qt check demands.
+BuildRequires:  cmake(Qt6Core)
+BuildRequires:  cmake(Qt6Gui)
+BuildRequires:  cmake(Qt6Widgets)
+BuildRequires:  cmake(Qt6Network)
+BuildRequires:  cmake(Qt6Sql)
+BuildRequires:  cmake(Qt6Svg)
+BuildRequires:  cmake(Qt6Xml)
+BuildRequires:  cmake(Qt6OpenGL)
+BuildRequires:  cmake(Qt6OpenGLWidgets)
+BuildRequires:  cmake(Qt6PrintSupport)
+BuildRequires:  cmake(Qt6Multimedia)
+BuildRequires:  cmake(Qt6MultimediaWidgets)
+BuildRequires:  cmake(Qt6Core5Compat)
+BuildRequires:  cmake(Qt6StateMachine)
+BuildRequires:  cmake(Qt6WebEngineCore)
+BuildRequires:  cmake(Qt6WebEngineWidgets)
+BuildRequires:  cmake(Qt6WebChannel)
+BuildRequires:  cmake(Qt6Qml)
+BuildRequires:  cmake(Qt6Quick)
+BuildRequires:  cmake(Qt6QuickWidgets)
+BuildRequires:  cmake(Qt6Test)
+BuildRequires:  cmake(Qt6UiTools)
+BuildRequires:  qt6-qttools-devel
+BuildRequires:  InsightToolkit5-vtk-devel
+BuildRequires:  ctk-devel
+BuildRequires:  qttesting-devel
+BuildRequires:  vtkAddon-devel
+BuildRequires:  qRestAPI-devel
+BuildRequires:  python-pythonqt-devel
+BuildRequires:  commontk-applauncher-devel
+BuildRequires:  teem-devel
 # plastimatch: our package ships the binaries ONLY -- no -devel subpackage and no
 # headers at all (`dnf repoquery -l plastimatch | grep /usr/include` is empty), so
 # plastimatch-devel is unsatisfiable and was blocking the buildroot. SlicerRT's
@@ -51,7 +88,7 @@ Built on the plastimatch library and used widely in academic radiation
 oncology and dose research.
 
 %prep
-%autosetup -p1 -n SlicerRt-%{longcommit}
+%autosetup -p1 -n SlicerRT-%{longcommit}
 
 %build
 %cmake -G Ninja \
@@ -82,6 +119,14 @@ oncology and dose research.
 %{_prefix}/lib/slicer-5.10.0/share/Slicer-5.10/qt-loadable-modules/*
 
 %changelog
+* Sun Aug 02 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.3.20260515gitcba32f11
+- Graft the canonical Slicer-extension buildroot (~34 BuildRequires) from
+  3dslicer-dmri.spec. This spec predates the 5.12 retarget and was never built, so it
+  carried only a handful; find_package(Slicer) then failed inside
+  SlicerConfig.cmake:672 on find_package(RapidJSON) -- the first of the missing set,
+  which also covers the full Qt6 component list, ITK/VTK/CTK/DCMTK devel,
+  SlicerExecutionModel, PythonQt, qRestAPI, teem and vtkAddon.
+
 * Sun Aug 02 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.2.20260515gitcba32f11
 - Point Slicer_DIR at the 5.12 layout (was a Slicer 5.10 path that has not existed
   since the retarget) and drop the unsatisfiable plastimatch-devel BuildRequires --

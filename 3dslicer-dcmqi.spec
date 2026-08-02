@@ -8,7 +8,7 @@
 
 Name:           3dslicer-dcmqi
 Version:        1.5.4
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        DICOM Quantitative Imaging converters
 
 License:        BSD-3-Clause
@@ -135,9 +135,6 @@ git describe --tags
 if [ -f %{buildroot}%{_prefix}/lib/libdcmqi.a ]; then
     install -D -p -m 0644 %{buildroot}%{_prefix}/lib/libdcmqi.a \
         %{buildroot}%{_libdir}/libdcmqi.a
-# SEMMacroBuildCLI builds each CLI as a thin main() over a lib<name>Lib static
-# archive. Link-time only, so they belong here beside libdcmqi.a.
-%{_libdir}/lib*Lib.a
     rm -f %{buildroot}%{_prefix}/lib/libdcmqi.a
     rmdir --ignore-fail-on-non-empty %{buildroot}%{_prefix}/lib 2>/dev/null || :
 fi
@@ -170,10 +167,18 @@ fi
 # are the deliverable; the static lib and headers are for building against.
 %{_includedir}/dcmqi/
 %{_libdir}/libdcmqi.a
+# SEMMacroBuildCLI builds each CLI as a thin main() over a lib<name>Lib static
+# archive. Link-time only, so they belong here beside libdcmqi.a.
+%{_libdir}/lib*Lib.a
 %{_libdir}/cmake/dcmqi/
 
 
 %changelog
+* Sun Aug 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.4-5
+- Fix -4: the lib*Lib.a glob was inserted into %%install instead of %%files devel,
+  so the shell tried to execute it ("/usr/lib64/lib*Lib.a: No such file or
+  directory"). Same %%files content, correct section.
+
 * Sun Aug 02 2026 Morgan Hough <morgan.hough@gmail.com> - 1.5.4-4
 - Package the CLI .xml descriptors and the per-CLI lib*Lib.a archives -- both were
   installed but unpackaged. The .xml files are how Slicer discovers a CLI module's
