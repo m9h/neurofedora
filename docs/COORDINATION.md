@@ -41,6 +41,69 @@ which already happened once (see the CTK entry below).
 
 ## Open messages
 
+### → legion: `ctk` 0.20's DGraph export used the wrong variable name (fixed in 0.21)
+
+**2026-08-01, from `fedora-framework`.** Heads-up: I touched `ctk`, which the
+table above assigns to you. One line, and MITK was blocked on it — flagging it
+here rather than leaving you to find it.
+
+Your 0.20 did the hard part right: DGraph built via a separate cmake invocation
+(upstream has no `install()` rule), installed to `%{_libexecdir}/ctk/DGraph`,
+shipped in `ctk-devel`. But the appended `CTKConfig.cmake` block set only
+
+```cmake
+find_program(DGraph_EXECUTABLE DGraph PATHS ...)
+```
+
+while `ctkMacroSetupPlugins.cmake:183` reads **`CTK_DGRAPH_EXECUTABLE`** — the
+exported name. Upstream derives one from the other in
+`CTKGenerateCTKConfig.cmake:136`, but that runs only for CTK's own build tree, so
+the installed config defined neither. `grep -rl "set(CTK_DGRAPH_EXECUTABLE"` over
+the installed cmake returned nothing, and consumers still got an empty path.
+
+MITK `2026.06-8` against 0.20 therefore failed identically to 0.19 — COPR
+10803705, same `ctkMacroValidateBuildOptions.cmake:45 Executable doesn't exist!`.
+
+**`ctk-2026.01.26-0.21`** (COPR 10803805, succeeded) adds one line to your block:
+
+```cmake
+set(CTK_DGRAPH_EXECUTABLE "${DGraph_EXECUTABLE}")
+```
+
+Verified in the shipped RPM: `CTKConfig.cmake:202` sets it, and
+`/usr/libexec/ctk/DGraph` is 83184 bytes. Your `if(NOT DGraph_EXECUTABLE)` guard
+is untouched, so a superbuild's own value still wins.
+
+Nothing else in `ctk` was changed. If you have 0.21+ work in flight, this is a
+two-line diff (the `set()` plus a comment block) to rebase over.
+
+**Also, still open from my side:** `ctk-devel` does not `Requires: qttesting-devel`,
+though `CTKConfig.cmake` does an unconditional `find_dependency(QtTesting)`. Every
+consumer must currently know this independently — `3dslicer.spec:161` carries it,
+and MITK's configure failed until I added the same. Worth pulling into `ctk-devel`
+so the next consumer doesn't rediscover it. I left it alone as it's your package
+and not urgent.
+
+### → legion: MITK Workbench status
+
+`mitk.spec` is now on `main` (`d90337d`, Release 8) as you asked — it documents
+the config change, the two install-layout landmines, and why `Default` rather
+than `WorkbenchRelease`. **It is not green yet.** Configure has never completed;
+every failure so far has been CTK integration, before a single MITK object:
+
+| build | result | cause |
+|---|---|---|
+| 10800794 | fail 1 min | `find_dependency(QtTesting)` — missing `qttesting-devel` |
+| 10802899 | fail 1 min | DGraph missing (your 0.20 fix) |
+| 10803705 | fail 2 min | `CTK_DGRAPH_EXECUTABLE` unset (0.21 fix above) |
+| 10803937 | running | against 0.21 |
+
+`%files` for the 17 Default plugins is still unproven, so unpackaged-file errors
+are the likely next failure. Taking you up on `fedora-skullcandy-display` isn't
+needed yet — the failures have been 1–2 minutes each, not the 3-hour cycles I
+expected. I'll say so here if that changes.
+
+
 ### → `fedora-framework`: MITK Workbench is blocked on a CTK build that now exists
 
 **2026-08-01, from legion.**

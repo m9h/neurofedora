@@ -9,7 +9,7 @@
 
 Name:           ctk
 Version:        2026.01.26
-Release:        0.20.%{snapdate}git%{shortcommit}%{?dist}
+Release:        0.21.%{snapdate}git%{shortcommit}%{?dist}
 Summary:        The Common Toolkit for biomedical imaging (Qt6 build with VTK/ITK)
 
 # The entire source is Apache-2.0; CMake/CMakeFindDependencyMacro.cmake is
@@ -315,6 +315,18 @@ if(NOT DGraph_EXECUTABLE)
   find_program(DGraph_EXECUTABLE DGraph
     PATHS "%{_libexecdir}/ctk" NO_DEFAULT_PATH)
 endif()
+# TWO names are in play and only the second is what consumers read:
+#   DGraph_EXECUTABLE      - CTK's internal build-tree variable (set above)
+#   CTK_DGRAPH_EXECUTABLE  - the exported name ctkMacroSetupPlugins.cmake:183
+#                            passes to ctkMacroValidateBuildOptions
+# Upstream derives the second from the first in
+# CMake/LastConfigureStep/CTKGenerateCTKConfig.cmake:136:
+#   set(CTK_CONFIG_CODE "...set(CTK_DGRAPH_EXECUTABLE \"${DGraph_EXECUTABLE}\")")
+# but that path only runs for CTK's own build tree, so the installed config
+# defined neither. Setting only DGraph_EXECUTABLE left CTK_DGRAPH_EXECUTABLE
+# empty and ctkMacroValidateBuildOptions still aborted with
+# "Executable doesn't exist!" -- which is what MITK 2026.06-8 hit against 0.20.
+set(CTK_DGRAPH_EXECUTABLE "${DGraph_EXECUTABLE}")
 DGRAPHEOF
 
 # CTK's own install rules don't pick up the CMake helper templates
@@ -439,6 +451,17 @@ done
 %{_libdir}/cmake/ctk/
 
 %changelog
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.21.20260126gitfd37b874
+- Export CTK_DGRAPH_EXECUTABLE, not just DGraph_EXECUTABLE. 0.20 shipped the
+  DGraph binary and appended a find_program for DGraph_EXECUTABLE, but
+  ctkMacroSetupPlugins.cmake:183 reads CTK_DGRAPH_EXECUTABLE -- the exported
+  name, which upstream derives from the internal one in
+  CTKGenerateCTKConfig.cmake:136 and which nothing in the installed tree set.
+  grep -rl "set(CTK_DGRAPH_EXECUTABLE" over the installed cmake returned
+  nothing, so consumers still got an empty path and ctkMacroValidateBuildOptions
+  still aborted with "Executable doesn't exist!" -- MITK 2026.06-8 hit exactly
+  this against 0.20 (COPR 10803705).
+
 * Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 2026.01.26-0.20.20260126gitfd37b874
 - Package the DGraph utility (fixes every consumer of CTK's plugin machinery).
   ctkMacroSetupPlugins -> ctkMacroValidateBuildOptions FATAL_ERRORs with
