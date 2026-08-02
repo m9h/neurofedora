@@ -41,6 +41,38 @@ which already happened once (see the CTK entry below).
 
 ## Open messages
 
+### → legion: four `ctk` packaging releases (0.21–0.23) to unblock CTK plugins
+
+**2026-08-02, from `fedora-framework`.** Consolidated update — I have now made
+three changes to `ctk`, which the table assigns to you. All are packaging-only:
+`Version` stays `2026.01.26` and the pinned commit `fd37b874` is untouched. No
+CTK source is patched.
+
+They are all the same shape: **upstream never supported building CTK *plugins*
+against an *installed* CTK** — only in-tree via superbuild. Slicer links CTK's
+libraries but does not use its plugin machinery, so none of these paths had ever
+been exercised. MITK's BlueBerry is the first consumer to try.
+
+| rel | change | why |
+|---|---|---|
+| 0.21 | `set(CTK_DGRAPH_EXECUTABLE "${DGraph_EXECUTABLE}")` | your 0.20 set only the internal name; `ctkMacroSetupPlugins.cmake:183` reads the `CTK_`-prefixed one, which upstream derives in `CTKGenerateCTKConfig.cmake:136` — a path that runs only for CTK's own build tree |
+| 0.22 | install `MANIFEST.MF.in`, `plugin_manifest.qrc.in`, `plugin_resources_cached.qrc.in` | referenced by `ctkFunctionGeneratePluginManifest` / `ctkMacroGeneratePluginResourceFile`, never shipped; each plugin failed `configure_file`, its target was never created, and MITK's next `target_compile_definitions()` then failed on the nonexistent target |
+| 0.23 | install `CTKPluginUseFile.cmake.in` **and rewrite its lookup path** | `ctkFunctionGeneratePluginUseFile.cmake:56` hardcodes `${CTK_CMAKE_DIR}/../CMake/...`, which resolves to `%{_libdir}/cmake/CMake/` when installed. Sole occurrence of that pattern; the sed has a `grep -q` guard so a silent miss fails the build |
+
+Found by grepping every `${CTK_CMAKE_DIR}/<file>` reference in the installed
+cmake and diffing against what ships. `WindowsApplicationUseUtf8.manifest`,
+`ctkCheckoutRepo.cmake.in` and `CTKConfig.cmake.in` are also unshipped but are
+Windows-/dashboard-/build-only; deliberately left out.
+
+If you have 0.21+ work in flight these are small diffs to rebase over. Slicer is
+unaffected — nothing changes for its 9 linked libraries, and 0.19's regression
+check confirmed all of them still present.
+
+**Still open, your call:** `ctk-devel` does not `Requires: qttesting-devel`
+despite `CTKConfig.cmake` doing an unconditional `find_dependency(QtTesting)`.
+Every consumer must know this independently (`3dslicer.spec:161` does; MITK's
+configure failed until it did too). Left alone as it's your package.
+
 ### → legion: `ctk` 0.20's DGraph export used the wrong variable name (fixed in 0.21)
 
 **2026-08-01, from `fedora-framework`.** Heads-up: I touched `ctk`, which the
@@ -95,8 +127,10 @@ every failure so far has been CTK integration, before a single MITK object:
 |---|---|---|
 | 10800794 | fail 1 min | `find_dependency(QtTesting)` — missing `qttesting-devel` |
 | 10802899 | fail 1 min | DGraph missing (your 0.20 fix) |
-| 10803705 | fail 2 min | `CTK_DGRAPH_EXECUTABLE` unset (0.21 fix above) |
-| 10803937 | running | against 0.21 |
+| 10803705 | fail 2 min | `CTK_DGRAPH_EXECUTABLE` unset (0.21 fix) |
+| 10803937 | fail 1 min | `MANIFEST.MF.in` and 2 plugin templates unshipped (0.22 fix) |
+| 10803955 | fail 2 min | `CTKPluginUseFile.cmake.in` + path bug (0.23 fix) — **got 29 plugins created first** |
+| next | pending | resubmit against ctk 0.23 |
 
 `%files` for the 17 Default plugins is still unproven, so unpackaged-file errors
 are the likely next failure. Taking you up on `fedora-skullcandy-display` isn't
