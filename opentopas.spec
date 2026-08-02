@@ -1,6 +1,6 @@
 Name:           opentopas
 Version:        4.2.3
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Monte Carlo tool for particle simulation
 License:        MIT
 URL:            https://github.com/OpenTOPAS/OpenTOPAS
@@ -23,7 +23,17 @@ BuildRequires:  libXft-devel
 BuildRequires:  mesa-libGL-devel
 BuildRequires:  mesa-libGLU-devel
 
-Requires:       geant4 >= 11.3.2
+# Floor must track the geant4 this was BUILT against, not the oldest that once
+# worked. Geant4's libraries carry UNVERSIONED sonames (libG4run.so, not
+# libG4run.so.N), so RPM's auto-generated deps are bare `libG4run.so()(64bit)`
+# which every geant4 satisfies -- there is no ABI tracking whatsoever. With the
+# old `>= 11.3.2` floor the shipped 4.2.3-1 (built Jun 14 against 11.3.x)
+# installed happily against 11.4.2 and then /usr/bin/topas -- the only binary in
+# the package -- died on
+#   undefined symbol: _ZN22G4ParallelWorldProcess16SetParallelWorldE8G4String
+# because SetParallelWorld's signature changed in 11.4. An explicit floor at the
+# build-time version is the only guard available; bump it with every geant4 bump.
+Requires:       geant4 >= 11.4.2
 Requires:       gdcm
 Requires:       qt6-qtbase
 
@@ -126,6 +136,20 @@ rm -rf %{buildroot}%{_prefix}/examples
 %{_libdir}/*.a
 
 %changelog
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 4.2.3-2
+- Rebuild against geant4 11.4.2 and raise the floor to match.
+  The shipped 4.2.3-1 was built 2026-06-14 against geant4 11.3.x. geant4 moved to
+  11.4.2 on 2026-07-19 and G4ParallelWorldProcess::SetParallelWorld changed
+  signature, so /usr/bin/topas -- the package's only binary -- now fails with
+    undefined symbol: _ZN22G4ParallelWorldProcess16SetParallelWorldE8G4String
+  It still INSTALLS, because Geant4's libraries have unversioned sonames
+  (libG4run.so, not libG4run.so.N) and RPM's auto-generated deps are therefore
+  bare libG4run.so()(64bit) that any geant4 satisfies. There is no ABI tracking to
+  rely on, so the Requires floor has to be maintained by hand and must track the
+  geant4 actually built against.
+  Verified by mock on intel-skullcandy: rebuilt against 11.4.2 in 9m56s and
+  ldd -r on the resulting topas reports 0 undefined symbols (was 1).
+
 * Wed Apr 23 2026 Morgan Hough <morgan.hough@gmail.com> - 4.2.3-1
 - Update to 4.2.3
 

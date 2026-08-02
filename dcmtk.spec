@@ -18,7 +18,7 @@ Version: 3.7.0
 # https://github.com/DCMTK/dcmtk/blob/master/CMake/dcmtkPrepare.cmake#L78
 %global soname_version %{abi_version}.%{version}
 
-Release: 1%{?dist}
+Release: 3%{?dist}
 
 # see licenses-3.6.9.txt for license breakdown
 License: BSD-3-Clause and Apache-2.0 and BSD-2-Clause and (WTFPL or MIT) and GPL-3.0-or-later and ISC and MIT
@@ -110,6 +110,29 @@ rm -rf dcmjpls/libcharls/
 # Fix permissions
 find . -type f -name "*.h" -exec chmod 0644 '{}' \;
 find . -type f -name "*.cc" -exec chmod 0644 '{}' \;
+
+# Export OverlapUtil from libdcmseg (backport of an upstream post-3.7.0 fix).
+# 3.7.0 installs dcmtk/dcmseg/overlaputil.h and compiles overlaputil.cc into
+# libdcmseg, but declares the class WITHOUT DCMTK_DCMSEG_EXPORT. Built shared with
+# hidden visibility -- which is what we do -- none of its symbols are exported, so
+# every OverlapUtil member is undefined at link time for consumers:
+#   undefined reference to `OverlapUtil::setSegmentationObject(DcmSegmentation*)'
+# (dcmqi is the immediate casualty; it cannot link at any version.)
+# Upstream added the macro after 3.7.0 -- the class carries it at 5708ba6. Compare
+# DcmSegmentation in segdoc.h, which has always had it and exports 78 symbols.
+# NB upstream's fix is TWO lines: the macro AND the segdef.h include that defines
+# it. overlaputil.h does not otherwise pull in segdef.h, so adding the macro alone
+# leaves it undefined and the header fails to parse
+# ("variable 'DCMTK_DCMSEG_EXPORT OverlapUtil' has initializer but incomplete type").
+sed -i -e 's/^class OverlapUtil$/class DCMTK_DCMSEG_EXPORT OverlapUtil/' \
+       -e 's|^#include "dcmtk/ofstd/ofvector.h"$|&\n#include "dcmtk/dcmseg/segdef.h" // for DCMTK_DCMSEG_EXPORT|' \
+    dcmseg/include/dcmtk/dcmseg/overlaputil.h
+grep -q '^class DCMTK_DCMSEG_EXPORT OverlapUtil$' \
+    dcmseg/include/dcmtk/dcmseg/overlaputil.h \
+  || { echo "OverlapUtil export macro not applied (upstream changed?)" >&2; exit 1; }
+grep -q '^#include "dcmtk/dcmseg/segdef.h"' \
+    dcmseg/include/dcmtk/dcmseg/overlaputil.h \
+  || { echo "segdef.h include not applied (upstream changed?)" >&2; exit 1; }
 
 %build
 export CFLAGS="%{optflags} -fPIC -Wno-error=deprecated-declarations"
@@ -263,6 +286,27 @@ rm -rf %{_vpath_builddir}/dcmtls/tests/
 %{_libdir}/libofstd.so
 
 %changelog
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-3
+- Correct the OverlapUtil export backport: upstream's fix is TWO lines, not one.
+  overlaputil.h does not otherwise include segdef.h, which is where
+  DCMTK_DCMSEG_EXPORT is defined, so -2 added the macro without its definition and
+  the header stopped parsing ("variable 'DCMTK_DCMSEG_EXPORT OverlapUtil' has
+  initializer but incomplete type"). Add the include too, matching upstream 5708ba6
+  exactly, and assert both edits landed.
+
+* Sat Aug 01 2026 Morgan Hough <morgan.hough@gmail.com> - 3.7.0-2
+- Export OverlapUtil from libdcmseg (backport of an upstream post-3.7.0 fix).
+  3.7.0 installs dcmtk/dcmseg/overlaputil.h and compiles overlaputil.cc into
+  libdcmseg, but declares the class without DCMTK_DCMSEG_EXPORT. Built shared with
+  hidden visibility, none of its symbols are exported -- libdcmseg.so contains ZERO
+  OverlapUtil symbols while DcmSegmentation, which has the macro, exports 78. Any
+  consumer therefore fails to link:
+    undefined reference to `OverlapUtil::setSegmentationObject(DcmSegmentation*)'
+  This makes dcmqi unbuildable at EVERY version, independent of its own DCMTK
+  requirements. Upstream added the macro after 3.7.0 (present at 5708ba6); this is
+  that one-line change, with a grep assertion so it fails loudly if upstream fixes
+  it.
+
 * Fri Mar 13 2026 Morgan Hough <mhough@fedoraproject.org> - 3.7.0-1
 - Update to 3.7.0
 - ABI version bump to 20

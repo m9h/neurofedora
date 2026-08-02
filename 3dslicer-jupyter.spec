@@ -5,11 +5,14 @@
 
 %global commit       d89a282d
 %global longcommit   d89a282d00000000000000000000000000000000
+%global slicer_inst   %{_prefix}/lib/slicer
+%global slicer_subdir Slicer-5.12
+
 %global snapdate     20260420
 
 Name:           3dslicer-jupyter
 Version:        0
-Release:        0.1.%{snapdate}git%{commit}%{?dist}
+Release:        0.2.%{snapdate}git%{commit}%{?dist}
 Summary:        Jupyter kernel for 3D Slicer (run Slicer Python from notebooks)
 
 License:        BSD-3-Clause
@@ -48,7 +51,10 @@ Critical for:
 %cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DBUILD_TESTING:BOOL=OFF \
-    -DSlicer_DIR:PATH=%{_prefix}/lib/slicer-5.10.0/lib/cmake/Slicer \
+    `# Was %{_prefix}/lib/slicer-5.10.0/lib/cmake/Slicer -- a Slicer 5.10 layout` \
+    `# that has not existed since the 5.12 retarget. This spec was written then` \
+    `# and never built, so nothing ever caught it.` \
+    -DSlicer_DIR:PATH=%{slicer_inst}/lib/%{slicer_subdir} \
     -DCMAKE_SKIP_INSTALL_RPATH:BOOL=ON \
     -DCMAKE_INSTALL_PREFIX:PATH=%{_prefix}/lib/slicer-5.10.0
 %cmake_build
@@ -64,6 +70,11 @@ Critical for:
 %{_prefix}/lib/slicer-5.10.0/share/Slicer-5.10/qt-loadable-modules/*Jupyter*
 
 %changelog
+* Sun Aug 02 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.2.20260420gitd89a282d
+- Point Slicer_DIR at the 5.12 layout: it was %%{_prefix}/lib/slicer-5.10.0/lib/
+  cmake/Slicer, a path that has not existed since the 5.12 retarget. The spec was
+  written then and never built, so nothing caught it.
+
 * Wed May 27 2026 Morgan Hough <morgan.hough@gmail.com> - 0-0.1.20260420gitd89a282d
 - Initial COPR package tracking SlicerJupyter master.
 - Jupyter kernel runs Slicer's embedded Python; pairs with Fedora's
