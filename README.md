@@ -2,6 +2,10 @@
 
 
 
+> **Two build hosts touch this repo.** Before making non-trivial changes to a
+> package, check [docs/COORDINATION.md](docs/COORDINATION.md) for who owns it
+> and whether there is a message waiting for you.
+
 ## Getting started
 
 To make it easy for you to get started with GitLab, here's a list of recommended next steps.
