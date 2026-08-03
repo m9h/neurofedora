@@ -1,0 +1,63 @@
+# packit-template.yaml — TEMPLATE, not an active config.
+#
+# This repo is a COPR *monorepo* (many specs, built via COPR's SCM source +
+# webhook auto-rebuild). Packit's model is one upstream project per dist-git
+# package, so a repo-root .packit.yaml does NOT fit here — the COPR webhook is
+# the automation for this repo (see MONITORING.md for the release-detection half).
+#
+# Use this template when an individual package graduates to OFFICIAL Fedora
+# dist-git (fedpkg). Copy it to that package's dist-git repo as `.packit.yaml`,
+# fill in the upstream details, and Packit will:
+#   - pull_from_upstream: on a new release (from release-monitoring.org / Anitya),
+#     auto-open a dist-git PR bumping Version + downloading sources + changelog
+#   - koji_build: build the update in Koji after the PR merges
+#   - bodhi_update: file the Bodhi update automatically
+#
+# Docs: https://packit.dev/docs/  |  https://packit.dev/docs/configuration/
+#
+# ---- example, filled in for jags (adapt per package) ----
+
+specfile_path: jags.spec
+upstream_package_name: JAGS
+downstream_package_name: jags
+
+# Where Packit finds new releases. Requires the package to be registered on
+# https://release-monitoring.org (Anitya) — for jags: SourceForge backend,
+# project "mcmc-jags". Anitya emits the "new release" event Packit listens for.
+upstream_project_url: https://mcmc-jags.sourceforge.io/
+
+# Map upstream tag -> version if they differ (jags tags are e.g. "v5.0.0").
+# upstream_tag_template: "v{version}"
+
+srpm_build_deps:
+  - gcc-c++
+  - gcc-gfortran
+  - flexiblas-devel
+
+jobs:
+  # 1. On a new upstream release, open a dist-git PR bumping the version.
+  - job: pull_from_upstream
+    trigger: release
+    dist_git_branches:
+      - fedora-rawhide
+      - fedora-latest-stable
+
+  # 2. Build the merged change in Koji.
+  - job: koji_build
+    trigger: commit
+    dist_git_branches:
+      - fedora-rawhide
+      - fedora-latest-stable
+
+  # 3. Submit the Bodhi update (skip rawhide — it auto-flows).
+  - job: bodhi_update
+    trigger: commit
+    dist_git_branches:
+      - fedora-latest-stable
+
+  # Optional: also build every PR into a COPR project for pre-merge testing.
+  # - job: copr_build
+  #   trigger: pull_request
+  #   targets:
+  #     - fedora-rawhide-x86_64
+  #     - fedora-latest-stable-x86_64
