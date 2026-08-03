@@ -87,6 +87,27 @@ python3-nilearn	/usr/bin/python3 -c 'from nilearn.datasets import load_mni152_te
 python3-simpleitk	/usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("size=",img.GetSize(),"spacing=",img.GetSpacing())'	size= \(99, 117, 95\)
 # Real registration: 2-voxel x-shift recoverable in <30s on the 99x117x95 grid
 ANTs	antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10	reg_Warped\.nii\.gz
+# ── ANTs real-data systems tests (added 2026-08) ───────────────────────────
+# These go beyond "did the binary run": each asserts a quantitative property
+# of the OUTPUT on the real MNI152 2 mm template, so a silently-miscompiled
+# ANTs (bad ITK, wrong BLAS, broken optimizer) fails here even though the
+# smoke tests pass. Threads are pinned via ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS
+# to keep them deterministic and CI-friendly.
+#
+# N4 bias-field correction must produce a same-grid corrected volume.
+ANTs	ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 N4BiasFieldCorrection -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" -x "$FIX/real/mni152_brain_mask_2mm.nii.gz" -o "$TMP/n4.nii.gz" -c '[20x10,1e-4]' -s 4 >/dev/null 2>&1 && python3 -c "import nibabel as nib; print('N4_OK shape=', nib.load('$TMP/n4.nii.gz').shape)"	N4_OK shape= \(99, 117, 95\)
+#
+# Atropos k-means must find exactly 3 tissue classes (+0 background) inside the
+# brain mask. A broken segmentation collapses classes and changes this list.
+ANTs	ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 Atropos -d 3 -a "$FIX/real/mni152_t1_2mm.nii.gz" -x "$FIX/real/mni152_brain_mask_2mm.nii.gz" -i kmeans[3] -c '[3,0]' -m '[0.1,1x1x1]' -o "$TMP/seg.nii.gz" >/dev/null 2>&1 && python3 -c "import nibabel as nib, numpy as np; print('ATROPOS_LABELS', np.unique(nib.load('$TMP/seg.nii.gz').get_fdata().astype(int)).tolist())"	ATROPOS_LABELS \[0, 1, 2, 3\]
+#
+# FLAGSHIP correctness test: the _moved fixture is the template shifted by a
+# known 2-voxel offset. Rigid registration must measurably RECOVER it — mutual
+# information (more negative = better) must improve by a wide margin. Observed:
+# -0.478 (misaligned) -> -0.893 (registered), i.e. back to the self-similarity
+# baseline of -0.8934. This catches an ANTs whose optimizer/metric is broken
+# even though every binary still exits 0. Runtime ~2 min.
+ANTs	export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2; F="$FIX/real/mni152_t1_2mm.nii.gz"; M="$FIX/real/mni152_t1_2mm_moved.nii.gz"; B=$(MeasureImageSimilarity -d 3 -m "MI[$F,$M,1,32]" 2>/dev/null | tail -1); antsRegistrationSyN.sh -d 3 -f "$F" -m "$M" -o "$TMP/reg_" -t r -n 2 >/dev/null 2>&1; A=$(MeasureImageSimilarity -d 3 -m "MI[$F,$TMP/reg_Warped.nii.gz,1,32]" 2>/dev/null | tail -1); python3 -c "b=float('$B'); a=float('$A'); print('MI_IMPROVED' if a < b - 0.05 else 'MI_NOT_IMPROVED', round(b,4), round(a,4))"	MI_IMPROVED
 greedy	greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3	0\.0+\s+0\.0+\s+0\.0+\s+1\.0+
 
 # ─── Real-data FSL-shipped templates (requires local FSL install) ──────────

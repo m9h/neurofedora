@@ -124,7 +124,15 @@ awk -F'\t' '
         # We deliberately do NOT escape $ inside cmd above for $FIX/$TMP/$PATH —
         # the command is expected to reference these. Use heredoc to avoid all
         # escaping pain: the test runs the manifest line verbatim through bash.
-        printf "    run --separate-stderr bash <<'PIPECMD'\n"
+        # NOTE: \047 is a literal single quote. The awk program is wrapped in
+        # shell single quotes, so writing '"'"'PIPECMD'"'"' directly here would end the
+        # shell string and the quotes would silently vanish — which is exactly
+        # what used to happen: the heredoc came out UNQUOTED (<<PIPECMD), so the
+        # *outer* shell pre-expanded $(...) and any manifest-set shell variables
+        # before the inner bash ever saw them (they arrived empty). Quoting the
+        # delimiter makes the command run verbatim, as the comment above intends.
+        # Safe because FIX and TMP are exported, so the inner bash inherits them.
+        printf "    run --separate-stderr bash <<\047PIPECMD\047\n"
         printf "%s\n", cmd
         printf "PIPECMD\n"
         printf "    if [ \"$status\" -ne 0 ]; then\n"

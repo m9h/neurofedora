@@ -8,7 +8,7 @@
 
 Name:           ANTs
 Version:        2.6.5
-Release:        11%{?dist}
+Release:        12%{?dist}
 Summary:        Advanced Normalization Tools for medical imaging
 
 License:        Apache-2.0
@@ -84,6 +84,39 @@ chmod 0755 %{buildroot}%{_datadir}/ANTs/scripts/*.sh \
            %{buildroot}%{_datadir}/ANTs/scripts/*.pl 2>/dev/null || :
 chmod 0644 %{buildroot}%{_datadir}/ANTs/scripts/*.R 2>/dev/null || :
 
+%check
+# Upstream's own suite (BUILD_TESTING=ON) is deliberately NOT enabled: ANTs
+# pulls its test images through CMake ExternalData, i.e. it downloads at build
+# time, which Fedora builds must not do. Instead we exercise the freshly-built
+# binaries on data they synthesize themselves — no network, no extra
+# BuildRequires, a few seconds. This still catches the failures that matter for
+# a distro rebuild: a bad link, an ABI-mismatched ITK, broken image I/O, or a
+# miscompiled filter. Behavioural/numerical regression on *real* brains is
+# covered separately by the BATS pipeline suite in the packaging repo
+# (tests/pipelines.tsv: N4 correction, Atropos 3-class segmentation, and a
+# quantitative registration-accuracy check on the MNI152 template).
+_bin="%{_vpath_builddir}/bin"
+[ -d "$_bin" ] || _bin="$(dirname "$(find %{_vpath_builddir} -type f -name ImageMath -perm -u+x | head -1)")"
+export LD_LIBRARY_PATH="%{_vpath_builddir}/lib:${LD_LIBRARY_PATH:-}"
+_t="$(mktemp -d)"
+
+# 1. ITK image I/O + a real filter chain, on an image ANTs makes itself.
+"$_bin/ImageMath" 3 "$_t/base.nii.gz"   MakeImage  16 16 16
+"$_bin/ImageMath" 3 "$_t/padded.nii.gz" PadImage   "$_t/base.nii.gz" 8 1
+"$_bin/ImageMath" 3 "$_t/norm.nii.gz"   Normalize  "$_t/padded.nii.gz"
+"$_bin/ThresholdImage" 3 "$_t/padded.nii.gz" "$_t/thr.nii.gz" 0.5 2
+
+# 2. Read the result back and assert the geometry survived the round-trip
+#    (16^3 padded by 8 on each side == 32^3). A broken ITK/IO layer fails here.
+"$_bin/PrintHeader" "$_t/padded.nii.gz" | grep -q '\[32, 32, 32\]'
+
+# 3. The headline binaries must at least load and respond (catches unresolved
+#    symbols / missing rpath, which a pure --version check would still expose).
+for _p in antsRegistration antsApplyTransforms N4BiasFieldCorrection Atropos; do
+    "$_bin/$_p" --version >/dev/null 2>&1 || "$_bin/$_p" --help >/dev/null 2>&1
+done
+rm -rf "$_t"
+
 %ldconfig_scriptlets
 
 %files
@@ -96,6 +129,14 @@ chmod 0644 %{buildroot}%{_datadir}/ANTs/scripts/*.R 2>/dev/null || :
 %{_datadir}/ANTs/scripts/
 
 %changelog
+* Mon Aug 03 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-12
+- Add a %%check section: network-free validation of the freshly built binaries.
+  Upstream's BUILD_TESTING suite is intentionally left off because it fetches
+  test images via CMake ExternalData (no network in Fedora builds); instead the
+  check synthesizes an image with ANTs' own ImageMath, runs a filter chain, and
+  asserts the geometry survives the ITK I/O round-trip, then verifies the
+  headline binaries load. Catches bad links, ABI-mismatched ITK and broken I/O.
+
 * Sun May 24 2026 Morgan Hough <morgan.hough@gmail.com> - 2.6.5-11
 - Re-apply ALL-scripts install + Documentation/code_of_conduct.md docs.
   Skipping bogus -10 release (its `%%cmake_install` literal in a comment was

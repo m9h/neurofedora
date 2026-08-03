@@ -46,7 +46,7 @@ _require_real_fixtures() {
 @test "[001] dcmtk: dcmdump \"$FIX/dicom/slice_000.dcm\"" {
     _require_fixtures
     _require_installed "dcmtk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 dcmdump "$FIX/dicom/slice_000.dcm"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -66,7 +66,7 @@ PIPECMD
 @test "[002] dcmtk: dcm2xml \"$FIX/dicom/slice_000.dcm\" > \"$TMP/out.xml\" && grep -q \"Patien…" {
     _require_fixtures
     _require_installed "dcmtk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 dcm2xml "$FIX/dicom/slice_000.dcm" > "$TMP/out.xml" && grep -q "PatientID" "$TMP/out.xml"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -80,7 +80,7 @@ PIPECMD
 @test "[003] gdcm-applications: gdcmdump \"$FIX/dicom/slice_000.dcm\"" {
     _require_fixtures
     _require_installed "gdcm-applications"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 gdcmdump "$FIX/dicom/slice_000.dcm"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -100,7 +100,7 @@ PIPECMD
 @test "[004] gdcm-applications: gdcminfo \"$FIX/dicom/slice_000.dcm\"" {
     _require_fixtures
     _require_installed "gdcm-applications"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 gdcminfo "$FIX/dicom/slice_000.dcm"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -120,7 +120,7 @@ PIPECMD
 @test "[005] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
     _require_fixtures
     _require_installed "python3-simpleitk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); print("shape=",img.GetSize())'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -140,7 +140,7 @@ PIPECMD
 @test "[006] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
     _require_fixtures
     _require_installed "python3-simpleitk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/t1.nii.gz"); sm=sitk.SmoothingRecursiveGaussian(img,2.0); sitk.WriteImage(sm,"'"$TMP"'/smooth.nii.gz"); print("OK")'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -160,7 +160,7 @@ PIPECMD
 @test "[007] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FI…" {
     _require_fixtures
     _require_installed "python3-fslpy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/t1.nii.gz"); print("shape=", im.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -180,7 +180,7 @@ PIPECMD
 @test "[008] python3-fsleyes: command -v xvfb-run >/dev/null || { echo \"SKIP: xvfb-run missing\"; exi…" {
     _require_fixtures
     _require_installed "python3-fsleyes"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 command -v xvfb-run >/dev/null || { echo "SKIP: xvfb-run missing"; exit 0; }; out="$TMP/render.png"; timeout 45 xvfb-run -a fsleyes render -of "$out" "$FIX/t1.nii.gz" >/dev/null 2>&1 || true; sz=$(wc -c <"$out" 2>/dev/null || echo 0); [ "$sz" -gt 1000 ] && echo "rendered $sz bytes" || echo "RENDER_EMPTY size=$sz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -200,7 +200,7 @@ PIPECMD
 @test "[009] ANTs: antsRegistrationSyN.sh -d 3 -f \"$FIX/t1.nii.gz\" -m \"$FIX/t1_moved.nii.…" {
     _require_fixtures
     _require_installed "ANTs"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 antsRegistrationSyN.sh -d 3 -f "$FIX/t1.nii.gz" -m "$FIX/t1_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -5
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -220,7 +220,7 @@ PIPECMD
 @test "[010] c3d: c3d \"$FIX/t1.nii.gz\" -info" {
     _require_fixtures
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/t1.nii.gz" -info
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -240,7 +240,7 @@ PIPECMD
 @test "[011] c3d: c3d \"$FIX/t1.nii.gz\" -smooth 2mm -o \"$TMP/smooth.nii.gz\" && test -s \"$…" {
     _require_fixtures
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/t1.nii.gz" -smooth 2mm -o "$TMP/smooth.nii.gz" && test -s "$TMP/smooth.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -254,7 +254,7 @@ PIPECMD
 @test "[012] greedy: greedy -d 3 -i \"$FIX/t1.nii.gz\" \"$FIX/t1_moved.nii.gz\" -o \"$TMP/warp.n…" {
     _require_fixtures
     _require_installed "greedy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 greedy -d 3 -i "$FIX/t1.nii.gz" "$FIX/t1_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 10x5 -threads 1 2>&1 | tail -3
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -274,7 +274,7 @@ PIPECMD
 @test "[013] mrtrix3: mrconvert -force -fslgrad \"$FIX/dwi/bvecs\" \"$FIX/dwi/bvals\" \"$FIX/dwi/…" {
     _require_fixtures
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrconvert -force -fslgrad "$FIX/dwi/bvecs" "$FIX/dwi/bvals" "$FIX/dwi/dwi.nii.gz" "$TMP/dwi.mif" 2>&1 | tail -3
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -294,7 +294,7 @@ PIPECMD
 @test "[014] mrtrix3: mrinfo \"$FIX/dwi/dwi.nii.gz\"" {
     _require_fixtures
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/dwi/dwi.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -314,7 +314,7 @@ PIPECMD
 @test "[015] afni: 3dinfo -n4 \"$FIX/t1.nii.gz\"" {
     _require_fixtures
     _require_installed "afni"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 3dinfo -n4 "$FIX/t1.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -334,7 +334,7 @@ PIPECMD
 @test "[016] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/t1.nii.gz\" 2>&1" {
     _require_fixtures
     _require_installed "freesurfer"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/lib/freesurfer/bin/mri_info --dim "$FIX/t1.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -354,7 +354,7 @@ PIPECMD
 @test "[017] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" -info" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/real/mni152_t1_2mm.nii.gz" -info
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -374,7 +374,7 @@ PIPECMD
 @test "[018] c3d: c3d \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_brain_mask_2mm.…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_brain_mask_2mm.nii.gz" -multiply -info
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -394,7 +394,7 @@ PIPECMD
 @test "[019] mrtrix3: mrinfo \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/real/mni152_t1_2mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -414,7 +414,7 @@ PIPECMD
 @test "[020] afni: 3dinfo -n4 \"$FIX/real/mni152_t1_2mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "afni"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 3dinfo -n4 "$FIX/real/mni152_t1_2mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -434,7 +434,7 @@ PIPECMD
 @test "[021] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/mni152_t1_2mm.nii.gz…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "freesurfer"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/mni152_t1_2mm.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -454,7 +454,7 @@ PIPECMD
 @test "[022] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image(\"'\"$FI…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "python3-fslpy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from fsl.data.image import Image; im=Image("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("shape=", im.shape, "ras=", im.isNeurological())'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -474,7 +474,7 @@ PIPECMD
 @test "[023] python3-nilearn: /usr/bin/python3 -c 'from nilearn.datasets import load_mni152_template…" {
     _require_fixtures
     _require_installed "python3-nilearn"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from nilearn.datasets import load_mni152_template; t=load_mni152_template(2); print("expected shape:", t.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -494,7 +494,7 @@ PIPECMD
 @test "[024] python3-simpleitk: /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage(\"'\"$…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "python3-simpleitk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import SimpleITK as sitk; img=sitk.ReadImage("'"$FIX"'/real/mni152_t1_2mm.nii.gz"); print("size=",img.GetSize(),"spacing=",img.GetSpacing())'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -514,7 +514,7 @@ PIPECMD
 @test "[025] ANTs: antsRegistrationSyN.sh -d 3 -f \"$FIX/real/mni152_t1_2mm.nii.gz\" -m \"$F…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "ANTs"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 antsRegistrationSyN.sh -d 3 -f "$FIX/real/mni152_t1_2mm.nii.gz" -m "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/reg_" -t r -n 1 2>&1 | tail -10
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -531,10 +531,70 @@ PIPECMD
     fi
 }
 
-@test "[026] greedy: greedy -d 3 -i \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_t1_2…" {
+@test "[026] ANTs: ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 N4BiasFieldCorrection -d 3 -i \"…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "ANTs"
+    run --separate-stderr bash <<'PIPECMD'
+ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 N4BiasFieldCorrection -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" -x "$FIX/real/mni152_brain_mask_2mm.nii.gz" -o "$TMP/n4.nii.gz" -c '[20x10,1e-4]' -s 4 >/dev/null 2>&1 && /usr/bin/python3 -c "import nibabel as nib; print('N4_OK shape=', nib.load('$TMP/n4.nii.gz').shape)"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "N4_OK shape= \\(99, 117, 95\\)" <<<"$output $stderr"; then
+        echo "expected /N4_OK shape= \\(99, 117, 95\\)/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[027] ANTs: ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 Atropos -d 3 -a \"$FIX/real/mni1…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "ANTs"
+    run --separate-stderr bash <<'PIPECMD'
+ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2 Atropos -d 3 -a "$FIX/real/mni152_t1_2mm.nii.gz" -x "$FIX/real/mni152_brain_mask_2mm.nii.gz" -i kmeans[3] -c '[3,0]' -m '[0.1,1x1x1]' -o "$TMP/seg.nii.gz" >/dev/null 2>&1 && /usr/bin/python3 -c "import nibabel as nib, numpy as np; print('ATROPOS_LABELS', np.unique(nib.load('$TMP/seg.nii.gz').get_fdata().astype(int)).tolist())"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "ATROPOS_LABELS \\[0, 1, 2, 3\\]" <<<"$output $stderr"; then
+        echo "expected /ATROPOS_LABELS \\[0, 1, 2, 3\\]/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[028] ANTs: export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2; F=\"$FIX/real/mni152_t1_…" {
+    _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
+    _require_installed "ANTs"
+    run --separate-stderr bash <<'PIPECMD'
+export ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=2; F="$FIX/real/mni152_t1_2mm.nii.gz"; M="$FIX/real/mni152_t1_2mm_moved.nii.gz"; B=$(MeasureImageSimilarity -d 3 -m "MI[$F,$M,1,32]" 2>/dev/null | tail -1); antsRegistrationSyN.sh -d 3 -f "$F" -m "$M" -o "$TMP/reg_" -t r -n 2 >/dev/null 2>&1; A=$(MeasureImageSimilarity -d 3 -m "MI[$F,$TMP/reg_Warped.nii.gz,1,32]" 2>/dev/null | tail -1); /usr/bin/python3 -c "b=float('$B'); a=float('$A'); print('MI_IMPROVED' if a < b - 0.05 else 'MI_NOT_IMPROVED', round(b,4), round(a,4))"
+PIPECMD
+    if [ "$status" -ne 0 ]; then
+        echo "command failed (exit=$status)"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+    if ! grep -qE "MI_IMPROVED" <<<"$output $stderr"; then
+        echo "expected /MI_IMPROVED/ in output, got:"
+        echo "stdout: $output"
+        echo "stderr: $stderr"
+        false
+    fi
+}
+
+@test "[029] greedy: greedy -d 3 -i \"$FIX/real/mni152_t1_2mm.nii.gz\" \"$FIX/real/mni152_t1_2…" {
     _require_real_fixtures "$FIX/real/mni152_t1_2mm.nii.gz"
     _require_installed "greedy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 greedy -d 3 -i "$FIX/real/mni152_t1_2mm.nii.gz" "$FIX/real/mni152_t1_2mm_moved.nii.gz" -o "$TMP/warp.nii.gz" -a -m NMI -n 30x10 -threads 2 2>&1 | tail -3
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -551,10 +611,10 @@ PIPECMD
     fi
 }
 
-@test "[027] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" -info" {
+@test "[030] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" -info" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" -info
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -571,10 +631,10 @@ PIPECMD
     fi
 }
 
-@test "[028] mrtrix3: mrinfo \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
+@test "[031] mrtrix3: mrinfo \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -591,10 +651,10 @@ PIPECMD
     fi
 }
 
-@test "[029] afni: 3dinfo -n4 \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
+@test "[032] afni: 3dinfo -n4 \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "afni"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 3dinfo -n4 "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -611,10 +671,10 @@ PIPECMD
     fi
 }
 
-@test "[030] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/feeds/MNI152_T1_2mm.…" {
+@test "[033] freesurfer: /usr/lib/freesurfer/bin/mri_info --dim \"$FIX/real/feeds/MNI152_T1_2mm.…" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "freesurfer"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/lib/freesurfer/bin/mri_info --dim "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -631,10 +691,10 @@ PIPECMD
     fi
 }
 
-@test "[031] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" \"$FIX/real/feeds/MNI152_T1_…" {
+@test "[034] c3d: c3d \"$FIX/real/feeds/MNI152_T1_2mm.nii.gz\" \"$FIX/real/feeds/MNI152_T1_…" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "c3d"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 c3d "$FIX/real/feeds/MNI152_T1_2mm.nii.gz" "$FIX/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz" -multiply -info
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -651,10 +711,10 @@ PIPECMD
     fi
 }
 
-@test "[032] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
+@test "[035] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -671,10 +731,10 @@ PIPECMD
     fi
 }
 
-@test "[033] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
+@test "[036] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
     _require_installed "afni"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_FA_1mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -691,10 +751,10 @@ PIPECMD
     fi
 }
 
-@test "[034] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
+@test "[037] mrtrix3: mrinfo \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -711,10 +771,10 @@ PIPECMD
     fi
 }
 
-@test "[035] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
+@test "[038] afni: 3dinfo -n4 \"$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz\"" {
     _require_real_fixtures "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
     _require_installed "afni"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 3dinfo -n4 "$FIX/real/feeds/FSL_HCP1065_V1_1mm.nii.gz"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -731,10 +791,10 @@ PIPECMD
     fi
 }
 
-@test "[036] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as…" {
+@test "[039] python3-fslpy: /usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as…" {
     _require_real_fixtures "$FIX/real/feeds/MNI152_T1_2mm.nii.gz"
     _require_installed "python3-fslpy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from fsl.data.image import Image; import numpy as np; t1=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm.nii.gz"); m=Image("'"$FIX"'/real/feeds/MNI152_T1_2mm_brain_mask.nii.gz"); print("t1=", t1.shape, "brain_voxels=", int(np.asarray(m.data).sum()))'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -751,10 +811,10 @@ PIPECMD
     fi
 }
 
-@test "[037] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
+@test "[040] urdfdom: check_urdf \"$FIX/real/urdf/primitive_geometry.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/primitive_geometry.urdf"
     _require_installed "urdfdom"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 check_urdf "$FIX/real/urdf/primitive_geometry.urdf" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -771,10 +831,10 @@ PIPECMD
     fi
 }
 
-@test "[038] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
+@test "[041] urdfdom: check_urdf \"$FIX/real/urdf/joint_properties.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/joint_properties.urdf"
     _require_installed "urdfdom"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 check_urdf "$FIX/real/urdf/joint_properties.urdf" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -791,10 +851,10 @@ PIPECMD
     fi
 }
 
-@test "[039] urdfdom: check_urdf \"$FIX/real/urdf/issue838.urdf\" 2>&1" {
+@test "[042] urdfdom: check_urdf \"$FIX/real/urdf/issue838.urdf\" 2>&1" {
     _require_real_fixtures "$FIX/real/urdf/issue838.urdf"
     _require_installed "urdfdom"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 check_urdf "$FIX/real/urdf/issue838.urdf" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -811,10 +871,10 @@ PIPECMD
     fi
 }
 
-@test "[040] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+@test "[043] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
     _require_real_fixtures "$FIX/real/morpheus/ActivatorInhibitor_1D.xml"
     _require_installed "morpheus"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/ActivatorInhibitor_1D.xml").getroot().tag)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -831,10 +891,10 @@ PIPECMD
     fi
 }
 
-@test "[041] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
+@test "[044] morpheus: /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print(\"root:\"…" {
     _require_real_fixtures "$FIX/real/morpheus/CellSorting_2D.xml"
     _require_installed "morpheus"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import xml.etree.ElementTree as ET; print("root:", ET.parse("'"$FIX"'/real/morpheus/CellSorting_2D.xml").getroot().tag)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -851,10 +911,10 @@ PIPECMD
     fi
 }
 
-@test "[042] ucsc-kent-utils: bedSort \"$FIX/real/genomics/sample.bed\" \"$TMP/sorted.bed\" && wc -l < \"…" {
+@test "[045] ucsc-kent-utils: bedSort \"$FIX/real/genomics/sample.bed\" \"$TMP/sorted.bed\" && wc -l < \"…" {
     _require_real_fixtures "$FIX/real/genomics/sample.bed"
     _require_installed "ucsc-kent-utils"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 bedSort "$FIX/real/genomics/sample.bed" "$TMP/sorted.bed" && wc -l < "$TMP/sorted.bed"
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -871,10 +931,10 @@ PIPECMD
     fi
 }
 
-@test "[043] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
+@test "[046] python3-vmtk: /usr/bin/python3 -c 'import vmtk; print(\"vmtk\", getattr(vmtk, \"__versi…" {
     _require_fixtures
     _require_installed "python3-vmtk"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import vmtk; print("vmtk", getattr(vmtk, "__version__", "(no version attr)"))'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -891,10 +951,10 @@ PIPECMD
     fi
 }
 
-@test "[044] python3-nibabel: /usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load(\"$…" {
+@test "[047] python3-nibabel: /usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load(\"$…" {
     _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "python3-nibabel"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'import nibabel as nb, numpy as np; img=nb.load("$FIX/real/dwi/HARDI193.nii.gz"); bvec=np.loadtxt("$FIX/real/dwi/HARDI193.bvec"); print("shape", img.shape, "bvec", bvec.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -911,10 +971,10 @@ PIPECMD
     fi
 }
 
-@test "[045] python3-dipy: /usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; f…" {
+@test "[048] python3-dipy: /usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; f…" {
     _require_fixtures
     _require_installed "python3-dipy"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from dipy.io.gradients import read_bvals_bvecs; from dipy.core.gradients import gradient_table; b,v=read_bvals_bvecs("$FIX/real/dwi/HARDI193.bval","$FIX/real/dwi/HARDI193.bvec"); g=gradient_table(b,bvecs=v); print("bvals", b.shape, "shells", sorted(set(b.astype(int).tolist())))'
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -931,10 +991,10 @@ PIPECMD
     fi
 }
 
-@test "[046] mrtrix3: mrinfo \"$FIX/real/dwi/HARDI193.nii.gz\" 2>&1" {
+@test "[049] mrtrix3: mrinfo \"$FIX/real/dwi/HARDI193.nii.gz\" 2>&1" {
     _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrinfo "$FIX/real/dwi/HARDI193.nii.gz" 2>&1
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -951,10 +1011,10 @@ PIPECMD
     fi
 }
 
-@test "[047] mrtrix3: mrconvert -force -fslgrad \"$FIX/real/dwi/HARDI193.bvec\" \"$FIX/real/dwi…" {
+@test "[050] mrtrix3: mrconvert -force -fslgrad \"$FIX/real/dwi/HARDI193.bvec\" \"$FIX/real/dwi…" {
     _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "mrtrix3"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 mrconvert -force -fslgrad "$FIX/real/dwi/HARDI193.bvec" "$FIX/real/dwi/HARDI193.bval" "$FIX/real/dwi/HARDI193.nii.gz" "$TMP/dwi_real.mif" 2>&1 | tail -3
 PIPECMD
     if [ "$status" -ne 0 ]; then
@@ -971,10 +1031,10 @@ PIPECMD
     fi
 }
 
-@test "[048] python3-nilearn: /usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=m…" {
+@test "[051] python3-nilearn: /usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=m…" {
     _require_real_fixtures "$FIX/real/dwi/HARDI193.nii.gz"
     _require_installed "python3-nilearn"
-    run --separate-stderr bash <<PIPECMD
+    run --separate-stderr bash <<'PIPECMD'
 /usr/bin/python3 -c 'from nilearn.image import load_img, mean_img; m=mean_img(load_img("$FIX/real/dwi/HARDI193.nii.gz")); print("mean shape", m.shape)'
 PIPECMD
     if [ "$status" -ne 0 ]; then
