@@ -1,0 +1,25 @@
+--- a/python-mne.spec	(as built in COPR 10827012)
++++ b/python-mne.spec	(diagnostic %check)
+@@ -149,9 +149,21 @@
+ # -n auto parallelizes across cores. Two timeout layers: --timeout kills any
+ # single hung test; --session-timeout is a hard wall-clock cap on the whole run
+ # (incl. collection) so the build can never approach the COPR 5h limit.
++# DIAGNOSTIC BUILD (not for shipping) — see README.md in this directory.
++# 1. PYTHONUNBUFFERED: the failing COPR build produced ZERO pytest output in 5h.
++#    Without this, python block-buffers stdout when it is a pipe, so the whole
++#    run can be lost on SIGINT. With it we see exactly where it stops.
++# 2. external `timeout`: --session-timeout=2400 did NOT bound the run (it is not
++#    reliably enforced across pytest-xdist workers), so the build burned the full
++#    COPR 5h wall clock. coreutils timeout is plugin-independent and cannot be
++#    defeated: fail in 45 min with a usable log instead of 5h with nothing.
++# 3. --timeout-method=signal: `thread` cannot interrupt blocking C code, and MNE
++#    sits in BLAS/HDF5/Qt native calls; SIGALRM can actually kill those.
++export PYTHONUNBUFFERED=1
++timeout -k 60 2700 \
+ %pytest -m "not (slowtest or pgtest)" -k "${k}" -W ignore::Warning \
+     -n auto --dist=loadscope \
+-    --timeout=600 --timeout-method=thread --session-timeout=2400
++    --timeout=600 --timeout-method=signal -v
+ 
+ %files -n python3-mne -f %{pyproject_files}
+ %doc README.rst examples
